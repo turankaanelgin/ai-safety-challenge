@@ -41,7 +41,7 @@ kwargs_1 = {"static_tanks":[], "random_tanks":[5,6,7,8,9], "disable_shooting":[]
             'penalty_weight':args.penalty_weight, 'reward_weight':args.reward_weight}
 
 if args.eval_mode:
-    kwargs_2 = {1: {'eval_mode': True}}
+    kwargs_2 = {1: {'eval_mode': True, 'external_saved_file': './logs/curriculum-deneme/policy_1/ppo_save_8640000.zip'}}
 else:
     kwargs_2 = {1: {'optim_stepsize': args.optim_stepsize, 'optim_batchsize': args.optim_batchsize,
                     'schedule': args.schedule, 'policy_type': args.policy_type,

@@ -36,6 +36,7 @@ def team_stats_dict(env):
         "number_shots_fired":{"ally":0, "enemy":0, "neutral":0},
         "number_shots_connected":{"ally":0, "enemy":0, "neutral":0},
         "target_type":{"ally":0, "enemy":0, "neutral":0},
+        'num_wins': 0,
 
         #damage dealt/received
         "damage_inflicted_on":{"ally":0.0, "enemy":0.0, "neutral":0.0},
@@ -121,6 +122,8 @@ class TanksWorldEnv(gym.Env):
 
         self.red_team_stats = None
         self.blue_team_stats = None
+        self.num_red_wins = 0
+        self.num_blue_wins = 0
 
         for s in static_tanks:
             assert s not in random_tanks
@@ -455,6 +458,8 @@ class TanksWorldEnv(gym.Env):
         for i in self.random_tanks:
             random_actions.append([random.uniform(-1.0,1.0), random.uniform(-1.0,1.0), random.uniform(-1.0,1.0)])
 
+        updated_wins = False
+
         for stp in range(self.action_repeat):
             self.episode_steps += 1
 
@@ -500,11 +505,38 @@ class TanksWorldEnv(gym.Env):
             #done
             self.done = self._env_info.local_done[0]
 
+            if (self.done or self.is_done(self._env_info.vector_observations[0])) and \
+                    not updated_wins:
+                self.update_number_of_wins()
+                updated_wins = True
+
             if self.done:
                 break
 
         info = [{"red_stats":self.red_team_stats, "blue_stats":self.blue_team_stats}]*len(self.training_tanks)
         return self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), info
+
+
+    def update_number_of_wins(self):
+        state = self._env_info.vector_observations[0]
+        red_health = [i * TanksWorldEnv._tank_data_len + 3 for i in range(5)]
+        blue_health = [(i + 5) * TanksWorldEnv._tank_data_len + 3 for i in range(5)]
+        red_dead = [state[i] <= 0 for tank_idx, i in enumerate(red_health)]
+        blue_dead = [state[i] <= 0 for tank_idx, i in enumerate(blue_health)]
+        num_red_dead = np.sum(red_dead)
+        num_blue_dead = np.sum(blue_dead)
+        if num_red_dead > num_blue_dead:
+            self.num_blue_wins += 1
+        elif num_blue_dead > num_red_dead:
+            self.num_red_wins += 1
+        else:
+            if np.sum(red_health) > np.sum(blue_health):
+                self.num_red_wins += 1
+            else:
+                self.num_blue_wins += 1
+
+        self.red_team_stats['num_wins'] = self.num_red_wins
+        self.blue_team_stats['num_wins'] = self.num_blue_wins
 
 
     def render(self):

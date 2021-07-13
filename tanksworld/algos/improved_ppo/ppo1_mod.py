@@ -207,6 +207,8 @@ class PPO1(ActorCriticRLModel):
         local_steps = int(total_timesteps / self.comm.Get_size())
         steps = 0
         observation = self.env.reset()  # Pick the initial state
+        num_positive_rewards = 0
+        num_total_rewards = 0
         eplen = 0
 
         while steps < local_steps:
@@ -216,6 +218,12 @@ class PPO1(ActorCriticRLModel):
             # step environment
             # execute the optimal action and observe the next state and reward
             observation, reward, done, info = self.env.step(action)
+
+            listofrewards = self.comm.allgather(reward)
+            total_reward = np.sum(np.array(listofrewards))
+            if total_reward > 0:
+                num_positive_rewards += 1
+            num_total_rewards += 1
 
             steps += 1
             eplen += 1
@@ -227,6 +235,10 @@ class PPO1(ActorCriticRLModel):
                 if policy_record is not None:
                     policy_record.add_result(total_reward, eplen)
                     policy_record.save()
+
+                    with open(os.path.join(policy_record.data_dir, 'record_stats.json'), 'w+') as f:
+                        json.dump({'total': num_total_rewards, 'positive': num_positive_rewards,
+                                   'percent': float(num_positive_rewards) / num_total_rewards}, f)
 
                 eplen = 0
 
