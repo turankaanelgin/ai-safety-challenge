@@ -90,16 +90,21 @@ class TanksWorldEnv(gym.Env):
     #DO this in reset to allow seed to be set
     def __init__(self, exe, action_repeat=6, image_scale=128, timeout=500, friendly_fire=True, take_damage_penalty=True, kill_bonus=True, death_penalty=True,
         static_tanks=[], random_tanks=[], disable_shooting=[], penalty_weight=1.0, reward_weight=1.0, will_render=False,
-        speed_red=1.0, speed_blue=1.0, tblogs='runs/stats'):
+        speed_red=1.0, speed_blue=1.0, tblogs='runs/stats', seed_val=None):
 
         # call reset() to begin playing
         self._workerid = MPI.COMM_WORLD.Get_rank() #int(os.environ['L2EXPLORER_WORKER_ID'])
         self._filename =  exe#'/home/rivercg1/projects/aisafety/build/aisafetytanks_0.1.2/TanksWorld.x86_64'
         self.observation_space = None
         self.observation_space = gym.spaces.box.Box(0,255,(128,128,4))
+        #self.observation_space = gym.spaces.box.Box(0,255,(4,128,128))
         self.action_space = gym.spaces.box.Box(-1,1,(3,))
         self.action_space = None
-        self._seed = None
+        if seed_val:
+            self._seed = self.seed(seed_val)
+            np.random.seed(seed_val)
+        else:
+            self._seed = None
 
         self.timeout = timeout
         self.action_repeat=action_repeat  # repeat action this many times
@@ -166,6 +171,7 @@ class TanksWorldEnv(gym.Env):
         if self.image_scale != 128:
             ret_states = [cv2.resize(s, (self.image_scale, self.image_scale)) for s in ret_states]
 
+        ret_states = [np.expand_dims(s.transpose((2, 0, 1)), 0) for s in ret_states]
         return ret_states
 
     def reset(self,**kwargs):
@@ -181,7 +187,10 @@ class TanksWorldEnv(gym.Env):
         if not TanksWorldEnv._env:
             try:
                 print('WARNING: seed not set, using default')
-                TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=self._workerid, seed=1234,timeout_wait=500)
+                if self._seed:
+                    TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=self._workerid, seed=self._seed, timeout_wait=500)
+                else:
+                    TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=self._workerid, seed=1234,timeout_wait=500)
                 print('finished initializing environment')
                 TanksWorldEnv._env_params['filename'] = self._filename
                 TanksWorldEnv._env_params['workerid'] = self._workerid

@@ -40,5 +40,6 @@ MAKE_ENV_LOCATION = os.getcwd()
 #temp = make_env()
 
 NUM_LIVE_TANKS = 5
-OBS_SPACES = [gym.spaces.box.Box(0,255,(128,128,4))]*NUM_LIVE_TANKS
+#OBS_SPACES = [gym.spaces.box.Box(0,255,(128,128,4))]*NUM_LIVE_TANKS
+OBS_SPACES = [gym.spaces.box.Box(0,255,(4,128,128))]*NUM_LIVE_TANKS
 ACT_SPACES = [gym.spaces.box.Box(-1,1,(3,))]*NUM_LIVE_TANKS
