@@ -15,6 +15,8 @@ from arena5.core.utils import mpi_print
 from datetime import datetime
 from . import core
 import cv2
+import os
+import json
 
 from stable_baselines.trpo_mpi.utils import flatten_lists
 
@@ -117,7 +119,7 @@ class PPOPolicy():
         #        print("loaded model from saved file!")
 
         if self.eval_mode:
-            self.evaluate(num_steps, **self.kargs)
+            self.evaluate(policy_record, num_steps, **self.kargs)
         else:
             self.kargs.update({'steps_to_run': num_steps // self.comm.Get_size()})
             self.learn(policy_record, **self.kargs)
@@ -125,7 +127,7 @@ class PPOPolicy():
             #        policy_record.save()
             #        self.model.save(policy_record.data_dir+"ppo_save")
 
-    def evaluate(self, total_timesteps, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), **kargs):
+    def evaluate(self, policy_record, total_timesteps, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), **kargs):
 
         local_steps = int(total_timesteps / self.comm.Get_size())
         steps = 0
@@ -134,16 +136,67 @@ class PPOPolicy():
         ac.load_state_dict(torch.load(self.kargs['model_path']))
         ac.eval()
 
+        eplen = 0
+        epret = 0
+        running_reward_mean = 0.0
+        running_reward_std = 0.0
+        num_dones = 0
+
         while steps < local_steps:
             # observation = np.array(observation).reshape(-1, 72)
             action, v, logp = ac.step(torch.as_tensor(observation, dtype=torch.float32).to(device))
 
             # step environment
             observation, reward, done, info = self.env.step(action)
+
+            steps += 1
+            eplen += 1
+            epret += reward
+
             if done:
                 observation = self.env.reset()
 
-            steps += 1
+                episode_reward = self.comm.allgather(epret)
+                episode_length = self.comm.allgather(eplen)
+                episode_statistics = self.comm.allgather(info)
+
+                stats_per_env = []
+                for env_idx in range(0, len(episode_statistics), 5):
+                    stats_per_env.append(episode_statistics[env_idx])
+                episode_statistics = stats_per_env
+
+                temp_statistics = {}
+                for key in episode_statistics[0]:
+                    temp_statistics[key] = np.average(list(episode_statistics[idx][key] \
+                                                           for idx in range(len(episode_statistics))))
+                episode_statistics = temp_statistics
+
+                reward_per_env = []
+                for env_idx in range(0, len(episode_reward), 5):
+                    reward_per_env.append(sum(episode_reward[env_idx:env_idx+5]))
+                reward_mean = np.average(reward_per_env)
+                reward_std = np.std(reward_per_env)
+                running_reward_mean += reward_mean
+                running_reward_std += reward_std
+
+                episode_length = np.average(episode_length)
+
+                if policy_record is not None:
+                    policy_record.add_result(reward_mean, episode_length)
+                    policy_record.save()
+
+                eplen = 0
+                epret = 0
+
+                if num_dones % 50 == 0:
+                    if policy_record is not None:
+                        with open(os.path.join(policy_record.data_dir, 'accumulated_reward.json'), 'w+') as f:
+                            json.dump({'mean': running_reward_mean/(num_dones+1), 'std': running_reward_std/(num_dones+1)}, f)
+                        with open(os.path.join(policy_record.data_dir, 'game_statistics.json'), 'w+') as f:
+                            json.dump(episode_statistics, f)
+
+                num_dones += 1
+
 
     def learn(self, policy_record, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
               steps_per_epoch=800, steps_to_run=100000, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
@@ -379,11 +432,9 @@ class PPOPolicy():
 
         # Main loop: collect experience in env and update/log each epoch
 
-        date_time_str = datetime.now().strftime("%Y-%m-%d-%Hh-%Mm-%Ss")
-
         if comm.Get_rank() == root:
             from pathlib import Path
-            Path('models/' + date_time_str + '_id_' + kargs['model_id']).mkdir(parents=True, exist_ok=True)
+            Path(os.path.join('./models', str(kargs['model_id']))).mkdir(parents=True, exist_ok=True)
             # writer = SummaryWriter('tsboard/' + date_time_str)
         episode_count = 0
 
@@ -408,7 +459,7 @@ class PPOPolicy():
                 neg_weight = neg_weight_constant
 
             if comm.Get_rank() == 0 and step % 10000 == 0:
-                model_path = 'models/' + date_time_str + '_id_' + kargs['model_id'] + '/' + str(step * n_process) + '.pth'
+                model_path = os.path.join('./models', str(kargs['model_id']), str(step * n_process)+'.pth')
                 mpi_print('save ', model_path)
                 torch.save(ac.state_dict(), model_path)
 
