@@ -17,6 +17,7 @@ from . import core
 import cv2
 import os
 import json
+from math import ceil
 
 from stable_baselines.trpo_mpi.utils import flatten_lists
 
@@ -160,20 +161,26 @@ class PPOPolicy():
                 episode_length = self.comm.allgather(eplen)
                 episode_statistics = self.comm.allgather(info)
 
+                #assert len(episode_length) == len(episode_reward) == 50
+
                 stats_per_env = []
                 for env_idx in range(0, len(episode_statistics), 5):
                     stats_per_env.append(episode_statistics[env_idx])
                 episode_statistics = stats_per_env
 
-                temp_statistics = {}
+                mean_statistics = {}
                 for key in episode_statistics[0]:
-                    temp_statistics[key] = np.average(list(episode_statistics[idx][key] \
+                    mean_statistics[key] = np.average(list(episode_statistics[idx][key] \
                                                            for idx in range(len(episode_statistics))))
-                episode_statistics = temp_statistics
+                std_statistics = {}
+                for key in episode_statistics[0]:
+                    std_statistics[key] = np.std(list(episode_statistics[idx][key] \
+                                                      for idx in range(len(episode_statistics))))
 
                 reward_per_env = []
                 for env_idx in range(0, len(episode_reward), 5):
                     reward_per_env.append(sum(episode_reward[env_idx:env_idx+5]))
+                
                 reward_mean = np.average(reward_per_env)
                 reward_std = np.std(reward_per_env)
                 running_reward_mean += reward_mean
@@ -192,8 +199,10 @@ class PPOPolicy():
                     if policy_record is not None:
                         with open(os.path.join(policy_record.data_dir, 'accumulated_reward.json'), 'w+') as f:
                             json.dump({'mean': running_reward_mean/(num_dones+1), 'std': running_reward_std/(num_dones+1)}, f)
-                        with open(os.path.join(policy_record.data_dir, 'game_statistics.json'), 'w+') as f:
-                            json.dump(episode_statistics, f)
+                        with open(os.path.join(policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
+                            json.dump(mean_statistics, f)
+                        with open(os.path.join(policy_record.data_dir, 'std_statistics.json'), 'w+') as f:
+                            json.dump(std_statistics, f)
 
                 num_dones += 1
 
@@ -202,7 +211,7 @@ class PPOPolicy():
               steps_per_epoch=800, steps_to_run=100000, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
               vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
               target_kl=0.01, logger_kwargs=dict(), save_freq=-1, tsboard_freq=-1, use_neg_weight=True,
-              neg_weight_constant=-1, **kargs):
+              neg_weight_constant=-1, curriculum_weight=0.3, **kargs):
         """
         Proximal Policy Optimization (by clipping),
 
@@ -338,6 +347,15 @@ class PPOPolicy():
         # Create actor-critic module
         mpi_print(env.observation_space, env.action_space)
         ac = actor_critic(env.observation_space, env.action_space, **ac_kwargs)
+        state_dict = torch.load(self.kargs['model_path'])
+        temp_state_dict = {}
+        for key in state_dict:
+            if 'cnn_net' in key:
+                temp_state_dict[key] = state_dict[key]
+        ac.load_state_dict(temp_state_dict, strict=False)
+        for name, param in ac.named_parameters():
+            if 'cnn_net' in name:
+                param.requires_grad = False
 
         # Sync params across processes
         ac = ac.to(device)
@@ -453,12 +471,22 @@ class PPOPolicy():
         episode_lengths = []
         episode_returns = []
 
-        while step < steps_to_run:
-            neg_weight = min((step // (steps_to_run // 6) + 1) * 0.05, 0.3)
-            if neg_weight_constant > 0:
-                neg_weight = neg_weight_constant
+        if neg_weight_constant < 0:
+            neg_weight = 0.0
+            env.penalty_weight = 0.0
 
-            if comm.Get_rank() == 0 and step % 10000 == 0:
+        while step < steps_to_run:
+            #neg_weight = min((step // (steps_to_run // 6) + 1) * 0.05, curriculum_weight)
+            if neg_weight_constant >= 0.0:
+                neg_weight = neg_weight_constant
+            else:
+                period = int(ceil(curriculum_weight / 0.05))
+                if (step+1) % int(4e6//period) == 0:
+                    if neg_weight < curriculum_weight:
+                        neg_weight = neg_weight + 0.05
+                        env.penalty_weight = env.penalty_weight + 0.05
+
+            if comm.Get_rank() == 0 and step % 5000 == 0:
                 model_path = os.path.join('./models', str(kargs['model_id']), str(step * n_process)+'.pth')
                 mpi_print('save ', model_path)
                 torch.save(ac.state_dict(), model_path)
@@ -467,6 +495,7 @@ class PPOPolicy():
             o = torch.as_tensor(o, dtype=torch.float32).to(device)
             a, v, logp = ac.step(o)
             next_o, r, terminal, _ = env.step(a)
+
             ep_ret += r
             ep_len += 1
             total_step += 1

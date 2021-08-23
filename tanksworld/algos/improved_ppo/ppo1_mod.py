@@ -210,6 +210,7 @@ class PPO1(ActorCriticRLModel):
         num_positive_rewards = 0
         num_total_rewards = 0
         eplen = 0
+        epret = 0
 
         while steps < local_steps:
             # Select the optimal action
@@ -219,21 +220,19 @@ class PPO1(ActorCriticRLModel):
             # execute the optimal action and observe the next state and reward
             observation, reward, done, info = self.env.step(action)
 
-            listofrewards = self.comm.allgather(reward)
-            total_reward = np.sum(np.array(listofrewards))
-            if total_reward > 0:
-                num_positive_rewards += 1
-            num_total_rewards += 1
-
             steps += 1
             eplen += 1
+            epret += reward
 
             if done:
 
                 observation = self.env.reset()
 
+                episode_reward = comm.allgather(epret)
+                episode_length = comm.allgather(eplen)
+
                 if policy_record is not None:
-                    policy_record.add_result(total_reward, eplen)
+                    policy_record.add_result(episode_reward, episode_length)
                     policy_record.save()
 
                     with open(os.path.join(policy_record.data_dir, 'record_stats.json'), 'w+') as f:
@@ -241,6 +240,7 @@ class PPO1(ActorCriticRLModel):
                                    'percent': float(num_positive_rewards) / num_total_rewards}, f)
 
                 eplen = 0
+                epret = 0
 
     def learn(self, total_timesteps, policy_record=None, callback=None, seed=None, log_interval=100, tb_log_name="PPO1",
               reset_num_timesteps=True):
@@ -287,7 +287,7 @@ class PPO1(ActorCriticRLModel):
                     if total_timesteps and timesteps_so_far >= total_timesteps:
                         break
 
-                    if timesteps_so_far % 10000 == 0:
+                    if timesteps_so_far % 1000 == 0:
                         if policy_record is not None:
                             policy_record.save()
 
@@ -383,6 +383,8 @@ class PPO1(ActorCriticRLModel):
                         newlosses = self.compute_losses(batch["ob"], batch["ob"], batch["ac"], batch["atarg"],
                                                         batch["vtarg"], cur_lrmult, sess=self.sess)
                         losses.append(newlosses)
+
+                    del dataset, observations, actions, atarg
 
                     mean_losses, _, _ = mpi_moments(losses, axis=0, comm=self.comm)
                     logger.log(fmt_row(13, mean_losses))

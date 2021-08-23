@@ -23,6 +23,21 @@ def mlp(sizes, activation, output_activation=nn.Identity):
     return nn.Sequential(*layers)
 
 
+class CNNEncodeAttention(nn.Module):
+    def __init__(self, observation_space):
+        super(CNNEncodeAttention, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.conv = nn.Conv2d(4, 4, 1, 1, bias=True)
+        self.sigmoid = nn.Sigmoid()
+        self.cnn_encode = cnn(observation_space)
+
+    def forward(self, observation):
+        pooled = self.avg_pool(observation)
+        attn = self.sigmoid(self.conv(pooled))
+        input = attn * observation
+        return self.cnn_encode(input)
+
+
 def cnn(observation_space):
     model = nn.Sequential(
         nn.Conv2d(observation_space.shape[0], 32, 8, 4),
@@ -183,6 +198,7 @@ class MLPActorCritic(nn.Module):
         cnn_net = None
         if use_cnn:
             cnn_net = cnn(observation_space)
+            #cnn_net = CNNEncodeAttention(observation_space)
 
         if isinstance(action_space, Box):
             self.pi = MLPGaussianActor(observation_space, action_space.shape[0], hidden_sizes, activation,

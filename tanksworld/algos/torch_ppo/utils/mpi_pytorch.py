@@ -24,9 +24,10 @@ def mpi_avg_grads(comm, module):
     if num_procs(comm)==1:
         return
     for p in module.parameters():
-        p_grad_numpy = p.grad.numpy()   # numpy view of tensor data
-        avg_p_grad = mpi_avg(comm, p.grad)
-        p_grad_numpy[:] = avg_p_grad[:]
+        if p.requires_grad:
+            p_grad_numpy = p.grad.numpy()   # numpy view of tensor data
+            avg_p_grad = mpi_avg(comm, p.grad)
+            p_grad_numpy[:] = avg_p_grad[:]
 
 def sync_params(comm, module, root=0):
     """ Sync all parameters of module across all MPI processes. """

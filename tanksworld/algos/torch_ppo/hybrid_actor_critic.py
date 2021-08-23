@@ -12,6 +12,20 @@ import cv2
 ENCODE_SIZE = 32
 
 
+class CNNEncodeAttention(nn.Module):
+    def __init__(self):
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.conv = nn.Conv2d(4, 4, 1, 0, bias=True)
+        self.sigmoid = nn.Sigmoid()
+        self.cnn_encode = cnn_encode()
+
+    def forward(self, observation):
+        pooled = self.avg_pool(observation)
+        attn = self.sigmoid(self.conv(pooled))
+        input = attn * observation
+        return self.cnn_encode(input)
+
+
 def combined_shape(length, shape=None):
     if shape is None:
         return (length,)
@@ -105,7 +119,8 @@ class MLPGaussianActor(Actor):
         self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
         self.mu_net = mlp([obs_dim + ENCODE_SIZE] + list(hidden_sizes) + [act_dim], activation)
 
-        self.cnn = cnn_encode()
+        #self.cnn = cnn_encode()
+        self.cnn = CNNEncodeAttention()
         barrier_img = cv2.imread('obstaclemap_fixed.png', cv2.IMREAD_GRAYSCALE) / 255.0
         barrier_img = barrier_img.reshape(1, 1, 127, 128)
         self.barrier_img = torch.FloatTensor(barrier_img)
@@ -130,7 +145,8 @@ class MLPCritic(nn.Module):
         super().__init__()
         self.v_net = mlp([obs_dim + ENCODE_SIZE] + list(hidden_sizes) + [1], activation)
 
-        self.cnn = cnn_encode()
+        #self.cnn = cnn_encode()
+        self.cnn = CNNEncodeAttention()
         barrier_img = cv2.imread('obstaclemap_fixed.png', cv2.IMREAD_GRAYSCALE) / 255.0
         barrier_img = barrier_img.reshape(1, 1, 127, 128)
         self.barrier_img = torch.FloatTensor(barrier_img)

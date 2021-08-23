@@ -128,15 +128,45 @@ class TanksWorldEnv(gym.Env):
         self.red_team_stats = None
         self.blue_team_stats = None
 
+        self.red_winning_episode_statistics = {
+            'red_enemy_damage': 0.0,
+            'red_ally_damage': 0.0,
+            'blue_enemy_damage': 0.0,
+            'blue_ally_damage': 0.0,
+            'red_enemy_kills': 0,
+            'red_ally_kills': 0,
+            'blue_enemy_kills': 0,
+            'blue_ally_kills': 0
+        }
+
+        self.red_losing_episode_statistics = self.red_winning_episode_statistics.copy()
+
         self.game_statistics = {'num_red_wins': 0,
                                 'num_blue_wins': 0,
-                                'num_allies_killed': 0,
-                                'num_enemies_killed': 0,
-                                'num_neutrals_killed': 0,
-                                'ally_damage_amount': 0.0,
-                                'enemy_damage_amount': 0.0,
-                                'neutral_damage_amount': 0.0,
+                                'num_allies_killed_red': 0,
+                                'num_enemies_killed_red': 0,
+                                'num_neutrals_killed_red': 0,
+                                'ally_damage_amount_red': 0.0,
+                                'enemy_damage_amount_red': 0.0,
+                                'neutral_damage_amount_red': 0.0,
+                                'num_allies_killed_blue': 0,
+                                'num_enemies_killed_blue': 0,
+                                'num_neutrals_killed_blue': 0,
+                                'ally_damage_amount_blue': 0.0,
+                                'enemy_damage_amount_blue': 0.0,
+                                'neutral_damage_amount_blue': 0.0,
                                 'total_episodes': 0}
+
+        self.per_episode_statistics = {
+            'red_enemy_damage': 0.0,
+            'red_ally_damage': 0.0,
+            'blue_enemy_damage': 0.0,
+            'blue_ally_damage': 0.0,
+            'red_enemy_kills': 0,
+            'red_ally_kills': 0,
+            'blue_enemy_kills': 0,
+            'blue_ally_kills': 0
+        }
 
         self.log_statistics = log_statistics
 
@@ -341,14 +371,22 @@ class TanksWorldEnv(gym.Env):
             if self.log_statistics:
                 if i < 5:
                     if team_hit_type == 'ally':
-                        self.game_statistics['ally_damage_amount'] += damage_dealt
+                        self.game_statistics['ally_damage_amount_red'] += damage_dealt
+                        self.per_episode_statistics['red_ally_damage'] += damage_dealt
                     elif team_hit_type == 'enemy':
-                        self.game_statistics['enemy_damage_amount'] += damage_dealt
+                        self.game_statistics['enemy_damage_amount_red'] += damage_dealt
+                        self.per_episode_statistics['red_enemy_damage'] += damage_dealt
                     elif team_hit_type == 'neutral':
-                        self.game_statistics['neutral_damage_amount'] += damage_dealt
-                    if team_hit_type != 'no hit':
-                        with open(os.path.join(self.tblogs, 'game_statistics.json'), 'w+') as f:
-                            json.dump(self.game_statistics, f)
+                        self.game_statistics['neutral_damage_amount_red'] += damage_dealt
+                else:
+                    if team_hit_type == 'ally':
+                        self.game_statistics['ally_damage_amount_blue'] += damage_dealt
+                        self.per_episode_statistics['blue_ally_damage'] += damage_dealt
+                    elif team_hit_type == 'enemy':
+                        self.game_statistics['enemy_damage_amount_blue'] += damage_dealt
+                        self.per_episode_statistics['blue_enemy_damage'] += damage_dealt
+                    elif team_hit_type == 'neutral':
+                        self.game_statistics['neutral_damage_amount_blue'] += damage_dealt
 
             if team_hit_type == "ally":
                 ally_stats["damage_taken_by"]["ally"] += damage_dealt
@@ -421,14 +459,22 @@ class TanksWorldEnv(gym.Env):
                 if self.log_statistics:
                     if i < 5:
                         if team_hit_type == 'ally':
-                            self.game_statistics['num_allies_killed'] += 1
+                            self.game_statistics['num_allies_killed_red'] += 1
+                            self.per_episode_statistics['red_ally_kills'] += 1
                         elif team_hit_type == 'enemy':
-                            self.game_statistics['num_enemies_killed'] += 1
+                            self.game_statistics['num_enemies_killed_red'] += 1
+                            self.per_episode_statistics['red_enemy_kills'] += 1
                         elif team_hit_type == 'neutral':
-                            self.game_statistics['num_neutrals_killed'] += 1
-                        if team_hit_type != 'no hit':
-                            with open(os.path.join(self.tblogs, 'game_statistics.json'), 'w+') as f:
-                                json.dump(self.game_statistics, f)
+                            self.game_statistics['num_neutrals_killed_red'] += 1
+                    else:
+                        if team_hit_type == 'ally':
+                            self.game_statistics['num_allies_killed_blue'] += 1
+                            self.per_episode_statistics['blue_ally_kills'] += 1
+                        elif team_hit_type == 'enemy':
+                            self.game_statistics['num_enemies_killed_blue'] += 1
+                            self.per_episode_statistics['blue_enemy_kills'] += 1
+                        elif team_hit_type == 'neutral':
+                            self.game_statistics['num_neutrals_killed_blue'] += 1
 
 
     def objectives(self):
@@ -532,7 +578,6 @@ class TanksWorldEnv(gym.Env):
                     new_action[aidx][0] *= self.speed_blue
                     new_action[aidx][1] *= self.speed_blue
 
-
             #step
             new_action = np.array(new_action)
             self._env_info = self._env.step(new_action)[self._default_brain]
@@ -559,15 +604,32 @@ class TanksWorldEnv(gym.Env):
 
         if self.log_statistics:
             return_statistics = {}
+
             for key in self.game_statistics:
                 if key != 'num_red_wins' and key != 'num_blue_wins' and key != 'total_episodes' \
-                        and self.game_statistics['total_episodes'] != 0:
+                      and self.game_statistics['total_episodes'] != 0:
                     return_statistics[key] = self.game_statistics[key] / self.game_statistics['total_episodes']
                 else:
                     return_statistics[key] = self.game_statistics[key]
+
+            for key in self.red_winning_episode_statistics:
+                if self.game_statistics['num_red_wins'] > 0:
+                    return_statistics['red_winning_episode_{}'.format(key)] = \
+                        self.red_winning_episode_statistics[key] / self.game_statistics['num_red_wins']
+                else:
+                    return_statistics['red_winning_episode_{}'.format(key)] = 0
+
+            for key in self.red_losing_episode_statistics:
+                if self.game_statistics['num_blue_wins'] > 0:
+                    return_statistics['red_losing_episode_{}'.format(key)] = \
+                        self.red_losing_episode_statistics[key] / self.game_statistics['num_blue_wins']
+                else:
+                    return_statistics['red_losing_episode_{}'.format(key)] = 0
+
             info = [return_statistics] * len(self.training_tanks)
         else:
             info = [{"red_stats": self.red_team_stats, "blue_stats": self.blue_team_stats}] * len(self.training_tanks)
+
         return self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), info
 
 
@@ -583,14 +645,17 @@ class TanksWorldEnv(gym.Env):
         total_red_health = np.sum(red_health)
         total_blue_health = np.sum(blue_health)
 
-        if total_red_health >= total_blue_health:
+        if total_red_health > total_blue_health:
             self.game_statistics['num_red_wins'] += 1
-        if total_blue_health >= total_red_health:
+            for key in self.red_winning_episode_statistics:
+                self.red_winning_episode_statistics[key] += self.per_episode_statistics[key]
+        else:
             self.game_statistics['num_blue_wins'] += 1
+            for key in self.red_losing_episode_statistics:
+                self.red_losing_episode_statistics[key] += self.per_episode_statistics[key]
 
-        if self.log_statistics:
-            with open(os.path.join(self.tblogs, 'game_statistics.json'), 'w+') as f:
-                json.dump(self.game_statistics, f)
+        for key in self.per_episode_statistics:
+            self.per_episode_statistics[key] = 0
 
 
     def render(self):
