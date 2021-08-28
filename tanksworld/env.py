@@ -90,7 +90,7 @@ class TanksWorldEnv(gym.Env):
     #DO this in reset to allow seed to be set
     def __init__(self, exe, action_repeat=6, image_scale=128, timeout=500, friendly_fire=True, take_damage_penalty=True, kill_bonus=True, death_penalty=True,
         static_tanks=[], random_tanks=[], disable_shooting=[], penalty_weight=1.0, reward_weight=1.0, will_render=False,
-        speed_red=1.0, speed_blue=1.0, tblogs='runs/stats', seed_val=None, log_statistics=False):
+        speed_red=1.0, speed_blue=1.0, tblogs='runs/stats', seed_val=None, log_statistics=False, no_timeout=False):
 
         # call reset() to begin playing
         self._workerid = MPI.COMM_WORLD.Get_rank() #int(os.environ['L2EXPLORER_WORKER_ID'])
@@ -169,6 +169,7 @@ class TanksWorldEnv(gym.Env):
         }
 
         self.log_statistics = log_statistics
+        self.no_timeout = no_timeout
 
         for s in static_tanks:
             assert s not in random_tanks
@@ -227,10 +228,18 @@ class TanksWorldEnv(gym.Env):
         if not TanksWorldEnv._env:
             try:
                 print('WARNING: seed not set, using default')
-                if self._seed:
-                    TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=self._workerid, seed=self._seed, timeout_wait=500)
+                if self.no_timeout:
+                    if self._seed:
+                        TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=self._workerid,
+                                                              seed=self._seed, timeout_wait=100000)
+                    else:
+                        TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=self._workerid,
+                                                              seed=1234, timeout_wait=100000)
                 else:
-                    TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=self._workerid, seed=1234,timeout_wait=500)
+                    if self._seed:
+                        TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=self._workerid, seed=self._seed, timeout_wait=500)
+                    else:
+                        TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=self._workerid, seed=1234,timeout_wait=500)
                 print('finished initializing environment')
                 TanksWorldEnv._env_params['filename'] = self._filename
                 TanksWorldEnv._env_params['workerid'] = self._workerid
@@ -266,7 +275,7 @@ class TanksWorldEnv(gym.Env):
         blue_dead = [state[i]<=0 for i in blue_health]
         training_dead = [state[i]<=0 for i in training_health]
 
-        if  all(red_dead) or all(blue_dead) or all(training_dead) or self.episode_steps>self.timeout:
+        if all(red_dead) or all(blue_dead) or all(training_dead) or (self.episode_steps>self.timeout and not self.no_timeout):
             return True
         return False
 
@@ -369,7 +378,7 @@ class TanksWorldEnv(gym.Env):
             ally_stats["damage_inflicted_on"][team_hit_type] += damage_dealt
 
             if self.log_statistics:
-                if i < 5:
+                if i < 5: # if tank is red
                     if team_hit_type == 'ally':
                         self.game_statistics['ally_damage_amount_red'] += damage_dealt
                         self.per_episode_statistics['red_ally_damage'] += damage_dealt
@@ -378,7 +387,7 @@ class TanksWorldEnv(gym.Env):
                         self.per_episode_statistics['red_enemy_damage'] += damage_dealt
                     elif team_hit_type == 'neutral':
                         self.game_statistics['neutral_damage_amount_red'] += damage_dealt
-                else:
+                else: # if tank is blue
                     if team_hit_type == 'ally':
                         self.game_statistics['ally_damage_amount_blue'] += damage_dealt
                         self.per_episode_statistics['blue_ally_damage'] += damage_dealt
@@ -457,7 +466,7 @@ class TanksWorldEnv(gym.Env):
                     ally_stats["reward_components_cumulative"]["all"] += delta_rew
 
                 if self.log_statistics:
-                    if i < 5:
+                    if i < 5: # if tank is red
                         if team_hit_type == 'ally':
                             self.game_statistics['num_allies_killed_red'] += 1
                             self.per_episode_statistics['red_ally_kills'] += 1
@@ -466,7 +475,7 @@ class TanksWorldEnv(gym.Env):
                             self.per_episode_statistics['red_enemy_kills'] += 1
                         elif team_hit_type == 'neutral':
                             self.game_statistics['num_neutrals_killed_red'] += 1
-                    else:
+                    else: # if tank is blue
                         if team_hit_type == 'ally':
                             self.game_statistics['num_allies_killed_blue'] += 1
                             self.per_episode_statistics['blue_ally_kills'] += 1
@@ -529,6 +538,8 @@ class TanksWorldEnv(gym.Env):
                 if health[i] <= 0.0 and self.death_penalty:
                     reward[i] -= 1.0 * self.penalty_weight
                 elif self.take_damage_penalty:
+                    reward[i] -= delta_health[i] * self.penalty_weight / 100.0
+                elif my_team == team_hit:
                     reward[i] -= delta_health[i] * self.penalty_weight / 100.0
 
             self.update_tank_stats(i, state, delta_health[i], my_stats, enemy_stats, new_shot)

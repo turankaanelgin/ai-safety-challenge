@@ -176,6 +176,10 @@ class PPOPolicy():
                 for key in episode_statistics[0]:
                     std_statistics[key] = np.std(list(episode_statistics[idx][key] \
                                                       for idx in range(len(episode_statistics))))
+                all_statistics = {}
+                for key in episode_statistics[0]:
+                    all_statistics[key] = list(episode_statistics[idx][key] \
+                                               for idx in range(len(episode_statistics)))
 
                 reward_per_env = []
                 for env_idx in range(0, len(episode_reward), 5):
@@ -200,9 +204,11 @@ class PPOPolicy():
                         with open(os.path.join(policy_record.data_dir, 'accumulated_reward.json'), 'w+') as f:
                             json.dump({'mean': running_reward_mean/(num_dones+1), 'std': running_reward_std/(num_dones+1)}, f)
                         with open(os.path.join(policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
-                            json.dump(mean_statistics, f)
+                            json.dump(mean_statistics, f, indent=True)
                         with open(os.path.join(policy_record.data_dir, 'std_statistics.json'), 'w+') as f:
-                            json.dump(std_statistics, f)
+                            json.dump(std_statistics, f, indent=True)
+                        with open(os.path.join(policy_record.data_dir, 'all_statistics.json'), 'w+') as f:
+                            json.dump(all_statistics, f, indent=True)
 
                 num_dones += 1
 
