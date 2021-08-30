@@ -221,4 +221,4 @@ dependencies:
     - werkzeug==2.0.1
     - widgetsnbextension==3.5.1
     - zipp==3.5.0
-prefix: /cis/home/kelgin/anaconda3/envs/tanksworld
+prefix: ~/anaconda3/envs/tanksworld

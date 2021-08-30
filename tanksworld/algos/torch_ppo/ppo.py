@@ -179,12 +179,11 @@ class PPOPolicy():
                 all_statistics = {}
                 for key in episode_statistics[0]:
                     all_statistics[key] = list(episode_statistics[idx][key] \
-                                               for idx in range(len(episode_statistics)))
-
+                                                for idx in range(len(episode_statistics)))
                 reward_per_env = []
                 for env_idx in range(0, len(episode_reward), 5):
                     reward_per_env.append(sum(episode_reward[env_idx:env_idx+5]))
-                
+
                 reward_mean = np.average(reward_per_env)
                 reward_std = np.std(reward_per_env)
                 running_reward_mean += reward_mean
@@ -353,15 +352,15 @@ class PPOPolicy():
         # Create actor-critic module
         mpi_print(env.observation_space, env.action_space)
         ac = actor_critic(env.observation_space, env.action_space, **ac_kwargs)
-        state_dict = torch.load(self.kargs['model_path'])
-        temp_state_dict = {}
-        for key in state_dict:
-            if 'cnn_net' in key:
-                temp_state_dict[key] = state_dict[key]
-        ac.load_state_dict(temp_state_dict, strict=False)
-        for name, param in ac.named_parameters():
-            if 'cnn_net' in name:
-                param.requires_grad = False
+        #state_dict = torch.load(self.kargs['model_path'])
+        #temp_state_dict = {}
+        #for key in state_dict:
+        #    if 'cnn_net' in key:
+        #        temp_state_dict[key] = state_dict[key]
+        #ac.load_state_dict(temp_state_dict, strict=False)
+        #for name, param in ac.named_parameters():
+        #    if 'cnn_net' in name:
+        #        param.requires_grad = False
 
         # Sync params across processes
         ac = ac.to(device)
