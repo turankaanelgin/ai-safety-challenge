@@ -13,6 +13,9 @@ import pathlib
 from tensorboardX import SummaryWriter
 #from .utils import get_l2explorer_worker_id, get_l2explorer_app_location
 
+from minimap_util import point_relative_point_heading, barriers_for_player
+from minimap_util import UNITY_SZ, SCALE, IMG_SZ
+
 # Enforce Python 3.6.x (the only version supported by Unity MLAgents)
 if not (sys.version_info >= (3, 6, 0) and sys.version_info < (3, 7, 0)):
     raise RuntimeError('Python 3.6 required. Current version is ' + sys.version)
@@ -90,7 +93,7 @@ class TanksWorldEnv(gym.Env):
     #DO this in reset to allow seed to be set
     def __init__(self, exe, action_repeat=6, image_scale=128, timeout=500, friendly_fire=True, take_damage_penalty=True, kill_bonus=True, death_penalty=True,
         static_tanks=[], random_tanks=[], disable_shooting=[], penalty_weight=1.0, reward_weight=1.0, will_render=False,
-        speed_red=1.0, speed_blue=1.0, tblogs='runs/stats', seed_val=None, log_statistics=False, no_timeout=False):
+        speed_red=1.0, speed_blue=1.0, tblogs='runs/stats', seed_val=None, log_statistics=False, no_timeout=False, barrier_heuristic=False):
 
         # call reset() to begin playing
         self._workerid = MPI.COMM_WORLD.Get_rank() #int(os.environ['L2EXPLORER_WORKER_ID'])
@@ -142,20 +145,20 @@ class TanksWorldEnv(gym.Env):
         self.red_losing_episode_statistics = self.red_winning_episode_statistics.copy()
 
         self.game_statistics = {'num_red_wins': 0,
-                                'num_blue_wins': 0,
-                                'num_allies_killed_red': 0,
-                                'num_enemies_killed_red': 0,
-                                'num_neutrals_killed_red': 0,
-                                'ally_damage_amount_red': 0.0,
-                                'enemy_damage_amount_red': 0.0,
-                                'neutral_damage_amount_red': 0.0,
-                                'num_allies_killed_blue': 0,
-                                'num_enemies_killed_blue': 0,
-                                'num_neutrals_killed_blue': 0,
-                                'ally_damage_amount_blue': 0.0,
-                                'enemy_damage_amount_blue': 0.0,
-                                'neutral_damage_amount_blue': 0.0,
-                                'total_episodes': 0}
+                            'num_blue_wins': 0,
+                            'num_allies_killed_red': 0,
+                            'num_enemies_killed_red': 0,
+                            'num_neutrals_killed_red': 0,
+                            'ally_damage_amount_red': 0.0,
+                            'enemy_damage_amount_red': 0.0,
+                            'neutral_damage_amount_red': 0.0,
+                            'num_allies_killed_blue': 0,
+                            'num_enemies_killed_blue': 0,
+                            'num_neutrals_killed_blue': 0,
+                            'ally_damage_amount_blue': 0.0,
+                            'enemy_damage_amount_blue': 0.0,
+                            'neutral_damage_amount_blue': 0.0,
+                            'total_episodes': 0}
 
         self.per_episode_statistics = {
             'red_enemy_damage': 0.0,
@@ -170,6 +173,7 @@ class TanksWorldEnv(gym.Env):
 
         self.log_statistics = log_statistics
         self.no_timeout = no_timeout
+        self.barrier_heuristic = barrier_heuristic
 
         for s in static_tanks:
             assert s not in random_tanks
@@ -231,15 +235,17 @@ class TanksWorldEnv(gym.Env):
                 if self.no_timeout:
                     if self._seed:
                         TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=self._workerid,
-                                                              seed=self._seed, timeout_wait=100000)
+                                                              seed=self._seed, timeout_wait=self.timeout)
                     else:
                         TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=self._workerid,
-                                                              seed=1234, timeout_wait=100000)
+                                                              seed=1234, timeout_wait=self.timeout)
                 else:
                     if self._seed:
-                        TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=self._workerid, seed=self._seed, timeout_wait=500)
+                        TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=self._workerid, seed=self._seed,
+                                                              timeout_wait=self.timeout)
                     else:
-                        TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=self._workerid, seed=1234,timeout_wait=500)
+                        TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=self._workerid, seed=1234,
+                                                              timeout_wait=self.timeout)
                 print('finished initializing environment')
                 TanksWorldEnv._env_params['filename'] = self._filename
                 TanksWorldEnv._env_params['workerid'] = self._workerid
@@ -579,6 +585,71 @@ class TanksWorldEnv(gym.Env):
             #turn off shooting for any tanks with disabled shooting
             for didx, totalidx in enumerate(self.disable_shooting):
                 new_action[totalidx][-1] = -1.0
+
+            # HEURISTIC
+            if self.barrier_heuristic:
+                state_images = self.get_state()
+                state = self._env_info.vector_observations[0]
+
+                state_reformat = []
+                for i in range(12):
+                    j = i * TanksWorldEnv._tank_data_len
+                    refmt = [state[j + 0], state[j + 1], state[j + 2] / 180 * 3.1415, state[j + 3], state[j + 7],
+                             state[j + 8]]
+
+                    state_reformat.append(refmt)
+
+                for tank_idx in self.training_tanks:
+                    my_data = state_reformat[tank_idx]
+                    my_data = [my_data[0], -my_data[1], my_data[2],
+                               my_data[3], my_data[4], -my_data[5]]
+                    rel_x, rel_y = point_relative_point_heading([my_data[0], my_data[1]],
+                                                                my_data[0:2], my_data[2])
+                    x = (rel_x/UNITY_SZ) * SCALE + float(IMG_SZ)*0.5
+                    y = (rel_y/UNITY_SZ) * SCALE + float(IMG_SZ)*0.5
+                    tank_center = (int(x), int(y))
+                    tank_nose = (int(x), int(y-6))
+
+                    barriers = self.barrier_img / 255.0
+                    barriers = np.flipud(barriers)
+                    barriers_channel = barriers_for_player(barriers, my_data)
+                    barrier = barriers_channel[:,:,0]
+
+                    danger_zone = np.asarray(barrier[tank_nose[0]-1:tank_nose[0]+1, tank_nose[1]-2:tank_nose[1]])
+                    if danger_zone.any():
+                        new_action[tank_idx][-1] = -0.99
+                        '''
+                        if self.episode_steps >= 5:
+                            import matplotlib.pyplot as plt
+                            import matplotlib.patches as patches
+
+                            combined_image = state_images[tank_idx][0,0]*255 + barrier
+                            fig, ax = plt.subplots()
+                            ax.imshow(combined_image, cmap='gray')
+                            rect1 = patches.Rectangle((tank_center[0] - 1, tank_center[1] - 1), 2, 2, linewidth=1,
+                                                       edgecolor='r', facecolor='none')
+                            rect2 = patches.Rectangle((tank_nose[0] - 1, tank_nose[1] - 2), 2, 2, linewidth=1,
+                                                       edgecolor='r', facecolor='none')
+                            ax.add_patch(rect1)
+                            ax.add_patch(rect2)
+                            ax.set_title(danger_zone)
+                            plt.show()
+                        '''
+
+                '''
+                if self.episode_steps >= 5:
+                    import matplotlib.pyplot as plt
+                    import matplotlib.patches as patches
+                    fig, ax = plt.subplots()
+                    ax.imshow(state_images[tank_idx][0,0]*255, cmap='gray')
+                    rect1 = patches.Rectangle((tank_center[0]-1, tank_center[1]-1), 2, 2, linewidth=1,
+                                               edgecolor='r', facecolor='none')
+                    rect2 = patches.Rectangle((tank_nose[0]-1, tank_nose[1]-1), 2, 2, linewidth=1,
+                                               edgecolor='r', facecolor='none')
+                    ax.add_patch(rect1)
+                    ax.add_patch(rect2)
+                    plt.show()
+                '''
 
             #turn and drive multipliers
             for aidx in range(len(new_action)):
