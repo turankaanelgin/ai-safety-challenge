@@ -60,8 +60,8 @@ if args.eval_mode:
 else:
     kwargs_1 = {'static_tanks': [], 'random_tanks': [5, 6, 7, 8, 9], 'disable_shooting': [],
                 'friendly_fire': False, 'kill_bonus': False, 'death_penalty': False, 'take_damage_penalty': True,
-                'tblogs': stats_dir, 'penalty_weight': 1.0, 'reward_weight': 1.0, 'timeout': 500,
-                'log_statistics': True, 'no_timeout': False, 'barrier_heuristic': True}
+                'tblogs': stats_dir, 'penalty_weight': 0.8, 'reward_weight': 1.0, 'timeout': 500,
+                'log_statistics': True, 'no_timeout': False, 'barrier_heuristic': False}
 
 
 if args.eval_mode:
