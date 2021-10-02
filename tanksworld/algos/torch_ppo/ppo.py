@@ -1,4 +1,5 @@
 # modified code from spinningup OpenAI
+import pprint
 import numpy as np
 import torch
 from torch import nn
@@ -143,6 +144,8 @@ class PPOPolicy():
         running_reward_std = 0.0
         num_dones = 0
 
+        pp = pprint.PrettyPrinter(indent=4)
+
         while steps < local_steps:
             # observation = np.array(observation).reshape(-1, 72)
             action, v, logp = ac.step(torch.as_tensor(observation, dtype=torch.float32).to(device))
@@ -161,12 +164,27 @@ class PPOPolicy():
                 episode_length = self.comm.allgather(eplen)
                 episode_statistics = self.comm.allgather(info)
 
-                #assert len(episode_length) == len(episode_reward) == 50
-
                 stats_per_env = []
                 for env_idx in range(0, len(episode_statistics), 5):
                     stats_per_env.append(episode_statistics[env_idx])
                 episode_statistics = stats_per_env
+
+                episode_statistics = [episode_statistics[i]['all'] for i in range(len(episode_statistics))]
+                mean_statistics = {}
+                std_statistics = {}
+
+                for key in episode_statistics[0][0]:
+                    list_of_stats = []
+                    for idx in range(len(episode_statistics)):
+                        for all_stats in episode_statistics[idx]:
+                            list_of_stats.append(all_stats[key])
+
+                    mean_statistics[key] = np.average(list_of_stats)
+                    std_statistics[key] = np.std(list_of_stats)
+
+                '''
+                # TODO remove this line
+                episode_statistics = [episode_statistics[i]['average'] for i in range(len(episode_statistics))]
 
                 mean_statistics = {}
                 for key in episode_statistics[0]:
@@ -180,6 +198,8 @@ class PPOPolicy():
                 for key in episode_statistics[0]:
                     all_statistics[key] = list(episode_statistics[idx][key] \
                                                 for idx in range(len(episode_statistics)))
+                                                
+                '''
                 reward_per_env = []
                 for env_idx in range(0, len(episode_reward), 5):
                     reward_per_env.append(sum(episode_reward[env_idx:env_idx+5]))
@@ -198,16 +218,16 @@ class PPOPolicy():
                 eplen = 0
                 epret = 0
 
-                if num_dones % 50 == 0:
+                if num_dones % 25 == 0:
                     if policy_record is not None:
-                        with open(os.path.join(policy_record.data_dir, 'accumulated_reward.json'), 'w+') as f:
-                            json.dump({'mean': running_reward_mean/(num_dones+1), 'std': running_reward_std/(num_dones+1)}, f)
+                        #with open(os.path.join(policy_record.data_dir, 'accumulated_reward.json'), 'w+') as f:
+                        #    json.dump({'mean': running_reward_mean/(num_dones+1), 'std': running_reward_std/(num_dones+1)}, f)
                         with open(os.path.join(policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
                             json.dump(mean_statistics, f, indent=True)
                         with open(os.path.join(policy_record.data_dir, 'std_statistics.json'), 'w+') as f:
                             json.dump(std_statistics, f, indent=True)
-                        with open(os.path.join(policy_record.data_dir, 'all_statistics.json'), 'w+') as f:
-                            json.dump(all_statistics, f, indent=True)
+                        #with open(os.path.join(policy_record.data_dir, 'all_statistics.json'), 'w+') as f:
+                        #    json.dump(all_statistics, f, indent=True)
 
                 num_dones += 1
 
@@ -338,9 +358,12 @@ class PPOPolicy():
         # logger.save_config(locals())
 
         # Random seed
-        seed += 10000 * proc_id(comm)
+        MAX_INT = 2147483647
+        seed = np.random.randint(MAX_INT)
         torch.manual_seed(seed)
         np.random.seed(seed)
+
+        mpi_print(proc_id(comm), seed)
 
         # Instantiate environment
         # augment_obs = gym.spaces.Box(0,1,[env.observation_space.shape[0] + 32])
@@ -352,15 +375,17 @@ class PPOPolicy():
         # Create actor-critic module
         mpi_print(env.observation_space, env.action_space)
         ac = actor_critic(env.observation_space, env.action_space, **ac_kwargs)
-        #state_dict = torch.load(self.kargs['model_path'])
-        #temp_state_dict = {}
-        #for key in state_dict:
-        #    if 'cnn_net' in key:
-        #        temp_state_dict[key] = state_dict[key]
-        #ac.load_state_dict(temp_state_dict, strict=False)
-        #for name, param in ac.named_parameters():
-        #    if 'cnn_net' in name:
-        #        param.requires_grad = False
+
+        if self.kargs['model_path']:
+            state_dict = torch.load(self.kargs['model_path'])
+            temp_state_dict = {}
+            for key in state_dict:
+                if 'cnn_net' in key:
+                    temp_state_dict[key] = state_dict[key]
+            ac.load_state_dict(temp_state_dict, strict=False)
+            for name, param in ac.named_parameters():
+                if 'cnn_net' in name:
+                    param.requires_grad = False
 
         # Sync params across processes
         ac = ac.to(device)

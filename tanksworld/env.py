@@ -99,15 +99,11 @@ class TanksWorldEnv(gym.Env):
         self._workerid = MPI.COMM_WORLD.Get_rank() #int(os.environ['L2EXPLORER_WORKER_ID'])
         self._filename =  exe#'/home/rivercg1/projects/aisafety/build/aisafetytanks_0.1.2/TanksWorld.x86_64'
         self.observation_space = None
-        self.observation_space = gym.spaces.box.Box(0,255,(128,128,4))
-        #self.observation_space = gym.spaces.box.Box(0,255,(4,128,128))
+        #self.observation_space = gym.spaces.box.Box(0,255,(128,128,4))
+        self.observation_space = gym.spaces.box.Box(0,255,(4,128,128))
         self.action_space = gym.spaces.box.Box(-1,1,(3,))
         self.action_space = None
-        if seed_val:
-            self._seed = self.seed(seed_val)
-            np.random.seed(seed_val)
-        else:
-            self._seed = None
+        self._seed = np.random.randint(TanksWorldEnv._MAX_INT) #integer seed required, convert
 
         self.timeout = timeout
         self.action_repeat=action_repeat  # repeat action this many times
@@ -171,6 +167,8 @@ class TanksWorldEnv(gym.Env):
             'blue_ally_kills': 0
         }
 
+        self.all_episode_statistics = []
+
         self.log_statistics = log_statistics
         self.no_timeout = no_timeout
         self.barrier_heuristic = barrier_heuristic
@@ -225,32 +223,21 @@ class TanksWorldEnv(gym.Env):
             self.log_stats()
 
         # Reset the environment
-        params ={}
+        params = {}
         self.dead = []
         if 'params' in kwargs:
             params = kwargs['params']
         if not TanksWorldEnv._env:
             try:
                 print('WARNING: seed not set, using default')
-                if self.no_timeout:
-                    if self._seed:
-                        TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=self._workerid,
-                                                              seed=self._seed, timeout_wait=self.timeout)
-                    else:
-                        TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=self._workerid,
-                                                              seed=1234, timeout_wait=self.timeout)
-                else:
-                    if self._seed:
-                        TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=self._workerid, seed=self._seed,
-                                                              timeout_wait=self.timeout)
-                    else:
-                        TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=self._workerid, seed=1234,
-                                                              timeout_wait=self.timeout)
+                TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=self._workerid,
+                                                      seed=self._seed, timeout_wait=500)
                 print('finished initializing environment')
                 TanksWorldEnv._env_params['filename'] = self._filename
                 TanksWorldEnv._env_params['workerid'] = self._workerid
             except:
-                print('ERROR: could not initialize unity environment, are filename correct and workerid not already in use by another unity instance?')
+                print(
+                    'ERROR: could not initialize unity environment, are filename correct and workerid not already in use by another unity instance?')
                 raise
 
         # Set the default brain to work with
@@ -259,9 +246,9 @@ class TanksWorldEnv(gym.Env):
         brain = self._env.brains[self._default_brain]
         self._env_info = self._env.reset(train_mode=0, config=params)[self._default_brain]
 
-        self.previous_health = [100.0]*12
-        self.shots_fired = [0]*12
-        self.shell_in_air = [False]*12
+        self.previous_health = [100.0] * 12
+        self.shots_fired = [0] * 12
+        self.shell_in_air = [False] * 12
 
         self.episode_steps = 0
 
@@ -708,7 +695,7 @@ class TanksWorldEnv(gym.Env):
                 else:
                     return_statistics['red_losing_episode_{}'.format(key)] = 0
 
-            info = [return_statistics] * len(self.training_tanks)
+            info = [{'average': return_statistics, 'all': self.all_episode_statistics}] * len(self.training_tanks)
         else:
             info = [{"red_stats": self.red_team_stats, "blue_stats": self.blue_team_stats}] * len(self.training_tanks)
 
@@ -735,6 +722,8 @@ class TanksWorldEnv(gym.Env):
             self.game_statistics['num_blue_wins'] += 1
             for key in self.red_losing_episode_statistics:
                 self.red_losing_episode_statistics[key] += self.per_episode_statistics[key]
+
+        self.all_episode_statistics.append(self.per_episode_statistics.copy())
 
         for key in self.per_episode_statistics:
             self.per_episode_statistics[key] = 0
