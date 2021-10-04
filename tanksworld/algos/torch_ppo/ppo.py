@@ -169,6 +169,7 @@ class PPOPolicy():
                     stats_per_env.append(episode_statistics[env_idx])
                 episode_statistics = stats_per_env
 
+                '''
                 episode_statistics = [episode_statistics[i]['all'] for i in range(len(episode_statistics))]
                 mean_statistics = {}
                 std_statistics = {}
@@ -181,25 +182,19 @@ class PPOPolicy():
 
                     mean_statistics[key] = np.average(list_of_stats)
                     std_statistics[key] = np.std(list_of_stats)
-
                 '''
-                # TODO remove this line
+
                 episode_statistics = [episode_statistics[i]['average'] for i in range(len(episode_statistics))]
 
                 mean_statistics = {}
-                for key in episode_statistics[0]:
-                    mean_statistics[key] = np.average(list(episode_statistics[idx][key] \
-                                                           for idx in range(len(episode_statistics))))
                 std_statistics = {}
-                for key in episode_statistics[0]:
-                    std_statistics[key] = np.std(list(episode_statistics[idx][key] \
-                                                      for idx in range(len(episode_statistics))))
                 all_statistics = {}
                 for key in episode_statistics[0]:
-                    all_statistics[key] = list(episode_statistics[idx][key] \
-                                                for idx in range(len(episode_statistics)))
-                                                
-                '''
+                    list_of_stats = list(episode_statistics[idx][key] for idx in range(len(episode_statistics)))
+                    mean_statistics[key] = np.average(list_of_stats)
+                    std_statistics[key] = np.std(list_of_stats)
+                    all_statistics[key] = list_of_stats
+
                 reward_per_env = []
                 for env_idx in range(0, len(episode_reward), 5):
                     reward_per_env.append(sum(episode_reward[env_idx:env_idx+5]))
@@ -217,6 +212,7 @@ class PPOPolicy():
 
                 eplen = 0
                 epret = 0
+                num_dones += 1
 
                 if num_dones % 25 == 0:
                     if policy_record is not None:
@@ -228,8 +224,6 @@ class PPOPolicy():
                             json.dump(std_statistics, f, indent=True)
                         #with open(os.path.join(policy_record.data_dir, 'all_statistics.json'), 'w+') as f:
                         #    json.dump(all_statistics, f, indent=True)
-
-                num_dones += 1
 
 
     def learn(self, policy_record, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
@@ -516,7 +510,7 @@ class PPOPolicy():
                         neg_weight = neg_weight + 0.05
                         env.penalty_weight = env.penalty_weight + 0.05
 
-            if comm.Get_rank() == 0 and step % 5000 == 0:
+            if comm.Get_rank() == 0 and step % 50000 == 0:
                 model_path = os.path.join('./models', str(kargs['model_id']), str(step * n_process)+'.pth')
                 mpi_print('save ', model_path)
                 torch.save(ac.state_dict(), model_path)
