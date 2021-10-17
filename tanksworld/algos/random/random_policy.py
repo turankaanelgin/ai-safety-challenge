@@ -50,13 +50,10 @@ class RandomPolicy():
                                                            for idx in range(len(episode_statistics))))
                 std_statistics = {}
                 for key in episode_statistics[0]:
-                    '''
                     if key == 'ally_damage_amount_red':
                         stats_list = list(episode_statistics[idx][key] for idx in range(len(episode_statistics)))
                         print('STATS', stats_list)
                         print('STD STATS', np.std(stats_list))
-                        exit(0)
-                    '''
                     std_statistics[key] = np.std(list(episode_statistics[idx][key] \
                                                       for idx in range(len(episode_statistics))))
                 all_statistics = {}
