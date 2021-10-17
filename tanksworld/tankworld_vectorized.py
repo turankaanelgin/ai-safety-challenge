@@ -7,10 +7,10 @@ import math, time, random
 import os
 import numpy as np
 
-from arena5.core.stems import *
-from arena5.core.utils import mpi_print
-from arena5.core.policy_record import *
-from arena5.core.env_process import EnvironmentProcess 
+from arena5_mod.core.stems import *
+from arena5_mod.core.utils import mpi_print
+from arena5_mod.core.policy_record import *
+from arena5_mod.core.env_process import EnvironmentProcess 
 import argparse
 import json
 import shutil
@@ -20,6 +20,7 @@ from algos.torch_ppo.ppo import PPOPolicy
 import my_config as cfg
 from env import TanksWorldEnv
 from mpi4py import MPI
+from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvIndices, VecEnvObs, VecEnvStepReturn
 
 comm_world = MPI.COMM_WORLD
 
@@ -86,6 +87,7 @@ if rank == 0:
     env = TanksworldVectorizedEnv(comm_world, 0)
     while True:
         actions = np.random.rand((size - 1) * 5, 3)
+        mpi_print(actions)
         env.step(actions)
 
 else:
