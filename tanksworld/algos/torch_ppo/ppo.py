@@ -21,6 +21,8 @@ import json
 from math import ceil
 
 from stable_baselines.trpo_mpi.utils import flatten_lists
+from algos.torch_ppo.mappo_utils import valuenorm
+from algos.torch_ppo.mappo_utils.util import huber_loss
 
 #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device('cpu')
@@ -134,6 +136,7 @@ class PPOPolicy():
         local_steps = int(total_timesteps / self.comm.Get_size())
         steps = 0
         observation = self.env.reset()
+
         ac = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs)
         ac.load_state_dict(torch.load(self.kargs['model_path']))
         ac.eval()
@@ -148,7 +151,8 @@ class PPOPolicy():
 
         while steps < local_steps:
             # observation = np.array(observation).reshape(-1, 72)
-            action, v, logp = ac.step(torch.as_tensor(observation, dtype=torch.float32).to(device))
+            with torch.no_grad():
+                action, v, logp = ac.step(torch.as_tensor(observation, dtype=torch.float32).to(device))
 
             # step environment
             observation, reward, done, info = self.env.step(action)
@@ -168,21 +172,6 @@ class PPOPolicy():
                 for env_idx in range(0, len(episode_statistics), 5):
                     stats_per_env.append(episode_statistics[env_idx])
                 episode_statistics = stats_per_env
-
-                '''
-                episode_statistics = [episode_statistics[i]['all'] for i in range(len(episode_statistics))]
-                mean_statistics = {}
-                std_statistics = {}
-
-                for key in episode_statistics[0][0]:
-                    list_of_stats = []
-                    for idx in range(len(episode_statistics)):
-                        for all_stats in episode_statistics[idx]:
-                            list_of_stats.append(all_stats[key])
-
-                    mean_statistics[key] = np.average(list_of_stats)
-                    std_statistics[key] = np.std(list_of_stats)
-                '''
 
                 episode_statistics = [episode_statistics[i]['average'] for i in range(len(episode_statistics))]
 
@@ -214,7 +203,7 @@ class PPOPolicy():
                 epret = 0
                 num_dones += 1
 
-                if num_dones % 25 == 0:
+                if num_dones == 1 or num_dones % 25 == 0:
                     if policy_record is not None:
                         #with open(os.path.join(policy_record.data_dir, 'accumulated_reward.json'), 'w+') as f:
                         #    json.dump({'mean': running_reward_mean/(num_dones+1), 'std': running_reward_std/(num_dones+1)}, f)
@@ -230,7 +219,7 @@ class PPOPolicy():
               steps_per_epoch=800, steps_to_run=100000, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
               vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
               target_kl=0.01, logger_kwargs=dict(), save_freq=-1, tsboard_freq=-1, use_neg_weight=True,
-              neg_weight_constant=-1, curriculum_weight=0.3, **kargs):
+              neg_weight_constant=-1, curriculum_weight=0.3, use_value_norm=False, use_huber_loss=False, **kargs):
         """
         Proximal Policy Optimization (by clipping),
 
@@ -372,11 +361,14 @@ class PPOPolicy():
 
         if self.kargs['model_path']:
             state_dict = torch.load(self.kargs['model_path'])
+
             temp_state_dict = {}
             for key in state_dict:
                 if 'cnn_net' in key:
                     temp_state_dict[key] = state_dict[key]
+
             ac.load_state_dict(temp_state_dict, strict=False)
+
             for name, param in ac.named_parameters():
                 if 'cnn_net' in name:
                     param.requires_grad = False
@@ -395,6 +387,9 @@ class PPOPolicy():
         # Set up experience buffer
         # local_steps_per_epoch = int(steps_per_epoch / num_procs(comm))
         buf = PPOBuffer(obs_dim, act_dim, steps_per_epoch, gamma, lam)
+
+        if use_value_norm:
+            value_normalizer = valuenorm.ValueNorm(1)
 
         # Set up function for computing PPO policy loss
         def compute_loss_pi(data):
@@ -419,7 +414,22 @@ class PPOPolicy():
         # Set up function for computing value loss
         def compute_loss_v(data):
             obs, ret = data['obs'], data['ret']
-            return ((ac.v(obs) - ret) ** 2).mean()
+            if not use_value_norm:
+                if use_huber_loss:
+                    error = ret - ac.v(obs)
+                    return huber_loss(error, 10.0).mean()
+                else:
+                    return ((ac.v(obs) - ret) ** 2).mean()
+            else:
+                values = ac.v(obs)
+                value_normalizer.update(ret)
+                error = value_normalizer.normalize(ret) - values
+                if use_huber_loss:
+                    value_loss = huber_loss(error, 10.0)
+                else:
+                    value_loss = (error ** 2).mean()
+                return value_loss.mean()
+
 
         # Set up optimizers for policy and value function
         pi_optimizer = Adam(ac.pi.parameters(), lr=pi_lr)
@@ -500,6 +510,16 @@ class PPOPolicy():
             env.penalty_weight = 0.0
 
         while step < steps_to_run:
+            '''
+            if step == 500000:
+                steps_per_epoch = 8
+            elif step == 1000000:
+                steps_per_epoch = 16
+            elif step == 2000000:
+                steps_per_epoch = 32
+            elif step == 3000000:
+                steps_per_epoch = 64
+            '''
             #neg_weight = min((step // (steps_to_run // 6) + 1) * 0.05, curriculum_weight)
             if neg_weight_constant >= 0.0:
                 neg_weight = neg_weight_constant
@@ -525,7 +545,7 @@ class PPOPolicy():
             total_step += 1
 
             if r < 0 and use_neg_weight:
-                r *= neg_weight
+                #r *= neg_weight
                 neg_ret += r
             else:
                 pos_ret += r
@@ -544,6 +564,7 @@ class PPOPolicy():
 
                 if epoch_ended and not (terminal):
                     print('Warning: trajectory cut off by epoch at %d steps.' % ep_len, flush=True)
+                    print('STEPS PER EPOCH = ', steps_per_epoch)
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if epoch_ended:
                     _, v, _ = ac.step(torch.as_tensor(o, dtype=torch.float32).to(device))
