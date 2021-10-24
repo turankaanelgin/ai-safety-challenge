@@ -35,8 +35,11 @@ class PPOBuffer:
     for calculating the advantages of state-action pairs.
     """
 
-    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95):
-        self.obs_buf = np.zeros(core.combined_shape(size, obs_dim), dtype=np.float32)
+    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95, use_rnn=False):
+        if use_rnn:
+            self.obs_buf = np.zeros(core.combined_shape_v2(size, 5, obs_dim), dtype=np.float32)
+        else:
+            self.obs_buf = np.zeros(core.combined_shape(size, obs_dim), dtype=np.float32)
         self.act_buf = np.zeros(core.combined_shape(size, act_dim), dtype=np.float32)
         self.adv_buf = np.zeros(size, dtype=np.float32)
         self.rew_buf = np.zeros(size, dtype=np.float32)
@@ -52,10 +55,7 @@ class PPOBuffer:
         """
 
         assert self.ptr < self.max_size  # buffer has to have room so you can store
-        if obs.cuda:
-            self.obs_buf[self.ptr] = obs.cpu().detach().numpy()
-        else:
-            self.obs_buf[self.ptr] = obs
+        self.obs_buf[self.ptr] = obs
         self.act_buf[self.ptr] = act
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
@@ -219,7 +219,8 @@ class PPOPolicy():
               steps_per_epoch=800, steps_to_run=100000, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
               vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
               target_kl=0.01, logger_kwargs=dict(), save_freq=-1, tsboard_freq=-1, use_neg_weight=True,
-              neg_weight_constant=-1, curriculum_weight=0.3, use_value_norm=False, use_huber_loss=False, **kargs):
+              neg_weight_constant=-1, curriculum_weight=0.3, use_value_norm=False, use_huber_loss=False,
+              transfer=False, use_rnn=False, **kargs):
         """
         Proximal Policy Optimization (by clipping),
 
@@ -354,12 +355,18 @@ class PPOPolicy():
         obs_dim = env.observation_space.shape
         act_dim = env.action_space.shape
         o, ep_ret, ep_len = env.reset(), 0, 0
+        if use_rnn:
+            state_history = [o, o, o, o, o]
+            ac_kwargs['use_rnn'] = True
 
         # Create actor-critic module
         mpi_print(env.observation_space, env.action_space)
         ac = actor_critic(env.observation_space, env.action_space, **ac_kwargs)
 
-        if self.kargs['model_path']:
+        if transfer:
+            state_dict = torch.load(self.kargs['model_path'])
+            ac.load_state_dict(state_dict)
+        elif self.kargs['model_path']:
             state_dict = torch.load(self.kargs['model_path'])
 
             temp_state_dict = {}
@@ -386,7 +393,7 @@ class PPOPolicy():
 
         # Set up experience buffer
         # local_steps_per_epoch = int(steps_per_epoch / num_procs(comm))
-        buf = PPOBuffer(obs_dim, act_dim, steps_per_epoch, gamma, lam)
+        buf = PPOBuffer(obs_dim, act_dim, steps_per_epoch, gamma, lam, use_rnn=use_rnn)
 
         if use_value_norm:
             value_normalizer = valuenorm.ValueNorm(1)
@@ -510,16 +517,7 @@ class PPOPolicy():
             env.penalty_weight = 0.0
 
         while step < steps_to_run:
-            '''
-            if step == 500000:
-                steps_per_epoch = 8
-            elif step == 1000000:
-                steps_per_epoch = 16
-            elif step == 2000000:
-                steps_per_epoch = 32
-            elif step == 3000000:
-                steps_per_epoch = 64
-            '''
+
             #neg_weight = min((step // (steps_to_run // 6) + 1) * 0.05, curriculum_weight)
             if neg_weight_constant >= 0.0:
                 neg_weight = neg_weight_constant
@@ -530,14 +528,24 @@ class PPOPolicy():
                         neg_weight = neg_weight + 0.05
                         env.penalty_weight = env.penalty_weight + 0.05
 
-            if comm.Get_rank() == 0 and step % 50000 == 0:
-                model_path = os.path.join('./models', str(kargs['model_id']), str(step * n_process)+'.pth')
-                mpi_print('save ', model_path)
+            if comm.Get_rank() == 0 and step % 25000 == 0:
+                #model_path = os.path.join('./models', str(kargs['model_id']), str(step * n_process)+'.pth')
+                model_path = os.path.join('./models', str(kargs['model_id']), str(step)+'.pth')
+                #mpi_print('save ', model_path)
                 torch.save(ac.state_dict(), model_path)
 
             step += 1
-            o = torch.as_tensor(o, dtype=torch.float32).to(device)
-            a, v, logp = ac.step(o)
+            if use_rnn:
+                o = [torch.as_tensor(o, dtype=torch.float32).to(device) for o in state_history]
+                o = torch.cat(o, dim=0)
+                try:
+                    a, v, logp = ac.step(o)
+                except:
+                    print('obsssss', o.shape)
+                    exit(0)
+            else:
+                o = torch.as_tensor(o, dtype=torch.float32).to(device)
+                a, v, logp = ac.step(o)
             next_o, r, terminal, _ = env.step(a)
 
             ep_ret += r
@@ -545,7 +553,6 @@ class PPOPolicy():
             total_step += 1
 
             if r < 0 and use_neg_weight:
-                #r *= neg_weight
                 neg_ret += r
             else:
                 pos_ret += r
@@ -554,7 +561,10 @@ class PPOPolicy():
             buf.store(o, a, r, v, logp)
 
             # Update obs (critical!)
-            o = next_o
+            if use_rnn:
+                state_history = state_history[1:] + [next_o]
+            else:
+                o = next_o
 
             epoch_ended = step > 0 and step % steps_per_epoch == 0
 
@@ -564,11 +574,14 @@ class PPOPolicy():
 
                 if epoch_ended and not (terminal):
                     print('Warning: trajectory cut off by epoch at %d steps.' % ep_len, flush=True)
-                    print('STEPS PER EPOCH = ', steps_per_epoch)
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if epoch_ended:
-                    _, v, _ = ac.step(torch.as_tensor(o, dtype=torch.float32).to(device))
-                    # _, v, _ = ac.step(o)
+                    if use_rnn:
+                        o = [torch.as_tensor(o, dtype=torch.float32).to(device) for o in state_history]
+                        o = torch.cat(o, dim=0)
+                        _, v, _ = ac.step(o)
+                    else:
+                        _, v, _ = ac.step(torch.as_tensor(o, dtype=torch.float32).to(device))
                 else:
                     v = 0
                 buf.finish_path(v)
@@ -580,6 +593,8 @@ class PPOPolicy():
 
                     o, ep_ret, ep_len = env.reset(), 0, 0
                     o = torch.as_tensor(o, dtype=torch.float32).to(device)
+                    if use_rnn:
+                        state_history = [o, o, o, o, o]
                     ep_ret_mod, neg_ret, pos_ret = 0, 0, 0
 
                 ep_ret, ep_len = 0, 0
