@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from torch import nn
 from torch.optim import Adam
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 import gym
 import time
 from .utils.logx import EpochLogger
@@ -220,7 +221,7 @@ class PPOPolicy():
               vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
               target_kl=0.01, logger_kwargs=dict(), save_freq=-1, tsboard_freq=-1, use_neg_weight=True,
               neg_weight_constant=-1, curriculum_weight=0.3, use_value_norm=False, use_huber_loss=False,
-              transfer=False, use_rnn=False, **kargs):
+              transfer=False, use_rnn=False, schedule='constant', **kargs):
         """
         Proximal Policy Optimization (by clipping),
 
@@ -355,6 +356,7 @@ class PPOPolicy():
         obs_dim = env.observation_space.shape
         act_dim = env.action_space.shape
         o, ep_ret, ep_len = env.reset(), 0, 0
+        ep_ret_scheduler = 0
         if use_rnn:
             state_history = [o, o, o, o, o]
             ac_kwargs['use_rnn'] = True
@@ -441,9 +443,20 @@ class PPOPolicy():
         # Set up optimizers for policy and value function
         pi_optimizer = Adam(ac.pi.parameters(), lr=pi_lr)
         vf_optimizer = Adam(ac.v.parameters(), lr=vf_lr)
+        if schedule == 'smart':
+            scheduler = ReduceLROnPlateau(vf_optimizer, mode='max', patience=100, min_lr=1e-5)
 
         # Set up model saving
         # logger.setup_pytorch_saver(ac)
+
+        def linear_lr(optimizer, start, epoch):
+            """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
+            init_lr = optimizer.param_groups[0]['lr']
+            if init_lr <= 1e-5:
+                return
+            lr = init_lr - init_lr * (start * 1.0/epoch)
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = lr
 
         loss_p_index, loss_v_index = 0, 0
 
@@ -551,6 +564,7 @@ class PPOPolicy():
             ep_ret += r
             ep_len += 1
             total_step += 1
+            ep_ret_scheduler += r
 
             if r < 0 and use_neg_weight:
                 neg_ret += r
@@ -601,6 +615,15 @@ class PPOPolicy():
 
             if epoch_ended:
                 update()
+                if schedule == 'linear':
+                    linear_lr(vf_optimizer, start=0.5, epoch=step)
+                    if proc_id(comm) == 0:
+                        print('LEARNING RATE', vf_optimizer.param_groups[0]['lr'])
+                elif schedule == 'smart':
+                    scheduler.step(ep_ret_scheduler)
+                    if proc_id(comm) == 0:
+                        print('LEARNING RATE', vf_optimizer.param_groups[0]['lr'])
+                    ep_ret_scheduler = 0
                 # if comm.Get_rank() == 0:
                 #    barrier_encode = ac.pi.cnn(ac.pi.barrier_img)
                 #    if last_barrier_encode == None:
