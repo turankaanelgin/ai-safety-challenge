@@ -100,9 +100,9 @@ class TanksWorldEnv(gym.Env):
         self._filename =  exe#'/home/rivercg1/projects/aisafety/build/aisafetytanks_0.1.2/TanksWorld.x86_64'
         self.observation_space = None
         #self.observation_space = gym.spaces.box.Box(0,255,(128,128,4))
-        self.observation_space = gym.spaces.box.Box(0,255,(4,128,128))
-        self.action_space = gym.spaces.box.Box(-1,1,(3,))
-        self.action_space = None
+        self.observation_space = gym.spaces.box.Box(0,255,(20,128,128))
+        self.action_space = gym.spaces.box.Box(-1,1,(15,))
+        #self.action_space = None
         self._seed = np.random.randint(TanksWorldEnv._MAX_INT) #integer seed required, convert
 
         self.timeout = timeout
@@ -215,6 +215,7 @@ class TanksWorldEnv(gym.Env):
             ret_states = [cv2.resize(s, (self.image_scale, self.image_scale)) for s in ret_states]
 
         ret_states = [np.expand_dims(s.transpose((2, 0, 1)), 0) for s in ret_states]
+        ret_states = np.concatenate(ret_states, axis=1).squeeze()
         return ret_states
 
     def reset(self,**kwargs):
@@ -230,7 +231,7 @@ class TanksWorldEnv(gym.Env):
         if not TanksWorldEnv._env:
             try:
                 print('WARNING: seed not set, using default')
-                TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=self._workerid,
+                TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=np.random.randint(10000) + self._workerid,
                                                       seed=self._seed, timeout_wait=500)
                 print('finished initializing environment')
                 TanksWorldEnv._env_params['filename'] = self._filename
@@ -542,7 +543,7 @@ class TanksWorldEnv(gym.Env):
 
 
     def step(self, action):
-
+        action = action.reshape(5,3).tolist()
         action = action[:]
 
         self.reward = [0.0]*len(self.training_tanks)
@@ -699,7 +700,9 @@ class TanksWorldEnv(gym.Env):
         else:
             info = [{"red_stats": self.red_team_stats, "blue_stats": self.blue_team_stats}] * len(self.training_tanks)
 
-        return self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), info
+
+        self.reward = np.mean(self.reward)
+        return self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), info[0]
 
 
     def get_statistics(self):
