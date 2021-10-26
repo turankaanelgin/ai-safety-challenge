@@ -19,7 +19,7 @@ from . import core
 import cv2
 import os
 import json
-from math import ceil
+from math import ceil, sqrt
 
 from stable_baselines.trpo_mpi.utils import flatten_lists
 from algos.torch_ppo.mappo_utils import valuenorm
@@ -458,6 +458,14 @@ class PPOPolicy():
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
 
+        def sqrt_lr(optimizer, start, epoch):
+            init_lr = optimizer.param_groups[0]['lr']
+            if init_lr <= 1e-5:
+                return
+            lr = init_lr - init_lr * (start * 1.0 / sqrt(epoch))
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = lr
+
         loss_p_index, loss_v_index = 0, 0
 
         def update():
@@ -617,6 +625,10 @@ class PPOPolicy():
                 update()
                 if schedule == 'linear':
                     linear_lr(vf_optimizer, start=0.5, epoch=step)
+                    if proc_id(comm) == 0:
+                        print('LEARNING RATE', vf_optimizer.param_groups[0]['lr'])
+                elif schedule == 'sqrt':
+                    sqrt_lr(vf_optimizer, start=0.5, epoch=step)
                     if proc_id(comm) == 0:
                         print('LEARNING RATE', vf_optimizer.param_groups[0]['lr'])
                 elif schedule == 'smart':

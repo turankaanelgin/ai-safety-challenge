@@ -39,13 +39,15 @@ match_list = [#[1,1,1,1,1],
               #[5,5,5,5,5]]
               #[6,6,6,6,6],
               #[7,7,7,7,7],
-               [8,8,8,8,8]]
-               #[9,9,9,9,9]]
+               #[8,8,8,8,8]]
+               [9,9,9,9,9],
+               [10,10,10,10,10]]
 
 # policy 1 is PPO
 policy_types = {1: 'torch_ppo', 2: 'torch_ppo', 3: 'torch_ppo',
                 4: 'torch_ppo', 5: 'torch_ppo', 6: 'torch_ppo',
-                7: 'torch_ppo', 8: 'torch_ppo', 9: 'torch_ppo'}
+                7: 'torch_ppo', 8: 'torch_ppo', 9: 'torch_ppo',
+                10: 'torch_ppo'}
 
 stats_dir = './runs/stats_{}'.format(args.logdir)
 if os.path.exists(stats_dir):
@@ -109,7 +111,10 @@ else:
                     'model_path': './models/frozen-cnn-0.8/4000000.pth', 'pi_lr': 3e-4, 'vf_lr': 1e-3, 'schedule': 'linear'},
                 9: {'steps_per_epoch': 4, 'train_pi_iters': 4, 'train_v_iters': 4, 'actor_critic': MLPActorCritic,
                     'ac_kwargs': {'hidden_sizes': (64, 64)}, 'neg_weight_constant': 1.0, 'model_id': 'iter-4-deneme9',
-                    'model_path': './models/frozen-cnn-0.8/4000000.pth', 'pi_lr': 3e-4, 'vf_lr': 1e-3, 'schedule': 'smart'}}
+                    'model_path': './models/frozen-cnn-0.8/4000000.pth', 'pi_lr': 3e-4, 'vf_lr': 1e-3, 'schedule': 'smart'},
+                10: {'steps_per_epoch': 4, 'train_pi_iters': 4, 'train_v_iters': 4, 'actor_critic': MLPActorCritic,
+                    'ac_kwargs': {'hidden_sizes': (64, 64)}, 'neg_weight_constant': 1.0, 'model_id': 'iter-4-deneme10',
+                    'model_path': './models/frozen-cnn-0.8/4000000.pth', 'pi_lr': 3e-4, 'vf_lr': 1e-3, 'schedule': 'sqrt'}}
 
 with open(os.path.join(stats_dir, 'policy_params.json'), 'w+') as f:
     temp_kwargs_2 = {}
