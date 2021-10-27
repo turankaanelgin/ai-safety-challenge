@@ -315,7 +315,7 @@ class TanksWorldEnv(gym.Env):
         self.red_team_stats["tanks_dead"]["ally"] = 5-red_alive
         self.red_team_stats["tanks_dead"]["enemy"] = 5-blue_alive
         self.red_team_stats["tanks_dead"]["neutral"] = 2-neutral_alive
-        self.red_team_stats["team_health"]["ally"] = red_health
+        self.red_team_stats["team_health"][""] = red_health
         self.red_team_stats["team_health"]["enemy"] = blue_health
         self.red_team_stats["team_health"]["neutral"] = neutral_health
 
