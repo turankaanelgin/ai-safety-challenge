@@ -7,60 +7,91 @@ import gym
 import cv2
 import my_config as cfg
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
+from stable_baselines3.common.env_util import make_vec_env
 import torch as th
 import torch.nn as nn
-
-
-args = cfg.args
-stats_dir = './runs/stats_{}'.format(args.logdir)
-kwargs_1 = {"static_tanks": [], "random_tanks": [5, 6, 7, 8, 9], "disable_shooting": [],
-            "friendly_fire":False, 'kill_bonus':False, 'death_penalty':False, 'take_damage_penalty': True,
-            'tblogs':stats_dir, 'penalty_weight':1.0, 'reward_weight':1.0, 'log_statistics': True, 'timeout': 500,
-            'barrier_heuristic': False}
-env = make_env(**kwargs_1)
-print(env.reset().shape)
-#env = gym.make('CartPole-v1')
 from stable_baselines3.common.env_checker import check_env
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
+from stable_baselines3.common.env_util import is_wrapped
+from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.callbacks import CheckpointCallback
 
-class CustomCNN(BaseFeaturesExtractor):
-    """
-    :param observation_space: (gym.Space)
-    :param features_dim: (int) Number of features extracted.
-        This corresponds to the number of unit for the last layer.
-    """
+if __name__ == '__main__':  
+    args = cfg.args
 
-    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256):
-        super(CustomCNN, self).__init__(observation_space, features_dim)
-        # We assume CxHxW images (channels first)
-        # Re-ordering will be done by pre-preprocessing or wrapper
-        n_input_channels = observation_space.shape[0]
-        self.cnn = nn.Sequential(
-            nn.Conv2d(n_input_channels, 32, kernel_size=8, stride=4, padding=0),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
-            nn.ReLU(),
-            nn.Flatten(),
-        )
+    class CustomCNN(BaseFeaturesExtractor):
+        """
+        :param observation_space: (gym.Space)
+        :param features_dim: (int) Number of features extracted.
+            This corresponds to the number of unit for the last layer.
+        """
 
-        # Compute shape by doing one forward pass
-        with th.no_grad():
-            n_flatten = self.cnn(
-                th.as_tensor(observation_space.sample()[None]).float()
-            ).shape[1]
+        def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256):
+            super(CustomCNN, self).__init__(observation_space, features_dim)
+            # We assume CxHxW images (channels first)
+            # Re-ordering will be done by pre-preprocessing or wrapper
+            n_input_channels = observation_space.shape[0]
+            self.cnn = nn.Sequential(
+                nn.Conv2d(n_input_channels, 32, kernel_size=8, stride=4, padding=0),
+                nn.ReLU(),
+                nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
+                nn.ReLU(),
+                nn.Flatten(),
+            )
 
-        self.linear = nn.Sequential(nn.Linear(n_flatten, features_dim), nn.ReLU())
+            # Compute shape by doing one forward pass
+            with th.no_grad():
+                n_flatten = self.cnn(
+                    th.as_tensor(observation_space.sample()[None]).float()
+                ).shape[1]
 
-    def forward(self, observations: th.Tensor) -> th.Tensor:
-        return self.linear(self.cnn(observations))
+            self.linear = nn.Sequential(nn.Linear(n_flatten, features_dim), nn.ReLU())
 
-policy_kwargs = dict(
-    features_extractor_class=CustomCNN,
-    features_extractor_kwargs=dict(features_dim=128),
-)
-model = CustomCNN(env.observation_space)
+        def forward(self, observations: th.Tensor) -> th.Tensor:
+            return self.linear(self.cnn(observations))
 
-model = PPO("CnnPolicy", env, policy_kwargs=policy_kwargs, verbose=2, tensorboard_log='tsboard/run1')
-model.learn(total_timesteps=4000000)
-model.save("vectorized.pth")
+
+    stats_dir = './runs/stats_{}'.format(args.logdir)
+    kwargs_1 = {"static_tanks": [], "random_tanks": [5, 6, 7, 8, 9], "disable_shooting": [],
+                "friendly_fire":False, 'kill_bonus':False, 'death_penalty':False, 'take_damage_penalty': True,
+                'tblogs':stats_dir, 'penalty_weight':args.penalty_weight, 'reward_weight':1.0, 'log_statistics': True, 'timeout': 500,
+                'barrier_heuristic': False}
+    def create_env():
+        #return Monitor(make_env(**kwargs_1))
+        return make_env(**kwargs_1)
+#env = gym.make('CartPole-v1')
+
+    from datetime import datetime
+    date_str = datetime.now().strftime("%y-%m-%d-%H:%M")
+    save_path = './results/'+date_str+'-'+args.desc
+    import os
+    os.mkdir(save_path)
+    import yaml
+    with open(save_path+'/config.yaml', 'w') as file:
+        yaml.dump(args.__dict__,file)
+
+
+    if args.n_env == 1:
+        env = create_env()
+    else:
+        env = SubprocVecEnv([create_env] * args.n_env)
+        env = VecMonitor(env)
+
+    #env = Monitor(env)
+    #print(is_wrapped(env, Monitor))
+    #import pdb; pdb.set_trace();
+    #model = CustomCNN(env.observation_space)
+    policy_kwargs = dict(
+        features_extractor_class=CustomCNN,
+        features_extractor_kwargs=dict(features_dim=128),
+    )
+    #model = PPO("CnnPolicy", env, policy_kwargs=policy_kwargs)1024
+
+
+    
+    checkpoint_callback = CheckpointCallback(save_freq=args.save_freq, save_path=save_path + '/checkpoints', name_prefix='rl_model')
+    model = PPO("CnnPolicy", env, policy_kwargs=policy_kwargs, n_steps=args.horizon, verbose=2,\
+            tensorboard_log=save_path)
+    model.learn(total_timesteps=args.timestep, callback=checkpoint_callback)
 
 
