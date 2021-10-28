@@ -37,6 +37,10 @@ if __name__ == '__main__':
                 nn.ReLU(),
                 nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
                 nn.ReLU(),
+                nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=0),
+                nn.ReLU(),
+                nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=0),
+                nn.ReLU(),
                 nn.Flatten(),
             )
 
@@ -55,8 +59,7 @@ if __name__ == '__main__':
     stats_dir = './runs/stats_{}'.format(args.logdir)
     kwargs_1 = {"static_tanks": [], "random_tanks": [5, 6, 7, 8, 9], "disable_shooting": [],
                 "friendly_fire":False, 'kill_bonus':False, 'death_penalty':False, 'take_damage_penalty': True,
-                'tblogs':stats_dir, 'penalty_weight':args.penalty_weight, 'reward_weight':1.0, 'log_statistics': True, 'timeout': 500,
-                'barrier_heuristic': False}
+                'tblogs':stats_dir, 'penalty_weight':1.0, 'reward_weight':1.0, 'log_statistics': True, 'timeout': 500}
     def create_env():
         #return Monitor(make_env(**kwargs_1))
         return make_env(**kwargs_1)
@@ -143,7 +146,10 @@ if __name__ == '__main__':
     else:
         from datetime import datetime
         date_str = datetime.now().strftime("%y-%m-%d-%H:%M")
-        save_path = './results/'+date_str+'-'+args.desc
+        if args.testing:
+            save_path = './testing/'+date_str+'-'+args.desc
+        else:
+            save_path = './results/'+date_str+'-'+args.desc
         import os
         os.mkdir(save_path)
         import yaml
@@ -163,15 +169,15 @@ if __name__ == '__main__':
         #model = CustomCNN(env.observation_space)
         policy_kwargs = dict(
             features_extractor_class=CustomCNN,
-            features_extractor_kwargs=dict(features_dim=128),
+            features_extractor_kwargs=dict(features_dim=512),
+            net_arch=[512, dict(pi=[512, 512], vf=[512, 512])]
         )
         #model = PPO("CnnPolicy", env, policy_kwargs=policy_kwargs)1024
 
 
         
         checkpoint_callback = CheckpointCallback(save_freq=args.save_freq, save_path=save_path + '/checkpoints', name_prefix='rl_model')
-        model = PPO("CnnPolicy", env, policy_kwargs=policy_kwargs, n_steps=args.horizon, verbose=2,\
-                tensorboard_log=save_path)
+        model = PPO("CnnPolicy", env, policy_kwargs=policy_kwargs, n_steps=args.horizon, verbose=2,tensorboard_log=save_path)
         model.learn(total_timesteps=args.timestep, callback=checkpoint_callback)
 
 

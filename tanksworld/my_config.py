@@ -26,6 +26,7 @@ parser.add_argument('--death_penalty', action='store_true', default=False)
 parser.add_argument('--friendly_fire', action='store_true', default=False)
 parser.add_argument('--kill_bonus', action='store_true', default=False)
 parser.add_argument('--eval-mode', action='store_true', default=False)
+parser.add_argument('--testing', action='store_true', default=False)
 args = parser.parse_args()
 
 # Tell the arena where it can put log files that describe the results of
