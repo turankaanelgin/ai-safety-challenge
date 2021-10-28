@@ -63,25 +63,43 @@ if __name__ == '__main__':
     def create_env():
         #return Monitor(make_env(**kwargs_1))
         return make_env(**kwargs_1)
-    if args.eval_mode:
-        #model = PPO.load(args.save_path)
+    if args.record:
+        model = PPO.load(args.save_path)
         env = create_env()
         observation = env.reset()
         step = 0
         old_step =0
+        env_count = 0
+        game = 0
+        while game < 500:
+            action, _ = model.predict(observation)
+            #observation, reward, done, info = env.step(action)
+            observation, reward, done, info = env.step(action)
+            if done:
+                game += 1
+                observation = env.reset()
+
+    elif args.eval_mode:
+        model = PPO.load(args.save_path)
+        env = create_env()
+        observation = env.reset()
+        step = 0
+        old_step =0
+        env_count = 0
         while step < 10000:
-            #action, _ = model.predict(observation)
-            #print(action, observation.max(), observation.min())
+            action, _ = model.predict(observation)
             #observation, reward, done, info = env.step(np.random.rand(15))
-            observation, reward, done, info = env.step(list(np.random.rand(5,3)))
+            observation, reward, done, info = env.step(action)
             step += 1
             # step environment
             print(reward)
             if done:
+                env_count = 500
                 #avg_info = info['average']
                 #red_dmg = avg_info['enemy_damage_amount_red']
                 #print('red dmg', red_dmg, step - old_step)
                 print('=============== Time step ',  step - old_step)
+                print(info['average'])
                 import pdb; pdb.set_trace();
                 old_step = step
                 observation = env.reset()
