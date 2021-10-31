@@ -93,7 +93,7 @@ class TanksWorldEnv(gym.Env):
     #DO this in reset to allow seed to be set
     def __init__(self, exe, action_repeat=6, image_scale=128, timeout=500, friendly_fire=True, take_damage_penalty=True, kill_bonus=True, death_penalty=True,
         static_tanks=[], random_tanks=[], disable_shooting=[], penalty_weight=1.0, reward_weight=1.0, will_render=False,
-        speed_red=1.0, speed_blue=1.0, tblogs='runs/stats', seed_val=None, log_statistics=False, no_timeout=False, friendly_fire_weight=1.0):
+        speed_red=1.0, speed_blue=1.0, tblogs='runs/stats', seed=-1, log_statistics=False, no_timeout=False, friendly_fire_weight=1.0):
 
         # call reset() to begin playing
         self._workerid = MPI.COMM_WORLD.Get_rank() #int(os.environ['L2EXPLORER_WORKER_ID'])
@@ -103,7 +103,10 @@ class TanksWorldEnv(gym.Env):
         self.observation_space = gym.spaces.box.Box(0,255,(4,128,128))
         self.action_space = gym.spaces.box.Box(-1,1,(3,))
         self.action_space = None
-        self._seed = np.random.randint(TanksWorldEnv._MAX_INT) #integer seed required, convert
+        if seed == -1:
+            self._seed = np.random.randint(TanksWorldEnv._MAX_INT) #integer seed required, convert
+        else:
+            self._seed = seed
 
         self.timeout = timeout
         self.action_repeat=action_repeat  # repeat action this many times
@@ -230,7 +233,7 @@ class TanksWorldEnv(gym.Env):
         if not TanksWorldEnv._env:
             try:
                 print('WARNING: seed not set, using default')
-                TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=500,#self._workerid,
+                TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=np.random.randint(10000)+self._workerid,
                                                       seed=self._seed, timeout_wait=500)
                 print('finished initializing environment')
                 TanksWorldEnv._env_params['filename'] = self._filename

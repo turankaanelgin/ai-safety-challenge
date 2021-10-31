@@ -9,7 +9,7 @@ import numpy as np
 # example of passing in kwargs and using them
 def make_env(friendly_fire=True, take_damage_penalty=True, kill_bonus=True, death_penalty=True,
 	static_tanks=[], random_tanks=[], disable_shooting=[], reward_weight=1.0, penalty_weight=1.0,
-	tblogs=None, seed_val=None, timeout=500, **kwargs):
+	tblogs=None, timeout=500, **kwargs):
 
 	return TanksWorldEnv(cfg.args.exe,
 		action_repeat=6, 			# step between decisions, will be 6 in evaluation
@@ -26,7 +26,6 @@ def make_env(friendly_fire=True, take_damage_penalty=True, kill_bonus=True, deat
         penalty_weight=penalty_weight,
         will_render=True,
 		tblogs=tblogs,
-		seed_val=seed_val,
 		**kwargs)			# prepare rgb images for displaying when render() is called.  If not rendering turn off.
 
 		# NOTE: Make sure if you set static_tanks or random_tanks, or adjuist image_scale, that you make appropriate changes in my_config.py!!!

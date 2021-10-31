@@ -158,11 +158,15 @@ class PPOPolicy():
             # step environment
             observation, reward, done, info = self.env.step(action)
 
+            print('INFO', info)
+            exit(0)
+
             steps += 1
             eplen += 1
             epret += reward
 
             if done:
+                print('DONE in step', steps)
                 observation = self.env.reset()
 
                 episode_reward = self.comm.allgather(epret)
@@ -221,7 +225,7 @@ class PPOPolicy():
               vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
               target_kl=0.01, logger_kwargs=dict(), save_freq=-1, tsboard_freq=-1, use_neg_weight=True,
               neg_weight_constant=-1, curriculum_weight=0.3, use_value_norm=False, use_huber_loss=False,
-              transfer=False, use_rnn=False, schedule='constant', **kargs):
+              transfer=False, use_rnn=False, pi_scheduler='constant', vf_scheduler='constant', **kargs):
         """
         Proximal Policy Optimization (by clipping),
 
@@ -325,11 +329,11 @@ class PPOPolicy():
 
         """
 
-        # Save about 200 model
-        if save_freq == -1:
-            save_freq = steps_to_run // 200
         if tsboard_freq == -1:
-            tsboard_freq = steps_to_run // 10000
+            if steps_to_run > 100000:
+                tsboard_freq = steps_to_run // 10000
+            else:
+                tsboard_freq = steps_to_run // 100
 
         # Special function to avoid certain slowdowns from PyTorch + MPI combo.
         root = 0
@@ -344,7 +348,8 @@ class PPOPolicy():
 
         # Random seed
         MAX_INT = 2147483647
-        seed = np.random.randint(MAX_INT)
+        #seed = np.random.randint(MAX_INT)
+        seed = 0
         torch.manual_seed(seed)
         np.random.seed(seed)
 
@@ -443,24 +448,26 @@ class PPOPolicy():
         # Set up optimizers for policy and value function
         pi_optimizer = Adam(ac.pi.parameters(), lr=pi_lr)
         vf_optimizer = Adam(ac.v.parameters(), lr=vf_lr)
-        if schedule == 'smart':
-            scheduler = ReduceLROnPlateau(vf_optimizer, mode='max', patience=100, min_lr=1e-5)
+        if pi_scheduler == 'smart':
+            scheduler_policy = ReduceLROnPlateau(pi_optimizer, mode='max', patience=100, factor=0.05, min_lr=1e-6)
+        if vf_scheduler == 'smart':
+            scheduler_value = ReduceLROnPlateau(vf_optimizer, mode='max', patience=100, factor=0.05, min_lr=1e-5)
 
         # Set up model saving
         # logger.setup_pytorch_saver(ac)
 
-        def linear_lr(optimizer, start, epoch):
+        def linear_lr(optimizer, start, epoch, stop):
             """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
             init_lr = optimizer.param_groups[0]['lr']
-            if init_lr <= 1e-5:
+            if init_lr <= stop:
                 return
             lr = init_lr - init_lr * (start * 1.0/epoch)
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
 
-        def sqrt_lr(optimizer, start, epoch):
+        def sqrt_lr(optimizer, start, epoch, stop):
             init_lr = optimizer.param_groups[0]['lr']
-            if init_lr <= 1e-5:
+            if init_lr <= stop:
                 return
             lr = init_lr - init_lr * (start * 1.0 / sqrt(epoch))
             for param_group in optimizer.param_groups:
@@ -469,7 +476,7 @@ class PPOPolicy():
         loss_p_index, loss_v_index = 0, 0
 
         def update():
-            mpi_print('process', comm.Get_rank(), 'run update')
+            #mpi_print('process', comm.Get_rank(), 'run update')
             nonlocal loss_p_index, loss_v_index
             data = buf.get(comm)
 
@@ -559,11 +566,7 @@ class PPOPolicy():
             if use_rnn:
                 o = [torch.as_tensor(o, dtype=torch.float32).to(device) for o in state_history]
                 o = torch.cat(o, dim=0)
-                try:
-                    a, v, logp = ac.step(o)
-                except:
-                    print('obsssss', o.shape)
-                    exit(0)
+                a, v, logp = ac.step(o)
             else:
                 o = torch.as_tensor(o, dtype=torch.float32).to(device)
                 a, v, logp = ac.step(o)
@@ -595,7 +598,8 @@ class PPOPolicy():
                 episode_returns.append(ep_ret)
 
                 if epoch_ended and not (terminal):
-                    print('Warning: trajectory cut off by epoch at %d steps.' % ep_len, flush=True)
+                    pass
+                    #print('Warning: trajectory cut off by epoch at %d steps.' % ep_len, flush=True)
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if epoch_ended:
                     if use_rnn:
@@ -623,19 +627,19 @@ class PPOPolicy():
 
             if epoch_ended:
                 update()
-                if schedule == 'linear':
-                    linear_lr(vf_optimizer, start=0.5, epoch=step)
-                    if proc_id(comm) == 0:
-                        print('LEARNING RATE', vf_optimizer.param_groups[0]['lr'])
-                elif schedule == 'sqrt':
-                    sqrt_lr(vf_optimizer, start=0.5, epoch=step)
-                    if proc_id(comm) == 0:
-                        print('LEARNING RATE', vf_optimizer.param_groups[0]['lr'])
-                elif schedule == 'smart':
-                    scheduler.step(ep_ret_scheduler)
-                    if proc_id(comm) == 0:
-                        print('LEARNING RATE', vf_optimizer.param_groups[0]['lr'])
-                    ep_ret_scheduler = 0
+                if pi_scheduler == 'lin':
+                    linear_lr(pi_optimizer, start=0.5, epoch=step, stop=1e-6)
+                elif pi_scheduler == 'sqrt':
+                    sqrt_lr(pi_optimizer, start=0.5, epoch=step, stop=1e-6)
+                elif pi_scheduler == 'smart':
+                    scheduler_policy.step(ep_ret_scheduler)
+                if vf_scheduler == 'lin':
+                    linear_lr(vf_optimizer, start=0.5, epoch=step, stop=1e-5)
+                elif vf_scheduler == 'sqrt':
+                    sqrt_lr(vf_optimizer, start=0.5, epoch=step, stop=1e-5)
+                elif vf_scheduler == 'smart':
+                    scheduler_value.step(ep_ret_scheduler)
+                ep_ret_scheduler = 0
                 # if comm.Get_rank() == 0:
                 #    barrier_encode = ac.pi.cnn(ac.pi.barrier_img)
                 #    if last_barrier_encode == None:
