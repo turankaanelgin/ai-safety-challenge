@@ -24,57 +24,57 @@ args = cfg.args
 args_dict = cfg.args_dict
 
 additional_policies = {'torch_ppo': TorchPPOPolicy}
-if args.seed != -1:
-    if len(args.seed) == 1:
-        env_seeds = [args.seed]
+if args.env_seed != -1:
+    if len(args.env_seed) == 1:
+        env_seeds = [args.env_seed]
     else:
-        env_seeds = args.seed
+        env_seeds = args.env_seed
 else:
     env_seeds = []
+if args.policy_seed != -1:
+    if len(args.policy_seed) == 1:
+        policy_seeds = [args.policy_seed]
+    else:
+        policy_seeds = args.policy_seed
+else:
+    policy_seeds = []
 arena = make_stem(cfg.MAKE_ENV_LOCATION, cfg.LOG_COMMS_DIR, cfg.OBS_SPACES, cfg.ACT_SPACES, additional_policies)
 
 # --- only the root process will get beyond this point ---
 # the first 5 players in the gamew will use policy 1
-
-grid = itertools.product(args_dict['reward_weight'],
-                         args_dict['penalty_weight'],
-                         args_dict['ff_weight'],
-                         args_dict['policy_lr'],
-                         args_dict['value_lr'],
-                         args_dict['policy_lr_schedule'],
-                         args_dict['value_lr_schedule'],
-                         args_dict['steps_per_epoch'])
-grid = [{'reward_weight': x[0],
-         'penalty_weight': x[1],
-         'ff_weight': x[2],
-         'policy_lr': x[3],
-         'value_lr': x[4],
-         'policy_lr_schedule': x[5],
-         'value_lr_schedule': x[6],
-         'steps_per_epoch': x[7],
-         'death_penalty': False,
-         'friendly_fire': True,
-         'kill_bonus': False,
-         'take_damage_penalty': True} for x in grid]
-
+grid = cfg.grid
 print('Total number of configurations:', len(grid))
 
-match_list = [[i,i,i,i,i] for i in range(1, len(grid)+1)]
-policy_types = {}
-for i in range(1, len(grid)+1):
-    policy_types[i] = 'torch_ppo'
+if args.eval_mode:
+    match_list = [[1,1,1,1,1]]
+else:
+    match_list = [[i,i,i,i,i] for i in range(1, len(grid)*len(policy_seeds)+1)]
+policy_types = {i: 'torch_ppo' for i in range(1, len(grid)*len(policy_seeds)+1)}
 print('MATCH LIST:', match_list)
 
-policy_folder_names = []
-for config in grid:
-    policy_folder_names.append('lrp={}{}__lrv={}{}__r={}__p={}__ff={}__H={}'.format(config['policy_lr'],
+colors = [(1.0,0,0), (0,0,1.0), (0,1.0,0), (1.0,1.0,0), (0,1.0,1.0), (1.0,0,1.0)]
+assert len(colors) >= len(policy_seeds)
+
+if args.eval_mode:
+    policy_folder_names = [args.eval_checkpoint.split('/')[-2]]
+else:
+    policy_folder_names = []
+    for config in grid:
+        folder_name = 'lrp={}{}__lrv={}{}__r={}__p={}__ff={}__H={}'.format(config['policy_lr'],
                                                                                  config['policy_lr_schedule'],
                                                                                  config['value_lr'],
                                                                                  config['value_lr_schedule'],
                                                                                  config['reward_weight'],
                                                                                  config['penalty_weight'],
                                                                                  config['ff_weight'],
-                                                                                 config['steps_per_epoch']))
+                                                                                 config['steps_per_epoch'])
+        if config['curriculum_start'] >= 0.0:
+            folder_name += '__CS={}__CF={}'.format(config['curriculum_start'], config['curriculum_stop'])
+        policy_folder_names += [folder_name] * len(policy_seeds)
+
+plot_colors = colors[:len(policy_seeds)]*len(grid)
+plot_colors = {i+1: plot_colors[i] for i in range(len(plot_colors))}
+
 print('POLICY FOLDER NAMES:', policy_folder_names)
 
 stats_dir = './runs/stats_{}'.format(args.logdir)
@@ -88,31 +88,31 @@ if args.eval_mode:
 else:
     kwargs_1 = []
     for config in grid:
-        kwargs_1.append({'static_tanks': [], 'random_tanks': [5,6,7,8,9], 'disable_shooting': [],
+        for _ in policy_seeds:
+            kwargs_1.append({'static_tanks': [], 'random_tanks': [5,6,7,8,9], 'disable_shooting': [],
                          'friendly_fire': True, 'kill_bonus': False, 'death_penalty': False,
                          'take_damage_penalty': True, 'tblogs': stats_dir,
                          'penalty_weight': config['penalty_weight'], 'reward_weight': config['reward_weight'],
-                         'friendly_fire_weight': config['ff_weight'], 'timeout': 500, 'seed': args.seed})
+                         'friendly_fire_weight': config['ff_weight'], 'timeout': 500})
     if len(kwargs_1) == 1:
         kwargs_1 = kwargs_1[0]
 
 if args.eval_mode:
-    kwargs_2 = {1: {'eval_mode': True, 'model_path': './models/iter-4-for-real2/75000.pth'},
-                2: {'eval_mode': True, 'model_path': './models/no-penalty-but-friendly/100000.pth'},
-                3: {'eval_mode': True, 'model_path': './models/friendly-fire-0.8-replicated-v3/4000000.pth'},
-                4: {'eval_mode': True, 'model_path': './models/frozen-cnn-0.8/4000000.pth'},
-                5: {'eval_mode': True, 'model_path': './models/frozen-cnn-0.9/4000000.pth'},
-                6: {'eval_mode': True, 'model_path': './models/frozen-cnn-0.8/4000000.pth'},
-                8: {'eval_mode': True, 'model_path': './models/frozen-cnn-0.9/4000000.pth'}}
+    kwargs_2 = {1: {'eval_mode': True, 'model_path': args.eval_checkpoint}}
 else:
     kwargs_2 = {}
-    for idx, config in enumerate(grid):
-        kwargs_2[idx+1] = {'steps_per_epoch': config['steps_per_epoch'], 'train_pi_iters': 4, 'train_v_iters': 4,
+    idx = 0
+    for policy_idx, config in enumerate(grid):
+        for seed_idx, seed in enumerate(policy_seeds):
+            kwargs_2[idx+1] = {'steps_per_epoch': config['steps_per_epoch'], 'train_pi_iters': 4, 'train_v_iters': 4,
                          'actor_critic': MLPActorCritic, 'ac_kwargs': {'hidden_sizes': (64, 64)}, 'neg_weight_constant': 1.0,
-                         'model_id': 'iter-4-deneme-{}'.format(idx), 'model_path': './models/frozen-cnn-0.8/4000000.pth',
+                         'model_id': '{}-{}'.format(policy_folder_names[policy_idx], seed_idx),
+                         'model_path': './models/frozen-cnn-0.8/4000000.pth',
                          'pi_lr': config['policy_lr'], 'vf_lr': config['value_lr'], 'pi_scheduler': config['policy_lr_schedule'],
-                         'vf_scheduler': config['value_lr_schedule']}
+                         'vf_scheduler': config['value_lr_schedule'], 'seed': seed, 'curriculum_start': config['curriculum_start'],
+                         'curriculum_stop': config['curriculum_stop']}
+            idx += 1
 
 # run each copy of the environment for 300k steps
 arena.kickoff(match_list, policy_types, args.num_iter, scale=True, render=False, env_kwargs=kwargs_1, policy_kwargs=kwargs_2,
-              policy_folder_names=policy_folder_names, env_seeds=env_seeds)
+              policy_folder_names=policy_folder_names, env_seeds=env_seeds, plot_colors=plot_colors)

@@ -158,15 +158,11 @@ class PPOPolicy():
             # step environment
             observation, reward, done, info = self.env.step(action)
 
-            print('INFO', info)
-            exit(0)
-
             steps += 1
             eplen += 1
             epret += reward
 
             if done:
-                print('DONE in step', steps)
                 observation = self.env.reset()
 
                 episode_reward = self.comm.allgather(epret)
@@ -220,11 +216,11 @@ class PPOPolicy():
                         #    json.dump(all_statistics, f, indent=True)
 
 
-    def learn(self, policy_record, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
+    def learn(self, policy_record, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=-1,
               steps_per_epoch=800, steps_to_run=100000, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
               vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
               target_kl=0.01, logger_kwargs=dict(), save_freq=-1, tsboard_freq=-1, use_neg_weight=True,
-              neg_weight_constant=-1, curriculum_weight=0.3, use_value_norm=False, use_huber_loss=False,
+              neg_weight_constant=-1, curriculum_start=-1, curriculum_stop=-1, use_value_norm=False, use_huber_loss=False,
               transfer=False, use_rnn=False, pi_scheduler='constant', vf_scheduler='constant', **kargs):
         """
         Proximal Policy Optimization (by clipping),
@@ -347,12 +343,15 @@ class PPOPolicy():
         # logger.save_config(locals())
 
         # Random seed
-        MAX_INT = 2147483647
-        #seed = np.random.randint(MAX_INT)
-        seed = 0
+        if seed == -1:
+            MAX_INT = 2147483647
+            seed = np.random.randint(MAX_INT)
+        else:
+            if isinstance(seed, list) and len(seed) == 1:
+                seed = seed[0]
+            seed = seed + proc_id(comm)
         torch.manual_seed(seed)
         np.random.seed(seed)
-
         mpi_print(proc_id(comm), seed)
 
         # Instantiate environment
@@ -540,21 +539,17 @@ class PPOPolicy():
         episode_lengths = []
         episode_returns = []
 
-        if neg_weight_constant < 0:
-            neg_weight = 0.0
-            env.penalty_weight = 0.0
+        if curriculum_start >= 0.0:
+            env.friendly_fire_weight = curriculum_start
+            period = (curriculum_stop - curriculum_start) // 0.05
+            period = int(steps_to_run // period)
+            assert curriculum_stop >= curriculum_start
 
         while step < steps_to_run:
 
-            #neg_weight = min((step // (steps_to_run // 6) + 1) * 0.05, curriculum_weight)
-            if neg_weight_constant >= 0.0:
-                neg_weight = neg_weight_constant
-            else:
-                period = int(ceil(curriculum_weight / 0.05))
-                if (step+1) % int(4e6//period) == 0:
-                    if neg_weight < curriculum_weight:
-                        neg_weight = neg_weight + 0.05
-                        env.penalty_weight = env.penalty_weight + 0.05
+            if curriculum_start >= 0.0 and (step+1) % period == 0:
+                env.friendly_fire_weight += 0.05
+                env.friendly_fire_weight = min(env.friendly_fire_weight, curriculum_stop)
 
             if comm.Get_rank() == 0 and step % 25000 == 0:
                 #model_path = os.path.join('./models', str(kargs['model_id']), str(step * n_process)+'.pth')
