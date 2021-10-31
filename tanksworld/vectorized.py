@@ -73,93 +73,53 @@ if __name__ == '__main__':
         game = 0
         while game < 500:
             action, _ = model.predict(observation)
-            #observation, reward, done, info = env.step(action)
             observation, reward, done, info = env.step(action)
             if done:
                 game += 1
                 observation = env.reset()
 
     elif args.eval_mode:
-        model = PPO.load(args.save_path)
+        from  os.path import join as pjoin
+        import json
+        model_path = pjoin(args.save_path, 'checkpoints', args.checkpoint)
+        print(model_path)
+        model = PPO.load(model_path)
         env = create_env()
         observation = env.reset()
         step = 0
         old_step =0
         env_count = 0
-        while step < 10000:
+        game = 0
+        episode_statistics = []
+        mean_statistics = {}
+        std_statistics = {}
+        all_statistics = {}
+        while True:
             action, _ = model.predict(observation)
             #observation, reward, done, info = env.step(np.random.rand(15))
             observation, reward, done, info = env.step(action)
             step += 1
-            # step environment
-            print(reward)
+            #done = True
             if done:
-                env_count = 500
-                #avg_info = info['average']
-                #red_dmg = avg_info['enemy_damage_amount_red']
-                #print('red dmg', red_dmg, step - old_step)
-                print('=============== Time step ',  step - old_step)
-                print(info['average'])
-                import pdb; pdb.set_trace();
+                #print('=============== Time step ',  step - old_step)
+                #print(info['average'])
+                info['average']['step'] = step - old_step
+                episode_statistics.append(info['average'])
                 old_step = step
                 observation = env.reset()
-                #import pdb; pdb.set_trace();
-                #for key in episode_statistics[0]:
-                #    list_of_stats = list(episode_statistics[idx][key] for idx in range(len(episode_statistics)))
-                #    mean_statistics[key] = np.average(list_of_stats)
-                #    std_statistics[key] = np.std(list_of_stats)
-                #    all_statistics[key] = list_of_stats
+                game += 1
+                if game == args.eval_game:
+                    break
+        for key in episode_statistics[0]:
+            list_of_stats = list(episode_statistics[idx][key] for idx in range(len(episode_statistics)))
+            mean_statistics[key] = np.average(list_of_stats)
+            std_statistics[key] = np.std(list_of_stats)
+            all_statistics[key] = list_of_stats
 
-
-                #stats_per_env = []
-                #for env_idx in range(0, len(episode_statistics), 5):
-                #    stats_per_env.append(episode_statistics[env_idx])
-                #episode_statistics = stats_per_env
-
-                '''
-                episode_statistics = [episode_statistics[i]['all'] for i in range(len(episode_statistics))]
-                mean_statistics = {}
-                std_statistics = {}
-
-                for key in episode_statistics[0][0]:
-                    list_of_stats = []
-                    for idx in range(len(episode_statistics)):
-                        for all_stats in episode_statistics[idx]:
-                            list_of_stats.append(all_stats[key])
-
-                    mean_statistics[key] = np.average(list_of_stats)
-                    std_statistics[key] = np.std(list_of_stats)
-                '''
-
-                #episode_statistics = [episode_statistics[i]['average'] for i in range(len(episode_statistics))]
-
-                #mean_statistics = {}
-                #std_statistics = {}
-                #all_statistics = {}
-                #for key in episode_statistics[0]:
-                #    list_of_stats = list(episode_statistics[idx][key] for idx in range(len(episode_statistics)))
-                #    mean_statistics[key] = np.average(list_of_stats)
-                #    std_statistics[key] = np.std(list_of_stats)
-                #    all_statistics[key] = list_of_stats
-
-                #reward_per_env = []
-                #for env_idx in range(0, len(episode_reward), 5):
-                #    reward_per_env.append(sum(episode_reward[env_idx:env_idx+5]))
-
-                #reward_mean = np.average(reward_per_env)
-                #reward_std = np.std(reward_per_env)
-                #running_reward_mean += reward_mean
-                #running_reward_std += reward_std
-
-                #episode_length = np.average(episode_length)
-
-                #if policy_record is not None:
-                #    policy_record.add_result(reward_mean, episode_length)
-                #    policy_record.save()
-
-                #eplen = 0
-                #epret = 0
-                #num_dones += 1
+        with open(pjoin(args.save_path, 'mean_statistics.json'), 'w+') as f:
+            json.dump(mean_statistics, f, indent=True)
+        with open(pjoin(args.save_path, 'std_statistics.json'), 'w+') as f:
+            json.dump(std_statistics, f, indent=True)
 
     else:
         from datetime import datetime
