@@ -94,6 +94,7 @@ class TanksWorldEnv(gym.Env):
     def __init__(self, exe, action_repeat=6, image_scale=128, timeout=500, friendly_fire=True, take_damage_penalty=True, kill_bonus=True, death_penalty=True,
         static_tanks=[], random_tanks=[], disable_shooting=[], penalty_weight=1.0, reward_weight=1.0, will_render=False,
         speed_red=1.0, speed_blue=1.0, tblogs='runs/stats', seed_val=None, log_statistics=False, no_timeout=False, barrier_heuristic=False):
+        print(97, penalty_weight)
 
         # call reset() to begin playing
         self._workerid = MPI.COMM_WORLD.Get_rank() #int(os.environ['L2EXPLORER_WORKER_ID'])

@@ -59,7 +59,7 @@ if __name__ == '__main__':
     stats_dir = './runs/stats_{}'.format(args.logdir)
     kwargs_1 = {"static_tanks": [], "random_tanks": [5, 6, 7, 8, 9], "disable_shooting": [],
                 "friendly_fire":False, 'kill_bonus':False, 'death_penalty':False, 'take_damage_penalty': True,
-                'tblogs':stats_dir, 'penalty_weight':1.0, 'reward_weight':1.0, 'log_statistics': True, 'timeout': 500}
+                'tblogs':stats_dir, 'penalty_weight':args.penalty_weight, 'reward_weight':1.0, 'log_statistics': True, 'timeout': 500}
     def create_env():
         #return Monitor(make_env(**kwargs_1))
         return make_env(**kwargs_1)
