@@ -4,7 +4,8 @@ import numpy as np
 import torch
 from torch import nn
 from torch.optim import Adam
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import ReduceLROnPlateau, ExponentialLR, CyclicLR
+from torch.optim.lr_scheduler import _LRScheduler
 import gym
 import time
 from .utils.logx import EpochLogger
@@ -27,6 +28,73 @@ from algos.torch_ppo.mappo_utils.util import huber_loss
 
 #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device('cpu')
+
+
+class LinearLR(_LRScheduler):
+    """Decays the learning rate of each parameter group by linearly changing small
+    multiplicative factor until the number of epoch reaches a pre-defined milestone: total_iters.
+    Notice that such decay can happen simultaneously with other changes to the learning rate
+    from outside this scheduler. When last_epoch=-1, sets initial lr as lr.
+
+    Args:
+        optimizer (Optimizer): Wrapped optimizer.
+        start_factor (float): The number we multiply learning rate in the first epoch.
+            The multiplication factor changes towards end_factor in the following epochs.
+            Default: 1./3.
+        end_factor (float): The number we multiply learning rate at the end of linear changing
+            process. Default: 1.0.
+        total_iters (int): The number of iterations that multiplicative factor reaches to 1.
+            Default: 5.
+        last_epoch (int): The index of the last epoch. Default: -1.
+        verbose (bool): If ``True``, prints a message to stdout for
+            each update. Default: ``False``.
+
+    Example:
+        >>> # Assuming optimizer uses lr = 0.05 for all groups
+        >>> # lr = 0.025    if epoch == 0
+        >>> # lr = 0.03125  if epoch == 1
+        >>> # lr = 0.0375   if epoch == 2
+        >>> # lr = 0.04375  if epoch == 3
+        >>> # lr = 0.005    if epoch >= 4
+        >>> scheduler = LinearLR(self.opt, start_factor=0.5, total_iters=4)
+        >>> for epoch in range(100):
+        >>>     train(...)
+        >>>     validate(...)
+        >>>     scheduler.step()
+    """
+
+    def __init__(self, optimizer, start_factor=1.0 / 3, end_factor=1.0, total_iters=5, last_epoch=-1,
+                 verbose=False):
+        if start_factor > 1.0 or start_factor < 0:
+            raise ValueError('Starting multiplicative factor expected to be between 0 and 1.')
+
+        if end_factor > 1.0 or end_factor < 0:
+            raise ValueError('Ending multiplicative factor expected to be between 0 and 1.')
+
+        self.start_factor = start_factor
+        self.end_factor = end_factor
+        self.total_iters = total_iters
+        super(LinearLR, self).__init__(optimizer, last_epoch, verbose)
+
+    def get_lr(self):
+        if not self._get_lr_called_within_step:
+            warnings.warn("To get the last learning rate computed by the scheduler, "
+                          "please use `get_last_lr()`.", UserWarning)
+
+        if self.last_epoch == 0:
+            return [group['lr'] * self.start_factor for group in self.optimizer.param_groups]
+
+        if (self.last_epoch > self.total_iters):
+            return [group['lr'] for group in self.optimizer.param_groups]
+
+        return [group['lr'] * (1. + (self.end_factor - self.start_factor) /
+                (self.total_iters * self.start_factor + (self.last_epoch - 1) * (self.end_factor - self.start_factor)))
+                for group in self.optimizer.param_groups]
+
+    def _get_closed_form_lr(self):
+        return [base_lr * (self.start_factor +
+                (self.end_factor - self.start_factor) * min(self.total_iters, self.last_epoch) / self.total_iters)
+                for base_lr in self.base_lrs]
 
 
 class PPOBuffer:
@@ -132,14 +200,15 @@ class PPOPolicy():
             #        policy_record.save()
             #        self.model.save(policy_record.data_dir+"ppo_save")
 
-    def evaluate(self, policy_record, total_timesteps, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), **kargs):
+    def evaluate(self, policy_record, total_timesteps, ac=None, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), **kargs):
 
-        local_steps = int(total_timesteps / self.comm.Get_size())
+        #local_steps = int(total_timesteps / self.comm.Get_size())
         steps = 0
         observation = self.env.reset()
 
-        ac = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs)
-        ac.load_state_dict(torch.load(self.kargs['model_path']))
+        if not ac:
+            ac = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs)
+            ac.load_state_dict(torch.load(self.kargs['model_path']))
         ac.eval()
 
         eplen = 0
@@ -150,7 +219,9 @@ class PPOPolicy():
 
         pp = pprint.PrettyPrinter(indent=4)
 
-        while steps < local_steps:
+        mpi_print('Computing the metrics...')
+
+        while steps < total_timesteps:
             # observation = np.array(observation).reshape(-1, 72)
             with torch.no_grad():
                 action, v, logp = ac.step(torch.as_tensor(observation, dtype=torch.float32).to(device))
@@ -204,16 +275,38 @@ class PPOPolicy():
                 epret = 0
                 num_dones += 1
 
-                if num_dones == 1 or num_dones % 25 == 0:
+                if num_dones == 1 or num_dones == total_timesteps or num_dones % 25 == 0:
                     if policy_record is not None:
-                        #with open(os.path.join(policy_record.data_dir, 'accumulated_reward.json'), 'w+') as f:
-                        #    json.dump({'mean': running_reward_mean/(num_dones+1), 'std': running_reward_std/(num_dones+1)}, f)
                         with open(os.path.join(policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
                             json.dump(mean_statistics, f, indent=True)
                         with open(os.path.join(policy_record.data_dir, 'std_statistics.json'), 'w+') as f:
                             json.dump(std_statistics, f, indent=True)
-                        #with open(os.path.join(policy_record.data_dir, 'all_statistics.json'), 'w+') as f:
-                        #    json.dump(all_statistics, f, indent=True)
+
+
+    def save_metrics(self, episode_statistics, policy_record):
+
+        stats_per_env = []
+        for env_idx in range(0, len(episode_statistics), 5):
+            stats_per_env.append(episode_statistics[env_idx])
+        episode_statistics = stats_per_env
+        episode_statistics = [episode_statistics[i]['all'] for i in range(len(episode_statistics))]
+        if len(episode_statistics[0]) == 0: return
+        episode_statistics = [episode_statistics[i][-1] for i in range(len(episode_statistics))]
+
+        mean_statistics = {}
+        std_statistics = {}
+        all_statistics = {}
+        for key in episode_statistics[0]:
+            list_of_stats = list(episode_statistics[idx][key] for idx in range(len(episode_statistics)))
+            mean_statistics[key] = np.average(list_of_stats)
+            std_statistics[key] = np.std(list_of_stats)
+            all_statistics[key] = list_of_stats
+
+        if policy_record is not None:
+            with open(os.path.join(policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
+                json.dump(mean_statistics, f, indent=True)
+            with open(os.path.join(policy_record.data_dir, 'std_statistics.json'), 'w+') as f:
+                json.dump(std_statistics, f, indent=True)
 
 
     def learn(self, policy_record, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=-1,
@@ -221,7 +314,7 @@ class PPOPolicy():
               vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
               target_kl=0.01, logger_kwargs=dict(), save_freq=-1, tsboard_freq=-1, use_neg_weight=True,
               neg_weight_constant=-1, curriculum_start=-1, curriculum_stop=-1, use_value_norm=False, use_huber_loss=False,
-              transfer=False, use_rnn=False, pi_scheduler='constant', vf_scheduler='constant', **kargs):
+              transfer=False, use_rnn=False, pi_scheduler='const', vf_scheduler='const', **kargs):
         """
         Proximal Policy Optimization (by clipping),
 
@@ -338,10 +431,6 @@ class PPOPolicy():
         setup_pytorch_for_mpi(comm)
         mpi_print(self.env.observation_space, self.env.action_space)
 
-        # Set up logger and save configuration
-        # logger = EpochLogger(**logger_kwargs)
-        # logger.save_config(locals())
-
         # Random seed
         if seed == -1:
             MAX_INT = 2147483647
@@ -355,8 +444,6 @@ class PPOPolicy():
         mpi_print(proc_id(comm), seed)
 
         # Instantiate environment
-        # augment_obs = gym.spaces.Box(0,1,[env.observation_space.shape[0] + 32])
-        # obs_dim = augment_obs.shape
         obs_dim = env.observation_space.shape
         act_dim = env.action_space.shape
         o, ep_ret, ep_len = env.reset(), 0, 0
@@ -389,13 +476,6 @@ class PPOPolicy():
         # Sync params across processes
         ac = ac.to(device)
         sync_params(comm, ac, root=root)
-        # ac.pi = ac.pi.to(device)
-        # ac.v = ac.v.to(device)
-        n_process = comm.Get_size()
-
-        # Count variables
-        var_counts = tuple(core.count_vars(module) for module in [ac.pi, ac.v])
-        # logger.log('\nNumber of parameters: \t pi: %d, \t v: %d\n'%var_counts)
 
         # Set up experience buffer
         # local_steps_per_epoch = int(steps_per_epoch / num_procs(comm))
@@ -447,41 +527,32 @@ class PPOPolicy():
         # Set up optimizers for policy and value function
         pi_optimizer = Adam(ac.pi.parameters(), lr=pi_lr)
         vf_optimizer = Adam(ac.v.parameters(), lr=vf_lr)
+
         if pi_scheduler == 'smart':
             scheduler_policy = ReduceLROnPlateau(pi_optimizer, mode='max', patience=100, factor=0.05, min_lr=1e-6)
+        elif pi_scheduler == 'lin':
+            scheduler_policy = LinearLR(pi_optimizer, start_factor=0.05)
+        elif pi_scheduler == 'exp':
+            scheduler_policy = ExponentialLR(pi_optimizer, gamma=0.05)
+        elif pi_scheduler == 'cyc':
+            scheduler_policy = CyclicLR(pi_optimizer, base_lr=pi_lr, max_lr=1e-3, step_size_up=100, mode='triangular2')
+
         if vf_scheduler == 'smart':
-            scheduler_value = ReduceLROnPlateau(vf_optimizer, mode='max', patience=100, factor=0.05, min_lr=1e-5)
-
-        # Set up model saving
-        # logger.setup_pytorch_saver(ac)
-
-        def linear_lr(optimizer, start, epoch, stop):
-            """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-            init_lr = optimizer.param_groups[0]['lr']
-            if init_lr <= stop:
-                return
-            lr = init_lr - init_lr * (start * 1.0/epoch)
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = lr
-
-        def sqrt_lr(optimizer, start, epoch, stop):
-            init_lr = optimizer.param_groups[0]['lr']
-            if init_lr <= stop:
-                return
-            lr = init_lr - init_lr * (start * 1.0 / sqrt(epoch))
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = lr
+            scheduler_value = ReduceLROnPlateau(vf_optimizer, mode='max', patience=100, factor=0.05, min_lr=1e-6)
+        elif vf_scheduler == 'lin':
+            scheduler_value = LinearLR(vf_optimizer, start_factor=0.05)
+        elif vf_scheduler == 'exp':
+            scheduler_value = ExponentialLR(vf_optimizer, gamma=0.05)
+        elif vf_scheduler == 'cyc':
+            scheduler_value = CyclicLR(vf_optimizer, base_lr=vf_lr, max_lr=1e-3, step_size_up=100, mode='triangular2')
 
         loss_p_index, loss_v_index = 0, 0
 
         def update():
-            #mpi_print('process', comm.Get_rank(), 'run update')
             nonlocal loss_p_index, loss_v_index
             data = buf.get(comm)
 
             pi_l_old, pi_info_old = compute_loss_pi(data)
-            pi_l_old = pi_l_old.item()
-            v_l_old = compute_loss_v(data).item()
 
             # Train policy with multiple steps of gradient descent
             for i in range(train_pi_iters):
@@ -514,26 +585,17 @@ class PPOPolicy():
             del data, pi_info, pi_info_old
 
         # Prepare for interaction with environment
-        start_time = time.time()
-
         # Main loop: collect experience in env and update/log each epoch
 
         if comm.Get_rank() == root:
             from pathlib import Path
             Path(os.path.join('./models', str(kargs['model_id']))).mkdir(parents=True, exist_ok=True)
-            # writer = SummaryWriter('tsboard/' + date_time_str)
-        episode_count = 0
 
-        last_ep_ret = 0
-        # ac.load_state_dict(torch.load('models/20210702-150603/5800'))
-        # ac.eval()
         ep_ret_mod = 0
         total_step = 0
-        last_ep_ret_mod = 0
 
         step = 0
 
-        last_barrier_encode = None
         last_pos_ret, pos_ret, last_neg_ret, neg_ret = 0, 0, 0, 0
 
         episode_lengths = []
@@ -552,10 +614,12 @@ class PPOPolicy():
                 env.friendly_fire_weight = min(env.friendly_fire_weight, curriculum_stop)
 
             if comm.Get_rank() == 0 and step % 25000 == 0:
-                #model_path = os.path.join('./models', str(kargs['model_id']), str(step * n_process)+'.pth')
                 model_path = os.path.join('./models', str(kargs['model_id']), str(step)+'.pth')
-                #mpi_print('save ', model_path)
-                torch.save(ac.state_dict(), model_path)
+                torch.save({'step': step,
+                            'model_state_dict': ac.state_dict(),
+                            'pi_optimizer_state_dict': pi_optimizer.state_dict(),
+                            'vf_optimizer_state_dict': vf_optimizer.state_dict()},
+                           model_path)
 
             step += 1
             if use_rnn:
@@ -565,7 +629,7 @@ class PPOPolicy():
             else:
                 o = torch.as_tensor(o, dtype=torch.float32).to(device)
                 a, v, logp = ac.step(o)
-            next_o, r, terminal, _ = env.step(a)
+            next_o, r, terminal, info = env.step(a)
 
             ep_ret += r
             ep_len += 1
@@ -607,11 +671,6 @@ class PPOPolicy():
                     v = 0
                 buf.finish_path(v)
                 if terminal:
-                    last_ep_ret = ep_ret
-                    last_ep_ret_mod = ep_ret_mod
-                    last_neg_ret = neg_ret
-                    last_pos_ret = pos_ret
-
                     o, ep_ret, ep_len = env.reset(), 0, 0
                     o = torch.as_tensor(o, dtype=torch.float32).to(device)
                     if use_rnn:
@@ -622,28 +681,22 @@ class PPOPolicy():
 
             if epoch_ended:
                 update()
-                if pi_scheduler == 'lin':
-                    linear_lr(pi_optimizer, start=0.5, epoch=step, stop=1e-6)
-                elif pi_scheduler == 'sqrt':
-                    sqrt_lr(pi_optimizer, start=0.5, epoch=step, stop=1e-6)
-                elif pi_scheduler == 'smart':
+
+                if pi_scheduler == 'smart':
                     scheduler_policy.step(ep_ret_scheduler)
-                if vf_scheduler == 'lin':
-                    linear_lr(vf_optimizer, start=0.5, epoch=step, stop=1e-5)
-                elif vf_scheduler == 'sqrt':
-                    sqrt_lr(vf_optimizer, start=0.5, epoch=step, stop=1e-5)
-                elif vf_scheduler == 'smart':
+                elif pi_scheduler != 'const':
+                    scheduler_policy.step()
+
+                if vf_scheduler == 'smart':
                     scheduler_value.step(ep_ret_scheduler)
+                elif vf_scheduler != 'const':
+                    scheduler_value.step()
+
                 ep_ret_scheduler = 0
-                # if comm.Get_rank() == 0:
-                #    barrier_encode = ac.pi.cnn(ac.pi.barrier_img)
-                #    if last_barrier_encode == None:
-                #        last_barrier_encode = barrier_encode
-                #    else:
-                #        encode_loss = torch.nn.functional.mse_loss(barrier_encode, last_barrier_encode)
-                #        writer.add_scalar('record/encode barrier', encode_loss, step * n_process)
-                #        writer.add_scalar('record/encode sum abs', torch.sum(torch.abs(encode_loss)), step * n_process)
-                #        last_barrier_encode = barrier_encode
+
+            if step % 50 == 0:
+                episode_statistics = comm.allgather(info)
+                self.save_metrics(episode_statistics, policy_record)
 
             if step % tsboard_freq == 0:
                 lrlocal = (episode_lengths, episode_returns)
@@ -659,20 +712,6 @@ class PPOPolicy():
                 episode_lengths = []
                 episode_returns = []
                 del lrlocal, listoflrpairs, lens, rews
-            '''
-            if step % tsboard_freq == 0:
-                ep_ret_gather = comm.gather(last_ep_ret, root=0)
-                ep_ret_mod_gather = comm.gather(last_ep_ret_mod , root=0)
-                pos_ret_gather = comm.gather(last_pos_ret, root=0)
-                neg_ret_gather = comm.gather(last_neg_ret, root=0)
-                if comm.Get_rank() == root:
-                    pol_total_step = step * n_process
-                    writer.add_scalar('return/no weight', np.mean(ep_ret_gather), pol_total_step)
-                    writer.add_scalar('return/curriculum', np.mean(ep_ret_mod_gather), pol_total_step)
-                    writer.add_scalar('return/neg', np.mean(neg_ret_gather), pol_total_step)
-                    writer.add_scalar('return/pos', np.mean(pos_ret_gather), pol_total_step)
-                    writer.add_scalar('record/neg weight', neg_weight, pol_total_step)
-            '''
 
 
 if __name__ == '__main__':
