@@ -290,8 +290,16 @@ class PPOPolicy():
             stats_per_env.append(episode_statistics[env_idx])
         episode_statistics = stats_per_env
         episode_statistics = [episode_statistics[i]['all'] for i in range(len(episode_statistics))]
-        if len(episode_statistics[0]) == 0: return
-        episode_statistics = [episode_statistics[i][-1] for i in range(len(episode_statistics))]
+        length = len(episode_statistics[0])
+        if length < 3: return
+        episode_statistics = [episode_statistics[i][-min(100, length):] for i in range(len(episode_statistics))]
+
+        episode_statistics_new = []
+        for env_idx in range(len(episode_statistics)):
+            average_stats = {key: np.average([episode_statistics[env_idx][i][key] for i in range(len(episode_statistics[env_idx]))])
+                                for key in episode_statistics[env_idx][0]}
+            episode_statistics_new.append(average_stats)
+        episode_statistics = episode_statistics_new
 
         mean_statistics = {}
         std_statistics = {}
@@ -684,19 +692,19 @@ class PPOPolicy():
 
                 if pi_scheduler == 'smart':
                     scheduler_policy.step(ep_ret_scheduler)
-                elif pi_scheduler != 'const':
+                elif pi_scheduler != 'cons':
                     scheduler_policy.step()
 
                 if vf_scheduler == 'smart':
                     scheduler_value.step(ep_ret_scheduler)
-                elif vf_scheduler != 'const':
+                elif vf_scheduler != 'cons':
                     scheduler_value.step()
 
                 ep_ret_scheduler = 0
 
-            if step % 50 == 0:
-                episode_statistics = comm.allgather(info)
-                self.save_metrics(episode_statistics, policy_record)
+            #if step % 50 == 0:
+            episode_statistics = comm.allgather(info)
+            self.save_metrics(episode_statistics, policy_record)
 
             if step % tsboard_freq == 0:
                 lrlocal = (episode_lengths, episode_returns)
