@@ -11,7 +11,7 @@ additional_args = cfg.args_dict
 n_env_seeds = additional_args['n_env_seeds']
 n_policy_seeds = additional_args['n_policy_seeds']
 num_iter = additional_args['num_iter']
-n = 1+6*len(cfg.grid)*n_seeds
+n = 1+6*len(cfg.grid)*n_env_seeds*n_policy_seeds
 del additional_args['n_env_seeds']
 del additional_args['n_policy_seeds']
 del additional_args['num_iter']
