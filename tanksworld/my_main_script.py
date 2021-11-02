@@ -11,7 +11,7 @@ import numpy as np
 
 sys.path.append('spinningup')
 
-from stems import *
+from core.stems import *
 from arena5.core.policy_record import *
 import itertools
 
@@ -93,7 +93,7 @@ else:
                          'friendly_fire': True, 'kill_bonus': False, 'death_penalty': False,
                          'take_damage_penalty': True, 'tblogs': stats_dir,
                          'penalty_weight': config['penalty_weight'], 'reward_weight': config['reward_weight'],
-                         'friendly_fire_weight': config['ff_weight'], 'timeout': 500})
+                         'friendly_fire_weight': config['ff_weight'], 'timeout': 500, 'log_statistics': True})
     if len(kwargs_1) == 1:
         kwargs_1 = kwargs_1[0]
 

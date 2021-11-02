@@ -13,7 +13,7 @@ from arena5.algos.maddpg.maddpg_policy import MADDPGPolicy
 from arena5.algos.masac.masac_policy import MASACPolicy
 #from arena5.algos.hppo.hppo import HPPOPolicy
 
-from arena5.core.policy_record import PolicyRecord, get_dir_for_policy
+from core.policy_record import PolicyRecord, get_dir_for_policy
 
 def make_stem(make_env_method, log_comms_dir, obs_spaces, act_spaces, additional_policies={}):
 	rank = MPI.COMM_WORLD.Get_rank()
