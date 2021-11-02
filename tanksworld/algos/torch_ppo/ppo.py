@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch import nn
 from torch.optim import Adam
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import ReduceLROnPlateau, ExponentialLR, CyclicLR
 from torch.optim.lr_scheduler import _LRScheduler
 import gym
 import time
@@ -531,20 +531,20 @@ class PPOPolicy():
         if pi_scheduler == 'smart':
             scheduler_policy = ReduceLROnPlateau(pi_optimizer, mode='max', patience=100, factor=0.05, min_lr=1e-6)
         elif pi_scheduler == 'lin':
-            scheduler_policy = LinearLR(pi_optimizer)
+            scheduler_policy = LinearLR(pi_optimizer, start_factor=0.05)
         elif pi_scheduler == 'exp':
-            scheduler_policy = ExponentialLR(pi_optimizer)
+            scheduler_policy = ExponentialLR(pi_optimizer, gamma=0.05)
         elif pi_scheduler == 'cyc':
             scheduler_policy = CyclicLR(pi_optimizer, base_lr=pi_lr, max_lr=1e-3, step_size_up=100, mode='triangular2')
 
-        if pi_scheduler == 'smart':
-            scheduler_policy = ReduceLROnPlateau(vf_optimizer, mode='max', patience=100, factor=0.05, min_lr=1e-6)
-        elif pi_scheduler == 'lin':
-            scheduler_policy = LinearLR(vf_optimizer)
-        elif pi_scheduler == 'exp':
-            scheduler_policy = ExponentialLR(vf_optimizer)
-        elif pi_scheduler == 'cyc':
-            scheduler_policy = CyclicLR(vf_optimizer, base_lr=vf_lr, max_lr=1e-3, step_size_up=100, mode='triangular2')
+        if vf_scheduler == 'smart':
+            scheduler_value = ReduceLROnPlateau(vf_optimizer, mode='max', patience=100, factor=0.05, min_lr=1e-6)
+        elif vf_scheduler == 'lin':
+            scheduler_value = LinearLR(vf_optimizer, start_factor=0.05)
+        elif vf_scheduler == 'exp':
+            scheduler_value = ExponentialLR(vf_optimizer, gamma=0.05)
+        elif vf_scheduler == 'cyc':
+            scheduler_value = CyclicLR(vf_optimizer, base_lr=vf_lr, max_lr=1e-3, step_size_up=100, mode='triangular2')
 
         loss_p_index, loss_v_index = 0, 0
 
@@ -681,18 +681,17 @@ class PPOPolicy():
 
             if epoch_ended:
                 update()
-                if pi_scheduler == 'lin':
-                    linear_lr(pi_optimizer, start=0.5, epoch=step, stop=1e-6)
-                elif pi_scheduler == 'sqrt':
-                    sqrt_lr(pi_optimizer, start=0.5, epoch=step, stop=1e-6)
-                elif pi_scheduler == 'smart':
+
+                if pi_scheduler == 'smart':
                     scheduler_policy.step(ep_ret_scheduler)
-                if vf_scheduler == 'lin':
-                    linear_lr(vf_optimizer, start=0.5, epoch=step, stop=1e-5)
-                elif vf_scheduler == 'sqrt':
-                    sqrt_lr(vf_optimizer, start=0.5, epoch=step, stop=1e-5)
-                elif vf_scheduler == 'smart':
+                elif pi_scheduler != 'const':
+                    scheduler_policy.step()
+
+                if vf_scheduler == 'smart':
                     scheduler_value.step(ep_ret_scheduler)
+                elif vf_scheduler != 'const':
+                    scheduler_value.step()
+
                 ep_ret_scheduler = 0
 
             if step % 50 == 0:
