@@ -154,8 +154,12 @@ if __name__ == '__main__':
 
 
         
+        if args.save_path is not None> 0:
+            model = PPO.load(args.save_path)
+        else:
+            model = PPO("CnnPolicy", env, policy_kwargs=policy_kwargs, n_steps=args.horizon, verbose=2,tensorboard_log=save_path)
+
         checkpoint_callback = CheckpointCallback(save_freq=args.save_freq, save_path=save_path + '/checkpoints', name_prefix='rl_model')
-        model = PPO("CnnPolicy", env, policy_kwargs=policy_kwargs, n_steps=args.horizon, verbose=2,tensorboard_log=save_path)
         model.learn(total_timesteps=args.timestep, callback=checkpoint_callback)
 
 

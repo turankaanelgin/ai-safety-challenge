@@ -1,7 +1,7 @@
 #!/bin/bash
 train(){
     python vectorized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
-        --logdir testrun --horizon 64 --n-env 10 --penalty-weight $1 --save-freq 10000 --timestep 4000000 \
+        --logdir testrun --horizon 64 --n-env 10 --penalty-weight $1 --save-freq 10000 --timestep 2000000 \
         --desc $2 
 }
 
@@ -20,16 +20,15 @@ test(){
 }
 if [[ $1 == test ]]; then
     test
-elif [[ $1 == train ]]; then
-    train 0.6 "hor64-penalty-0.6-larger-model-separate-arch-10-envs"
-    train 0.8 "hor64-penalty-0.8-larger-model-separate-arch-10-envs"
+elif [[ $1 == train04 ]]; then
     train 0.4 "hor64-penalty-0.4-larger-model-separate-arch-10-envs"
+elif [[ $1 == train02 ]]; then
     train 0.2 "hor64-penalty-0.2-larger-model-separate-arch-10-envs"
 elif [[ $1 == record ]]; then
     record
 elif [[ $1 == process ]]; then
     ps aux | grep ai-safety-challenge
-elif [[ $1 == process ]]; then
+elif [[ $1 == pkill ]]; then
     pkill -f "ai-safety-challenge"
 elif [[ $1 == gentag ]]; then
     ctags -R . /home/ado8/stable-baselines3 /home/ado8/ai-arena/arena5/
