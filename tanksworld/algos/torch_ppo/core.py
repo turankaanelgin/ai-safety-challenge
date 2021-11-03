@@ -82,7 +82,6 @@ def discount_cumsum(x, discount):
     """
     return scipy.signal.lfilter([1], [1, float(-discount)], x[::-1], axis=0)[::-1]
 
-
 class Actor(nn.Module):
 
     def _distribution(self, obs):
@@ -297,7 +296,8 @@ class MLPActorCritic(nn.Module):
             a = pi.sample()
             logp_a = self.pi._log_prob_from_distribution(pi, a)
             v = self.v(obs)
-        return a.cpu().numpy(), v.cpu().numpy(), logp_a.cpu().numpy()
+        return a, v, logp_a
+        #return a.cpu().numpy(), v.cpu().numpy(), logp_a.cpu().numpy()
 
     def act(self, obs):
         return self.step(obs)[0]

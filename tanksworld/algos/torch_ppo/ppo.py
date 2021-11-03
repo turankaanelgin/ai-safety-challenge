@@ -6,6 +6,7 @@ from torch import nn
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau, ExponentialLR, CyclicLR
 from torch.optim.lr_scheduler import _LRScheduler
+#from torch_discounted_cumsum import discounted_cumsum_right
 import gym
 import time
 from .utils.logx import EpochLogger
@@ -26,8 +27,8 @@ from stable_baselines.trpo_mpi.utils import flatten_lists
 from algos.torch_ppo.mappo_utils import valuenorm
 from algos.torch_ppo.mappo_utils.util import huber_loss
 
-#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = torch.device('cpu')
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#device = torch.device('cpu')
 
 
 class LinearLR(_LRScheduler):
@@ -95,6 +96,84 @@ class LinearLR(_LRScheduler):
         return [base_lr * (self.start_factor +
                 (self.end_factor - self.start_factor) * min(self.total_iters, self.last_epoch) / self.total_iters)
                 for base_lr in self.base_lrs]
+
+
+class PPOBufferCUDA:
+
+    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95, use_rnn=False):
+        self.obs_buf = torch.zeros(core.combined_shape(size, obs_dim)).cuda()
+        self.act_buf = torch.zeros(core.combined_shape(size, act_dim)).cuda()
+        self.adv_buf = torch.zeros(size).cuda()
+        self.rew_buf = torch.zeros(size).cuda()
+        self.ret_buf = torch.zeros(size).cuda()
+        self.val_buf = torch.zeros(size).cuda()
+        self.logp_buf = torch.zeros(size).cuda()
+        self.gamma, self.lam = gamma, lam
+        self.ptr, self.path_start_idx, self.max_size = 0, 0, size
+
+    def store(self, obs, act, rew, val, logp):
+        """
+        Append one timestep of agent-environment interaction to the buffer.
+        """
+
+        assert self.ptr < self.max_size  # buffer has to have room so you can store
+        self.obs_buf[self.ptr] = obs
+        self.act_buf[self.ptr] = act
+        self.rew_buf[self.ptr] = rew
+        self.val_buf[self.ptr] = val
+        self.logp_buf[self.ptr] = logp
+        self.ptr += 1
+
+    def finish_path(self, last_val=0):
+        """
+        Call this at the end of a trajectory, or when one gets cut off
+        by an epoch ending. This looks back in the buffer to where the
+        trajectory started, and uses rewards and value estimates from
+        the whole trajectory to compute advantage estimates with GAE-Lambda,
+        as well as compute the rewards-to-go for each state, to use as
+        the targets for the value function.
+
+        The "last_val" argument should be 0 if the trajectory ended
+        because the agent reached a terminal state (died), and otherwise
+        should be V(s_T), the value function estimated for the last state.
+        This allows us to bootstrap the reward-to-go calculation to account
+        for timesteps beyond the arbitrary episode horizon (or epoch cutoff).
+        """
+
+        path_slice = slice(self.path_start_idx, self.ptr)
+        if isinstance(last_val, int):
+            rews = torch.cat((self.rew_buf[path_slice], torch.as_tensor([last_val], dtype=torch.float32).to(device)))
+            vals = torch.cat((self.val_buf[path_slice], torch.as_tensor([last_val], dtype=torch.float32).to(device)))
+        else:
+            rews = torch.cat((self.rew_buf[path_slice], last_val.squeeze(-1)))
+            vals = torch.cat((self.val_buf[path_slice], last_val.squeeze(-1)))
+
+        # the next two lines implement GAE-Lambda advantage calculation
+        deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
+        #self.adv_buf[path_slice] = discount_cumsum_right(deltas, self.gamma * self.lam)
+        discount_delta = core.discount_cumsum(deltas.cpu().numpy(), self.gamma * self.lam)
+        self.adv_buf[path_slice] = torch.as_tensor(discount_delta.copy(), dtype=torch.float32).to(device)
+
+        # the next line computes rewards-to-go, to be targets for the value function
+        discount_rews = core.discount_cumsum(rews.cpu().numpy(), self.gamma)[:-1]
+        self.ret_buf[path_slice] = torch.as_tensor(discount_rews.copy(), dtype=torch.float32).to(device)
+
+        self.path_start_idx = self.ptr
+
+    def get(self, comm):
+        """
+        Call this at the end of an epoch to get all of the data from
+        the buffer, with advantages appropriately normalized (shifted to have
+        mean zero and std one). Also, resets some pointers in the buffer.
+        """
+        assert self.ptr == self.max_size  # buffer has to be full before you can get
+        self.ptr, self.path_start_idx = 0, 0
+        # the next two lines implement the advantage normalization trick
+        adv_mean, adv_std = mpi_statistics_scalar(comm, self.adv_buf.cpu().detach().numpy())
+        self.adv_buf = (self.adv_buf - adv_mean) / adv_std
+        data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
+                    adv=torch.as_tensor(self.adv_buf).to(device), logp=self.logp_buf)
+        return data
 
 
 class PPOBuffer:
@@ -448,7 +527,9 @@ class PPOPolicy():
                 seed = seed[0]
             seed = seed + proc_id(comm)
         torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
         np.random.seed(seed)
+        torch.backends.cudnn.benchmark = True
         mpi_print(proc_id(comm), seed)
 
         # Instantiate environment
@@ -462,7 +543,7 @@ class PPOPolicy():
 
         # Create actor-critic module
         mpi_print(env.observation_space, env.action_space)
-        ac = actor_critic(env.observation_space, env.action_space, **ac_kwargs)
+        ac = actor_critic(env.observation_space, env.action_space, **ac_kwargs).cuda()
 
         if transfer:
             state_dict = torch.load(self.kargs['model_path'])
@@ -487,7 +568,7 @@ class PPOPolicy():
 
         # Set up experience buffer
         # local_steps_per_epoch = int(steps_per_epoch / num_procs(comm))
-        buf = PPOBuffer(obs_dim, act_dim, steps_per_epoch, gamma, lam, use_rnn=use_rnn)
+        buf = PPOBufferCUDA(obs_dim, act_dim, steps_per_epoch, gamma, lam, use_rnn=use_rnn)
 
         if use_value_norm:
             value_normalizer = valuenorm.ValueNorm(1)
@@ -495,6 +576,7 @@ class PPOPolicy():
         # Set up function for computing PPO policy loss
         def compute_loss_pi(data):
             obs, act, adv, logp_old = data['obs'], data['act'], data['adv'], data['logp']
+            obs, act, adv, logp_old = obs.to(device), act.to(device), adv.to(device), logp_old.to(device)
 
             # Policy loss
             pi, logp = ac.pi(obs, act)
@@ -515,6 +597,7 @@ class PPOPolicy():
         # Set up function for computing value loss
         def compute_loss_v(data):
             obs, ret = data['obs'], data['ret']
+            obs, ret = obs.to(device), ret.to(device)
             if not use_value_norm:
                 if use_huber_loss:
                     error = ret - ac.v(obs)
@@ -637,7 +720,7 @@ class PPOPolicy():
             else:
                 o = torch.as_tensor(o, dtype=torch.float32).to(device)
                 a, v, logp = ac.step(o)
-            next_o, r, terminal, info = env.step(a)
+            next_o, r, terminal, info = env.step(a.cpu().numpy())
 
             ep_ret += r
             ep_len += 1
@@ -650,6 +733,7 @@ class PPOPolicy():
                 pos_ret += r
             ep_ret_mod += r
             # save and log
+            r = torch.as_tensor(r, dtype=torch.float32).to(device)
             buf.store(o, a, r, v, logp)
 
             # Update obs (critical!)
@@ -702,9 +786,9 @@ class PPOPolicy():
 
                 ep_ret_scheduler = 0
 
-            #if step % 50 == 0:
-            episode_statistics = comm.allgather(info)
-            self.save_metrics(episode_statistics, policy_record)
+            if step % 50 == 0:
+                episode_statistics = comm.allgather(info)
+                self.save_metrics(episode_statistics, policy_record)
 
             if step % tsboard_freq == 0:
                 lrlocal = (episode_lengths, episode_returns)
