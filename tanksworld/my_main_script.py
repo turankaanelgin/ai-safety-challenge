@@ -16,6 +16,7 @@ from arena5.core.policy_record import *
 import itertools
 
 from algos.torch_ppo.ppo import PPOPolicy as TorchPPOPolicy
+from algos.torch_ppo.mappo import PPOPolicy as TorchMAPPOPolicy
 from algos.torch_ppo.core import MLPActorCritic
 import my_config as cfg
 
@@ -23,7 +24,7 @@ import my_config as cfg
 args = cfg.args
 args_dict = cfg.args_dict
 
-additional_policies = {'torch_ppo': TorchPPOPolicy}
+additional_policies = {'torch_ppo': TorchPPOPolicy, 'torch_mappo': TorchMAPPOPolicy}
 if args.env_seed != -1:
     if len(args.env_seed) == 1:
         env_seeds = [args.env_seed]
@@ -48,8 +49,8 @@ print('Total number of configurations:', len(grid))
 if args.eval_mode:
     match_list = [[1,1,1,1,1]]
 else:
-    match_list = [[i,i,i,i,i] for i in range(1, len(grid)*len(policy_seeds)+1)]
-policy_types = {i: 'torch_ppo' for i in range(1, len(grid)*len(policy_seeds)+1)}
+    match_list = [[[i,i,i,i,i]] for i in range(1, len(grid)*len(policy_seeds)+1)]
+policy_types = {i: 'torch_mappo' for i in range(1, len(grid)*len(policy_seeds)+1)}
 print('MATCH LIST:', match_list)
 
 colors = [(1.0,0,0), (0,0,1.0), (0,1.0,0), (1.0,1.0,0), (0,1.0,1.0), (1.0,0,1.0)]
