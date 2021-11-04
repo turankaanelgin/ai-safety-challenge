@@ -1,5 +1,7 @@
 import subprocess
 import argparse
+import os
+import json
 import numpy as np
 
 import my_config as cfg
@@ -12,14 +14,28 @@ n_env_seeds = additional_args['n_env_seeds']
 n_policy_seeds = additional_args['n_policy_seeds']
 num_iter = additional_args['num_iter']
 n = 1+6*len(cfg.grid)*n_env_seeds*n_policy_seeds
+
+env_seed_arg = additional_args['env_seed']
+if isinstance(env_seed_arg, list):
+    env_seeds = env_seed_arg.copy()
+else:
+    env_seeds = [np.random.randint(_MAX_INT) for _ in range(n_env_seeds)]
+
+policy_seed_arg = additional_args['policy_seed']
+if isinstance(policy_seed_arg, list):
+    policy_seeds = policy_seed_arg.copy()
+else:
+    policy_seeds = [np.random.randint(_MAX_INT) for _ in range(n_policy_seeds)]
+
 del additional_args['n_env_seeds']
 del additional_args['n_policy_seeds']
 del additional_args['num_iter']
 del additional_args['env_seed']
 del additional_args['policy_seed']
 
-env_seeds = [np.random.randint(_MAX_INT) for _ in range(n_env_seeds)]
-policy_seeds = [np.random.randint(_MAX_INT) for _ in range(n_policy_seeds)]
+with open(os.path.join('./logs', additional_args['logdir'], 'seeds.json'), 'w+') as f:
+    json.dump({'env_seeds': env_seeds,
+               'policy_seeds': policy_seeds}, f)
 
 command = ['mpiexec', '-n', '{}'.format(n), 'python3.6', 'my_main_script.py']
 for arg_name in additional_args:
