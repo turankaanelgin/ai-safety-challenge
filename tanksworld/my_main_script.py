@@ -16,6 +16,7 @@ from arena5.core.policy_record import *
 import itertools
 
 from algos.torch_ppo.ppo import PPOPolicy as TorchPPOPolicy
+from algos.torch_ppo.mappo import PPOPolicy as TorchMAPPOPolicy
 from algos.torch_ppo.core import MLPActorCritic
 import my_config as cfg
 
@@ -23,7 +24,7 @@ import my_config as cfg
 args = cfg.args
 args_dict = cfg.args_dict
 
-additional_policies = {'torch_ppo': TorchPPOPolicy}
+additional_policies = {'torch_ppo': TorchPPOPolicy, 'torch_mappo': TorchMAPPOPolicy}
 if args.env_seed != -1:
     if len(args.env_seed) == 1:
         env_seeds = [args.env_seed]
@@ -46,17 +47,17 @@ grid = cfg.grid
 print('Total number of configurations:', len(grid))
 
 if args.eval_mode:
-    match_list = [[1,1,1,1,1]]
+    match_list = [[[1,1,1,1,1]]]
 else:
-    match_list = [[i,i,i,i,i] for i in range(1, len(grid)*len(policy_seeds)+1)]
-policy_types = {i: 'torch_ppo' for i in range(1, len(grid)*len(policy_seeds)+1)}
+    match_list = [[[i,i,i,i,i]] for i in range(1, len(grid)*len(policy_seeds)+1)]
+policy_types = {i: 'torch_mappo' for i in range(1, len(grid)*len(policy_seeds)+1)}
 print('MATCH LIST:', match_list)
 
-colors = [(1.0,0,0), (0,0,1.0), (0,1.0,0), (1.0,1.0,0), (0,1.0,1.0), (1.0,0,1.0)]
+colors = [(1.0,0,0)] * 10
 assert len(colors) >= len(policy_seeds)
 
 if args.eval_mode:
-    policy_folder_names = [args.eval_checkpoint.split('/')[-2]]
+    policy_folder_names = [args.eval_checkpoint.split('/')[-2]+'_eval']
 else:
     policy_folder_names = []
     for config in grid:
@@ -106,7 +107,7 @@ else:
         for seed_idx, seed in enumerate(policy_seeds):
             kwargs_2[idx+1] = {'steps_per_epoch': config['steps_per_epoch'], 'train_pi_iters': 4, 'train_v_iters': 4,
                          'actor_critic': MLPActorCritic, 'ac_kwargs': {'hidden_sizes': (64, 64)}, 'neg_weight_constant': 1.0,
-                         'model_id': '{}-{}'.format(policy_folder_names[policy_idx], seed_idx),
+                         'model_id': '{}---{}-{}'.format(args.logdir.split('/')[-1], policy_folder_names[policy_idx], seed_idx),
                          'model_path': './models/frozen-cnn-0.8/4000000.pth',
                          'pi_lr': config['policy_lr'], 'vf_lr': config['value_lr'], 'pi_scheduler': config['policy_lr_schedule'],
                          'vf_scheduler': config['value_lr_schedule'], 'seed': seed, 'curriculum_start': config['curriculum_start'],
