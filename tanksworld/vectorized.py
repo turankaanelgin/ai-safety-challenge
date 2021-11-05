@@ -15,7 +15,10 @@ from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 from stable_baselines3.common.env_util import is_wrapped
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import CheckpointCallback
+from env_original.make_env import make_env as make_env_origin
+from env_rgb.make_env import make_env as make_env_rgb
 import torch
+import sys
 
 if __name__ == '__main__':  
     args = cfg.args
@@ -75,6 +78,31 @@ if __name__ == '__main__':
             action, _ = model.predict(observation)
             observation, reward, done, info = env.step(action)
             if done:
+                game += 1
+                observation = env.reset()
+
+    elif args.record_rgb:
+        print('load path', args.save_path)
+        model = PPO.load(args.save_path)
+        #env = make_env_rgb(**kwargs_1)
+        env = create_env()
+        observation = env.reset()
+        step = 0
+        old_step =0
+        env_count = 0
+        game = 0
+        observation_list = []
+        while game < 10:
+            action, _ = model.predict(observation)
+            observation, reward, done, info = env.step(action)
+            observation_list.append(info['img'])
+            if done:
+                fourcc = cv2.VideoWriter_fourcc(*'MP4V')
+                out = cv2.VideoWriter('tmp/videos/{}.mp4'.format(game),fourcc, 10, (128, 128))
+                for img in observation_list:  
+                    out.write(img) 
+                out.release()
+                observation_list = []
                 game += 1
                 observation = env.reset()
 

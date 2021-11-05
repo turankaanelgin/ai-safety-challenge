@@ -7,7 +7,7 @@ import os
 from mpi4py import MPI
 import numpy as np
 import matplotlib.pyplot as plt
-from tanksworld.minimap_util import minimap_for_player, displayable_rgb_map, display_cvimage
+from tanksworld.minimap_util import minimap_for_player, minimap_for_player_rgb, displayable_rgb_map, display_cvimage
 import cv2
 import pathlib
 from tensorboardX import SummaryWriter
@@ -208,6 +208,7 @@ class TanksWorldEnv(gym.Env):
         barriers = self.barrier_img/255.0  #np.array(self._env_info.visual_observations[1][0])
 
         ret_states = [minimap_for_player(state_reformat,i,barriers) for i in self.training_tanks]
+        img = minimap_for_player_rgb(state_reformat,i,barriers)
 
         if self.will_render:
             self.disp_states = [displayable_rgb_map(s) for s in ret_states]
@@ -217,7 +218,7 @@ class TanksWorldEnv(gym.Env):
 
         ret_states = [np.expand_dims(s.transpose((2, 0, 1)), 0) for s in ret_states]
         ret_states = np.concatenate(ret_states, axis=1).squeeze()
-        return ret_states
+        return ret_states, img
 
     def reset(self,**kwargs):
 
@@ -257,7 +258,7 @@ class TanksWorldEnv(gym.Env):
         self.red_team_stats = team_stats_dict(self)
         self.blue_team_stats = team_stats_dict(self)
 
-        state = self.get_state()
+        state, _ = self.get_state()
 
         return state
 
@@ -654,7 +655,7 @@ class TanksWorldEnv(gym.Env):
             self._env_info = self._env.step(new_action)[self._default_brain]
 
             #get state
-            self.state = self.get_state()
+            self.state, rgb_img = self.get_state()
 
             #add rewards
             new_rew = self.objectives()
@@ -702,6 +703,7 @@ class TanksWorldEnv(gym.Env):
             info = [{"red_stats": self.red_team_stats, "blue_stats": self.blue_team_stats}] * len(self.training_tanks)
 
 
+        info[0]['img'] = rgb_img
         self.reward = np.mean(self.reward)
         return self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), info[0]
 

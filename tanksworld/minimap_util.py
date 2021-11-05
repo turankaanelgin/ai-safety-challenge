@@ -155,6 +155,75 @@ def barriers_for_player(barriers, reference_tank):
     ch = np.maximum(img, barrier_img)
 
     return ch
+
+def draw_tanks_in_channel2(tank_data, reference_tank):
+
+    img = np.zeros((IMG_SZ, IMG_SZ, 1), np.uint8)
+
+    #draw tanks
+    for td in tank_data:
+
+        if td[3] <= 0.0:
+            continue
+
+        rel_x, rel_y = point_relative_point_heading([td[0],td[1]], reference_tank[0:2], reference_tank[2])
+
+        rel_x,rel_y = td[0], td[1]
+        x = (rel_x/UNITY_SZ) * SCALE + float(IMG_SZ)*0.5
+        y = (rel_y/UNITY_SZ) * SCALE + float(IMG_SZ)*0.5
+        heading = td[2]
+        health = td[3]
+
+        rel_heading = heading - reference_tank[2]
+
+        img = draw_arrow(img, x, y, heading, health)
+
+        # draw bullet if present
+        if len(td) > 4:
+            bx = td[4]
+            by = td[5]
+
+            if bx < 900:
+                #rel_x, rel_y = point_relative_point_heading([bx, by], reference_tank[0:2], reference_tank[2])
+                
+                x = (bx/UNITY_SZ) * SCALE + float(IMG_SZ)*0.5
+                y = (by/UNITY_SZ) * SCALE + float(IMG_SZ)*0.5
+                img = draw_bullet(img, x, y)
+
+    return img
+
+def minimap_for_player_rgb(tank_data_original, tank_idx, barriers):
+
+    barriers = np.flipud(barriers)
+
+    tank_data = []
+    for td in tank_data_original:
+        tank_data.append([td[0], -td[1], td[2], td[3], td[4], -td[5]])
+
+    my_data = tank_data[tank_idx]
+
+    if my_data[3] <= 0.0:
+        #display_cvimage("tank"+str(tank_idx), np.zeros((IMG_SZ, IMG_SZ, 3)))
+        return np.zeros((IMG_SZ,IMG_SZ,4), dtype=np.float32)
+
+    if tank_idx < 5:
+        ally = tank_data[:5]
+        enemy = tank_data[5:10]
+        neutral = tank_data[10:]
+        flip = True
+    else:
+        enemy = tank_data[:5]
+        ally = tank_data[5:10]
+        neutral = tank_data[10:]
+        flip = False
+
+    #img =  draw_tanks_in_channel2(ally, my_data)
+    #this_channel = draw_tanks_in_channel([my_data], my_data)
+    ally_channel = draw_tanks_in_channel2(ally, my_data)
+    enemy_channel = draw_tanks_in_channel2(enemy, my_data)
+    neutral_channel = draw_tanks_in_channel2(neutral, my_data)
+    img = np.concatenate([enemy_channel, neutral_channel, ally_channel], axis=2)
+    return img
 # expects state data chopped on a tank by tank basis
 # ie. for 5 red, 5 blue, 2 neutral, expects a length 12 array
 def minimap_for_player(tank_data_original, tank_idx, barriers):
