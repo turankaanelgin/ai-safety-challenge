@@ -276,14 +276,12 @@ class PPOPolicy():
         observation = self.env.reset()
 
         if not ac:
-            ac = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs)
-            ac.load_state_dict(torch.load(self.kargs['model_path']))
+            ac = actor_critic(self.env.observation_spaces[0], self.env.action_spaces[0], **ac_kwargs)
+            ac.load_state_dict(torch.load(self.kargs['model_path'])['model_state_dict'])
         ac.eval()
 
         eplen = 0
         epret = 0
-        running_reward_mean = 0.0
-        running_reward_std = 0.0
         num_dones = 0
 
         pp = pprint.PrettyPrinter(indent=4)
@@ -305,16 +303,14 @@ class PPOPolicy():
             if done:
                 observation = self.env.reset()
 
-                episode_reward = self.comm.allgather(epret)
-                episode_length = self.comm.allgather(eplen)
                 episode_statistics = self.comm.allgather(info)
 
-                stats_per_env = []
-                for env_idx in range(0, len(episode_statistics), 5):
-                    stats_per_env.append(episode_statistics[env_idx])
-                episode_statistics = stats_per_env
-
-                episode_statistics = [episode_statistics[i]['average'] for i in range(len(episode_statistics))]
+                episode_statistics = [episode_statistics[env_idx][0]['all'][-min(100, length):] \
+                                      for env_idx in range(len(episode_statistics))]
+                for env_idx in range(len(episode_statistics)):
+                    episode_statistics[env_idx] = {key: np.average([episode_statistics[env_idx][i][key] \
+                                                                    for i in range(len(episode_statistics[env_idx]))]) \
+                                                   for key in episode_statistics[env_idx][0]}
 
                 mean_statistics = {}
                 std_statistics = {}
@@ -325,26 +321,11 @@ class PPOPolicy():
                     std_statistics[key] = np.std(list_of_stats)
                     all_statistics[key] = list_of_stats
 
-                reward_per_env = []
-                for env_idx in range(0, len(episode_reward), 5):
-                    reward_per_env.append(sum(episode_reward[env_idx:env_idx + 5]))
-
-                reward_mean = np.average(reward_per_env)
-                reward_std = np.std(reward_per_env)
-                running_reward_mean += reward_mean
-                running_reward_std += reward_std
-
-                episode_length = np.average(episode_length)
-
-                if policy_record is not None:
-                    policy_record.add_result(reward_mean, episode_length)
-                    policy_record.save()
-
                 eplen = 0
                 epret = 0
                 num_dones += 1
 
-                if num_dones == 1 or num_dones == total_timesteps or num_dones % 25 == 0:
+                if num_dones == 1 or num_dones == total_timesteps or num_dones % 10 == 0:
                     if policy_record is not None:
                         with open(os.path.join(policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
                             json.dump(mean_statistics, f, indent=True)
@@ -537,7 +518,7 @@ class PPOPolicy():
                     param.requires_grad = False
 
         ac = ac.to(device)
-        #sync_params(comm, ac, root=root)
+        sync_params(comm, ac, root=root)
 
         buf = PPOBufferCUDA(obs_dim, act_dim, steps_per_epoch, gamma, lam, use_rnn=use_rnn)
 
@@ -723,14 +704,12 @@ class PPOPolicy():
 
             if step % 50 == 0:
                 episode_statistics = comm.allgather(info)
-                #episode_statistics = info
                 self.save_metrics(episode_statistics, policy_record, num_envs=5)
 
             if step % tsboard_freq == 0:
                 lrlocal = (episode_lengths, episode_returns)
                 listoflrpairs = comm.allgather(lrlocal)
                 lens, rews = map(flatten_lists, zip(*listoflrpairs))
-                #lens, rews = episode_lengths, episode_returns
 
                 if policy_record is not None:
                     for idx in range(len(lens)):
@@ -741,4 +720,3 @@ class PPOPolicy():
                 episode_lengths = []
                 episode_returns = []
                 del lrlocal, listoflrpairs, lens, rews
-                #del lens, rews
