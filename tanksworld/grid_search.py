@@ -34,15 +34,23 @@ del additional_args['policy_seed']
 
 if not os.path.exists(os.path.join('./logs', additional_args['logdir'])):
     os.mkdir(os.path.join('./logs', additional_args['logdir']))
-if os.path.exists(os.path.join('./logs', additional_args['logdir'], 'seeds.json')):
-    with open(os.path.join('./logs', additional_args['logdir'], 'seeds.json'), 'r') as f:
+
+init_seeds = os.path.join('./logs', additional_args['logdir'], 'seeds.json')
+if os.path.exists(init_seeds):
+    with open(init_seeds, 'r') as f:
+        env_seeds = json.load(f)['env_seeds']
+
+if os.path.exists(os.path.join('./logs', additional_args['logdir'], '{}.json'.format(additional_args['seed_id']))):
+    with open(os.path.join('./logs', additional_args['logdir'], '{}.json'.format(additional_args['seed_id'])), 'r') as f:
         seed_list = json.load(f)
         env_seeds = seed_list['env_seeds']
         policy_seeds = seed_list['policy_seeds']
 else:
-    with open(os.path.join('./logs', additional_args['logdir'], 'seeds.json'), 'w+') as f:
+    with open(os.path.join('./logs', additional_args['logdir'], '{}.json'.format(additional_args['seed_id'])), 'w+') as f:
         json.dump({'env_seeds': env_seeds, 'policy_seeds': policy_seeds}, f)
 
+n_env_seeds = len(env_seeds)
+n_policy_seeds = len(policy_seeds)
 n = 1+2*len(cfg.grid)*n_env_seeds*n_policy_seeds
 
 command = ['mpiexec', '-n', '{}'.format(n), 'python3.6', 'my_main_script.py']

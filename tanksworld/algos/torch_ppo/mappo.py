@@ -332,7 +332,7 @@ class PPOPolicy():
                         with open(os.path.join(policy_record.data_dir, 'std_statistics.json'), 'w+') as f:
                             json.dump(std_statistics, f, indent=True)
 
-    def save_metrics(self, episode_statistics, policy_record, num_envs=5):
+    def save_metrics(self, episode_statistics, policy_record, step):
 
         pp = pprint.PrettyPrinter(indent=4)
 
@@ -355,10 +355,12 @@ class PPOPolicy():
             std_statistics[key] = np.std(list_of_stats)
             all_statistics[key] = list_of_stats
 
+        block_num = step // 2500
+
         if policy_record is not None:
-            with open(os.path.join(policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
+            with open(os.path.join(policy_record.data_dir, 'mean_statistics_{}.json'.format(block_num)), 'w+') as f:
                 json.dump(mean_statistics, f, indent=True)
-            with open(os.path.join(policy_record.data_dir, 'std_statistics.json'), 'w+') as f:
+            with open(os.path.join(policy_record.data_dir, 'std_statistics_{}.json'.format(block_num)), 'w+') as f:
                 json.dump(std_statistics, f, indent=True)
 
 
@@ -491,7 +493,7 @@ class PPOPolicy():
         else:
             if isinstance(seed, list) and len(seed) == 1:
                 seed = seed[0]
-            seed = seed + proc_id(comm)
+
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
         np.random.seed(seed)
@@ -617,12 +619,9 @@ class PPOPolicy():
             from pathlib import Path
             Path(os.path.join('./models', str(kargs['model_id']))).mkdir(parents=True, exist_ok=True)
 
-        ep_ret_mod = 0
         total_step = 0
 
         step = 0
-
-        last_pos_ret, pos_ret, last_neg_ret, neg_ret = 0, 0, 0, 0
 
         episode_lengths = []
         episode_returns = []
@@ -704,7 +703,7 @@ class PPOPolicy():
 
             if step % 50 == 0:
                 episode_statistics = comm.allgather(info)
-                self.save_metrics(episode_statistics, policy_record, num_envs=5)
+                self.save_metrics(episode_statistics, policy_record, step=step)
 
             if step % tsboard_freq == 0:
                 lrlocal = (episode_lengths, episode_returns)
