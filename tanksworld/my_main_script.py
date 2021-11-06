@@ -47,31 +47,32 @@ grid = cfg.grid
 print('Total number of configurations:', len(grid))
 
 if args.eval_mode:
-    match_list = [[[1,1,1,1,1]]]
+    match_list = [[1,1,1,1,1]]
 else:
     match_list = [[[i,i,i,i,i]] for i in range(1, len(grid)*len(policy_seeds)+1)]
 policy_types = {i: 'torch_mappo' for i in range(1, len(grid)*len(policy_seeds)+1)}
 print('MATCH LIST:', match_list)
 
-colors = [(1.0,0,0)] * 10
+colors = [(1.0,0,0), (0,0,1.0), (0,1.0,0), (1.0,1.0,0), (0,1.0,1.0), (1.0,0,1.0)]
 assert len(colors) >= len(policy_seeds)
 
 if args.eval_mode:
-    policy_folder_names = [args.eval_checkpoint.split('/')[-2]+'_eval']
+    policy_folder_names = [args.eval_checkpoint.split('/')[-2]]
 else:
     policy_folder_names = []
     for config in grid:
-        folder_name = 'lrp={}{}__lrv={}{}__r={}__p={}__ff={}__H={}'.format(config['policy_lr'],
+        folder_name = 'lrp={}{}__lrv={}{}__r={}__p={}__ff={}__H={}__{}'.format(config['policy_lr'],
                                                                                  config['policy_lr_schedule'],
                                                                                  config['value_lr'],
                                                                                  config['value_lr_schedule'],
                                                                                  config['reward_weight'],
                                                                                  config['penalty_weight'],
                                                                                  config['ff_weight'],
-                                                                                 config['steps_per_epoch'])
+                                                                                 config['steps_per_epoch'],
+                                                                                 args.save_tag)
         if config['curriculum_start'] >= 0.0:
             folder_name += '__CS={}__CF={}'.format(config['curriculum_start'], config['curriculum_stop'])
-        policy_folder_names += [folder_name] * len(policy_seeds)
+        policy_folder_names += ['{}__seed{}'.format(folder_name, idx) for idx in range(len(policy_seeds))]
 
 plot_colors = colors[:len(policy_seeds)]*len(grid)
 plot_colors = {i+1: plot_colors[i] for i in range(len(plot_colors))}
@@ -107,7 +108,8 @@ else:
         for seed_idx, seed in enumerate(policy_seeds):
             kwargs_2[idx+1] = {'steps_per_epoch': config['steps_per_epoch'], 'train_pi_iters': 4, 'train_v_iters': 4,
                          'actor_critic': MLPActorCritic, 'ac_kwargs': {'hidden_sizes': (64, 64)}, 'neg_weight_constant': 1.0,
-                         'model_id': '{}---{}-{}'.format(args.logdir.split('/')[-1], policy_folder_names[policy_idx], seed_idx),
+                         'model_id': '{}---{}-{}-{}'.format(args.logdir.split('/')[-1], policy_folder_names[policy_idx], seed_idx,
+                                                            args.save_tag),
                          'model_path': './models/frozen-cnn-0.8/4000000.pth',
                          'pi_lr': config['policy_lr'], 'vf_lr': config['value_lr'], 'pi_scheduler': config['policy_lr_schedule'],
                          'vf_scheduler': config['value_lr_schedule'], 'seed': seed, 'curriculum_start': config['curriculum_start'],

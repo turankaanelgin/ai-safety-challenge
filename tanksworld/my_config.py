@@ -31,6 +31,8 @@ parser.add_argument('--num_iter', type=int, default=1000)
 parser.add_argument('--env_seed', nargs='+', type=int, default=-1)
 parser.add_argument('--policy_seed', nargs='+', type=int, default=-1)
 parser.add_argument('--eval_checkpoint', type=str, default='')
+parser.add_argument('--seed_id', type=str, default='seeds')
+parser.add_argument('--save_tag', type=str, default='')
 args = parser.parse_args()
 args_dict = vars(args)
 
