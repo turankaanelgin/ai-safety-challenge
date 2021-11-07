@@ -33,6 +33,7 @@ parser.add_argument('--policy_seed', nargs='+', type=int, default=-1)
 parser.add_argument('--eval_checkpoint', type=str, default='')
 parser.add_argument('--seed_id', type=str, default='seeds')
 parser.add_argument('--save_tag', type=str, default='')
+parser.add_argument('--load_from_checkpoint', action='store_true', default=False)
 args = parser.parse_args()
 args_dict = vars(args)
 
