@@ -723,9 +723,6 @@ class PPOPolicy():
 
                 ep_ret_scheduler, ep_len_scheduler = 0, 0
 
-            pi_lr_for_plot.append(pi_optimizer.param_groups[0]['lr'])
-            vf_lr_for_plot.append(vf_optimizer.param_groups[0]['lr'])
-
             if step % 50 == 0:
                 episode_statistics = comm.allgather(info)
                 self.save_metrics(episode_statistics, policy_record, step=step)
