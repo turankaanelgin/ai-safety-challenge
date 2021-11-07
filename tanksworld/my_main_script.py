@@ -53,7 +53,7 @@ else:
 policy_types = {i: 'torch_mappo' for i in range(1, len(grid)*len(policy_seeds)+1)}
 print('MATCH LIST:', match_list)
 
-colors = [(1.0,0,0), (0,0,1.0), (0,1.0,0), (1.0,1.0,0), (0,1.0,1.0), (1.0,0,1.0)]
+colors = [(1.0,0,0)] * 10
 assert len(colors) >= len(policy_seeds)
 
 if args.eval_mode:
@@ -106,11 +106,21 @@ else:
     idx = 0
     for policy_idx, config in enumerate(grid):
         for seed_idx, seed in enumerate(policy_seeds):
+            model_path = None
+            model_id = '{}---{}-{}-{}'.format(args.logdir.split('/')[-1], policy_folder_names[policy_idx], seed_idx,
+                                              args.save_tag)
+            if args.load_from_checkpoint:
+                if os.path.exists('./models/'+model_id):
+                    ckpt_files = os.listdir('./models/'+model_id)
+                    ckpt_files.sort(key=lambda f: int(f.split('.')[0]))
+                    model_path = os.path.join('./models', model_id, ckpt_files[-1])
+
+            print('MODEL PATH', model_path)
+            exit(0)
+
             kwargs_2[idx+1] = {'steps_per_epoch': config['steps_per_epoch'], 'train_pi_iters': 4, 'train_v_iters': 4,
                          'actor_critic': MLPActorCritic, 'ac_kwargs': {'hidden_sizes': (64, 64)}, 'neg_weight_constant': 1.0,
-                         'model_id': '{}---{}-{}-{}'.format(args.logdir.split('/')[-1], policy_folder_names[policy_idx], seed_idx,
-                                                            args.save_tag),
-                         'model_path': './models/frozen-cnn-0.8/4000000.pth',
+                         'model_id': model_id, 'cnn_model_path': './models/frozen-cnn-0.8/4000000.pth', 'model_path': model_path,
                          'pi_lr': config['policy_lr'], 'vf_lr': config['value_lr'], 'pi_scheduler': config['policy_lr_schedule'],
                          'vf_scheduler': config['value_lr_schedule'], 'seed': seed, 'curriculum_start': config['curriculum_start'],
                          'curriculum_stop': config['curriculum_stop']}

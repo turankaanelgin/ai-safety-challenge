@@ -646,7 +646,7 @@ class PPOPolicy():
                 env.friendly_fire_weight += 0.05
                 env.friendly_fire_weight = min(env.friendly_fire_weight, curriculum_stop)
 
-            if comm.Get_rank() == 0 and step % 25000 == 0:
+            if comm.Get_rank() == 0 and (step+1) % 25000 == 0:
                 model_path = os.path.join('./models', str(kargs['model_id']), str(step) + '.pth')
                 torch.save({'step': step,
                             'model_state_dict': ac.state_dict(),
