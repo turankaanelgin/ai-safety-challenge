@@ -51,7 +51,7 @@ else:
 
 n_env_seeds = len(env_seeds)
 n_policy_seeds = len(policy_seeds)
-n = 1+2*len(cfg.grid)*n_policy_seeds
+n = 1+2*len(cfg.grid)*n_env_seeds*n_policy_seeds
 
 command = ['mpiexec', '-n', '{}'.format(n), 'python3.6', 'my_main_script.py']
 for arg_name in additional_args:
