@@ -648,10 +648,6 @@ class PPOPolicy():
             period = int(steps_to_run // period)
             assert curriculum_stop >= curriculum_start
 
-        pi_lr_for_plot = []
-        vf_lr_for_plot = []
-        fig, ax = plt.subplots(1, 1, figsize=(12, 6))
-
         while step < steps_to_run:
 
             if curriculum_start >= 0.0 and (step + 1) % period == 0:
@@ -726,14 +722,6 @@ class PPOPolicy():
             if step % 50 == 0:
                 episode_statistics = comm.allgather(info)
                 self.save_metrics(episode_statistics, policy_record, step=step)
-
-                if policy_record is not None:
-                    ax.plot(pi_lr_for_plot, label='PI LR')
-                    ax.plot(vf_lr_for_plot, label='VF LR')
-                    ax.set_xlabel("Step")
-                    ax.set_ylabel('Learning Rate')
-                    plt.savefig(os.path.join(policy_record.data_dir, 'learning_rate.png'))
-                    plt.close()
 
             if step % tsboard_freq == 0:
                 lrlocal = (episode_lengths, episode_returns)
