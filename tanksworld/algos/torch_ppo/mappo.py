@@ -510,7 +510,7 @@ class PPOPolicy():
         vf_optimizer = Adam(ac.v.parameters(), lr=vf_lr)
         start_step = 0
 
-        if self.kargs['load_from_checkpoint']:
+        if self.kargs['model_path']:
             ckpt = torch.load(self.kargs['model_path'])
             ac.load_state_dict(ckpt['model_state_dict'], strict=True)
             pi_optimizer.load_state_dict(ckpt['pi_optimizer_state_dict'])
