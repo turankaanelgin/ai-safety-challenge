@@ -115,9 +115,6 @@ else:
                     ckpt_files.sort(key=lambda f: int(f.split('.')[0]))
                     model_path = os.path.join('./models', model_id, ckpt_files[-1])
 
-            print('MODEL PATH', model_path)
-            exit(0)
-
             kwargs_2[idx+1] = {'steps_per_epoch': config['steps_per_epoch'], 'train_pi_iters': 4, 'train_v_iters': 4,
                          'actor_critic': MLPActorCritic, 'ac_kwargs': {'hidden_sizes': (64, 64)}, 'neg_weight_constant': 1.0,
                          'model_id': model_id, 'cnn_model_path': './models/frozen-cnn-0.8/4000000.pth', 'model_path': model_path,
