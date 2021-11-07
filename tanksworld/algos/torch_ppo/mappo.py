@@ -18,6 +18,7 @@ from datetime import datetime
 from . import core
 import os
 import json
+from matplotlib import pyplot as plt
 
 from stable_baselines.trpo_mpi.utils import flatten_lists
 from algos.torch_ppo.mappo_utils import valuenorm
@@ -502,6 +503,7 @@ class PPOPolicy():
         obs_dim = env.observation_spaces[0].shape
         act_dim = env.action_spaces[0].shape
         o, ep_ret, ep_len = env.reset(), 0, 0
+        ep_ret_scheduler, ep_len_scheduler = 0, 0
 
         ac = actor_critic(env.observation_spaces[0], env.action_spaces[0], **ac_kwargs).to(device)
 
@@ -509,6 +511,12 @@ class PPOPolicy():
         pi_optimizer = Adam(ac.pi.parameters(), lr=pi_lr)
         vf_optimizer = Adam(ac.v.parameters(), lr=vf_lr)
         start_step = 0
+
+        if pi_scheduler == 'smart':
+            scheduler_policy = ReduceLROnPlateau(pi_optimizer, mode='max', factor=0.5, patience=1000)
+
+        if vf_scheduler == 'smart':
+            scheduler_value = ReduceLROnPlateau(vf_optimizer, mode='max', factor=0.5, patience=1000)
 
         if self.kargs['model_path']:
             ckpt = torch.load(self.kargs['model_path'])
@@ -640,6 +648,10 @@ class PPOPolicy():
             period = int(steps_to_run // period)
             assert curriculum_stop >= curriculum_start
 
+        pi_lr_for_plot = []
+        vf_lr_for_plot = []
+        fig, ax = plt.subplots(1, 1, figsize=(12, 6))
+
         while step < steps_to_run:
 
             if curriculum_start >= 0.0 and (step + 1) % period == 0:
@@ -660,7 +672,9 @@ class PPOPolicy():
             next_o, r, terminal, info = env.step(a)
 
             ep_ret += sum(r)
+            ep_ret_scheduler += sum(r)
             ep_len += 1
+            ep_len_scheduler += 1
             total_step += 1
 
             # save and log
@@ -698,20 +712,31 @@ class PPOPolicy():
                 update()
 
                 if pi_scheduler == 'smart':
-                    scheduler_policy.step(ep_ret_scheduler)
+                    scheduler_policy.step(ep_ret_scheduler/ep_len_scheduler)
                 elif pi_scheduler != 'cons':
                     scheduler_policy.step()
 
                 if vf_scheduler == 'smart':
-                    scheduler_value.step(ep_ret_scheduler)
+                    scheduler_value.step(ep_ret_scheduler/ep_len_scheduler)
                 elif vf_scheduler != 'cons':
                     scheduler_value.step()
 
-                ep_ret_scheduler = 0
+                ep_ret_scheduler, ep_len_scheduler = 0, 0
+
+            pi_lr_for_plot.append(pi_optimizer.param_groups[0]['lr'])
+            vf_lr_for_plot.append(vf_optimizer.param_groups[0]['lr'])
 
             if step % 50 == 0:
                 episode_statistics = comm.allgather(info)
                 self.save_metrics(episode_statistics, policy_record, step=step)
+
+                if policy_record is not None:
+                    ax.plot(pi_lr_for_plot, label='PI LR')
+                    ax.plot(vf_lr_for_plot, label='VF LR')
+                    ax.set_xlabel("Step")
+                    ax.set_ylabel('Learning Rate')
+                    plt.savefig(os.path.join(policy_record.data_dir, 'learning_rate.png'))
+                    plt.close()
 
             if step % tsboard_freq == 0:
                 lrlocal = (episode_lengths, episode_returns)
