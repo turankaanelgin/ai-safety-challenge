@@ -222,7 +222,8 @@ def minimap_for_player_rgb(tank_data_original, tank_idx, barriers):
     ally_channel = draw_tanks_in_channel2(ally, my_data)
     enemy_channel = draw_tanks_in_channel2(enemy, my_data)
     neutral_channel = draw_tanks_in_channel2(neutral, my_data)
-    img = np.concatenate([enemy_channel, neutral_channel, ally_channel], axis=2)
+    #img = np.concatenate([neutral_channel, np.zeros((128, 128, 1), dtype=int), np.zeros((128, 128, 1), dtype=int)], axis=2)
+    img = np.concatenate([ally_channel, neutral_channel, enemy_channel], axis=2)
     return img
 # expects state data chopped on a tank by tank basis
 # ie. for 5 red, 5 blue, 2 neutral, expects a length 12 array

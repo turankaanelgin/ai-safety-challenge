@@ -270,6 +270,7 @@ class TanksWorldEnv(gym.Env):
         red_dead = [state[i]<=0 for i in red_health]
         blue_dead = [state[i]<=0 for i in blue_health]
         training_dead = [state[i]<=0 for i in training_health]
+        #print(273, '=============>episdoe step', self.episode_steps, 'time out', self.timeout)
 
         if all(red_dead) or all(blue_dead) or all(training_dead) or (self.episode_steps>self.timeout and not self.no_timeout):
             return True

@@ -95,10 +95,16 @@ if __name__ == '__main__':
         while game < 10:
             action, _ = model.predict(observation)
             observation, reward, done, info = env.step(action)
-            observation_list.append(info['img'])
+            #print(98, 'step ======>', step)
+            step += 1
+            if len(info['img'].shape) ==3:
+                observation_list.append(info['img'])
             if done:
+                step = 0
+                np.save('tmp/rgb', observation_list)
+                print(info['average'])
                 fourcc = cv2.VideoWriter_fourcc(*'MP4V')
-                out = cv2.VideoWriter('tmp/videos/{}.mp4'.format(game),fourcc, 10, (128, 128))
+                out = cv2.VideoWriter('tmp/videos/{}.mp4'.format(game),fourcc, 2, (128, 128))
                 for img in observation_list:  
                     out.write(img) 
                 out.release()
