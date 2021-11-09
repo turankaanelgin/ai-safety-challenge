@@ -63,7 +63,7 @@ class LinearLR(_LRScheduler):
         >>>     scheduler.step()
     """
 
-    def __init__(self, optimizer, start_factor=1.0 / 3, end_factor=1.0, total_iters=5, last_epoch=-1,
+    def __init__(self, optimizer, start_factor=1.0 / 3, end_factor=1.0, total_iters=1000, last_epoch=-1,
                  verbose=False):
         if start_factor > 1.0 or start_factor < 0:
             raise ValueError('Starting multiplicative factor expected to be between 0 and 1.')
@@ -277,12 +277,14 @@ class PPOPolicy():
         observation = self.env.reset()
 
         if not ac:
-            ac = actor_critic(self.env.observation_spaces[0], self.env.action_spaces[0], **ac_kwargs)
-            ac.load_state_dict(torch.load(self.kargs['model_path'])['model_state_dict'])
+            ac = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs)
+            ac.load_state_dict(torch.load(self.kargs['model_path'])['model_state_dict'], strict=True)
         ac.eval()
 
         eplen = 0
         epret = 0
+        running_reward_mean = 0.0
+        running_reward_std = 0.0
         num_dones = 0
 
         pp = pprint.PrettyPrinter(indent=4)
@@ -304,14 +306,16 @@ class PPOPolicy():
             if done:
                 observation = self.env.reset()
 
+                episode_reward = self.comm.allgather(epret)
+                episode_length = self.comm.allgather(eplen)
                 episode_statistics = self.comm.allgather(info)
 
-                episode_statistics = [episode_statistics[env_idx][0]['all'][-min(100, length):] \
-                                      for env_idx in range(len(episode_statistics))]
-                for env_idx in range(len(episode_statistics)):
-                    episode_statistics[env_idx] = {key: np.average([episode_statistics[env_idx][i][key] \
-                                                                    for i in range(len(episode_statistics[env_idx]))]) \
-                                                   for key in episode_statistics[env_idx][0]}
+                stats_per_env = []
+                for env_idx in range(0, len(episode_statistics), 5):
+                    stats_per_env.append(episode_statistics[env_idx])
+                episode_statistics = stats_per_env
+
+                episode_statistics = [episode_statistics[i]['average'] for i in range(len(episode_statistics))]
 
                 mean_statistics = {}
                 std_statistics = {}
@@ -322,16 +326,32 @@ class PPOPolicy():
                     std_statistics[key] = np.std(list_of_stats)
                     all_statistics[key] = list_of_stats
 
+                reward_per_env = []
+                for env_idx in range(0, len(episode_reward), 5):
+                    reward_per_env.append(sum(episode_reward[env_idx:env_idx + 5]))
+
+                reward_mean = np.average(reward_per_env)
+                reward_std = np.std(reward_per_env)
+                running_reward_mean += reward_mean
+                running_reward_std += reward_std
+
+                episode_length = np.average(episode_length)
+
+                if policy_record is not None:
+                    policy_record.add_result(reward_mean, episode_length)
+                    policy_record.save()
+
                 eplen = 0
                 epret = 0
                 num_dones += 1
 
-                if num_dones == 1 or num_dones == total_timesteps or num_dones % 10 == 0:
+                if num_dones == 1 or num_dones == total_timesteps or num_dones % 25 == 0:
                     if policy_record is not None:
                         with open(os.path.join(policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
                             json.dump(mean_statistics, f, indent=True)
                         with open(os.path.join(policy_record.data_dir, 'std_statistics.json'), 'w+') as f:
                             json.dump(std_statistics, f, indent=True)
+
 
     def save_metrics(self, episode_statistics, policy_record, step):
 
@@ -514,9 +534,13 @@ class PPOPolicy():
 
         if pi_scheduler == 'smart':
             scheduler_policy = ReduceLROnPlateau(pi_optimizer, mode='max', factor=0.5, patience=1000)
+        elif pi_scheduler == 'linear':
+            scheduler_policy = LinearLR(pi_optimizer, start_factor=0.5, end_factor=1.0, total_iters=1000)
 
         if vf_scheduler == 'smart':
             scheduler_value = ReduceLROnPlateau(vf_optimizer, mode='max', factor=0.5, patience=1000)
+        elif vf_scheduler == 'linear':
+            scheduler_value = LinearLR(vf_optimizer, start_factor=0.5, end_factor=1.0, total_iters=1000)
 
         if self.kargs['model_path']:
             ckpt = torch.load(self.kargs['model_path'])
@@ -602,7 +626,6 @@ class PPOPolicy():
                 pi_optimizer.zero_grad()
                 loss_pi, pi_info = compute_loss_pi(data)
                 kl = mpi_avg(comm, pi_info['kl'])
-                #kl = np.mean(pi_info['kl'])
                 if kl > 1.5 * target_kl:
                     # logger.log('Early stopping at step %d due to reaching max kl.'%i)
                     break
@@ -641,12 +664,16 @@ class PPOPolicy():
 
         episode_lengths = []
         episode_returns = []
+        policy_learning_rates = [pi_lr]
+        value_learning_rates = [vf_lr]
 
         if curriculum_start >= 0.0:
             env.friendly_fire_weight = curriculum_start
             period = (curriculum_stop - curriculum_start) // 0.05
             period = int(steps_to_run // period)
             assert curriculum_stop >= curriculum_start
+
+        fig, ax = plt.subplots(1,1,figsize=(12,6))
 
         while step < steps_to_run:
 
@@ -711,17 +738,24 @@ class PPOPolicy():
                     scheduler_policy.step(ep_ret_scheduler/ep_len_scheduler)
                 elif pi_scheduler != 'cons':
                     scheduler_policy.step()
+                policy_learning_rates.append(pi_optimizer.param_groups[0]['lr'])
 
                 if vf_scheduler == 'smart':
                     scheduler_value.step(ep_ret_scheduler/ep_len_scheduler)
                 elif vf_scheduler != 'cons':
                     scheduler_value.step()
+                value_learning_rates.append(vf_optimizer.param_groups[0]['lr'])
 
                 ep_ret_scheduler, ep_len_scheduler = 0, 0
 
             if step % 50 == 0:
                 episode_statistics = comm.allgather(info)
                 self.save_metrics(episode_statistics, policy_record, step=step)
+
+                if policy_record is not None:
+                    ax.plot(policy_learning_rates, label='Policy LR')
+                    ax.plot(value_learning_rates, label='Value LR')
+                    plt.savefig(os.path.join(policy_record.data_dir, 'learning_rate.png'))
 
             if step % tsboard_freq == 0:
                 lrlocal = (episode_lengths, episode_returns)
