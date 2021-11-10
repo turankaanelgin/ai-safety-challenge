@@ -1,4 +1,5 @@
 # ©2020 Johns Hopkins University Applied Physics Laboratory LLC.
+import pdb
 import sys, time, random
 import json
 import gym
@@ -102,7 +103,6 @@ class TanksWorldEnv(gym.Env):
         #self.observation_space = gym.spaces.box.Box(0,255,(128,128,4))
         self.observation_space = gym.spaces.box.Box(0,255,(4,128,128))
         self.action_space = gym.spaces.box.Box(-1,1,(3,))
-        self.action_space = None
         if seed == -1:
             self._seed = np.random.randint(TanksWorldEnv._MAX_INT) #integer seed required, convert
         else:
@@ -633,9 +633,9 @@ class TanksWorldEnv(gym.Env):
                 else:
                     return_statistics['red_losing_episode_{}'.format(key)] = 0
 
-            info = [{'average': return_statistics, 'all': self.all_episode_statistics}] * len(self.training_tanks)
+            info = {'average': return_statistics, 'all': self.all_episode_statistics}
         else:
-            info = [{"red_stats": self.red_team_stats, "blue_stats": self.blue_team_stats}] * len(self.training_tanks)
+            info = {"red_stats": self.red_team_stats, "blue_stats": self.blue_team_stats}
 
         return self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), info
 
@@ -691,7 +691,6 @@ class TanksWorldStackedEnv(TanksWorldEnv):
         self.stack = 3
         self.observation_space = gym.spaces.box.Box(0,255,(128,128,4*self.stack))
         self.action_space = gym.spaces.box.Box(-1,1,(3,))
-        self.action_space = None
         self._seed = None
 
         self.reset(params={})

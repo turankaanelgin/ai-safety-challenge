@@ -1,17 +1,17 @@
 
 # ©2020 Johns Hopkins University Applied Physics Laboratory LLC.
 from tanksworld.env import TanksWorldEnv
-import tanksworld.my_config as cfg
+#import tanksworld.my_config as cfg
 
 import numpy as np
 
 
 # example of passing in kwargs and using them
-def make_env(friendly_fire=True, take_damage_penalty=True, kill_bonus=True, death_penalty=True,
+def make_env(exe, friendly_fire=True, take_damage_penalty=True, kill_bonus=True, death_penalty=True,
 	static_tanks=[], random_tanks=[], disable_shooting=[], reward_weight=1.0, penalty_weight=1.0,
 	tblogs=None, timeout=500, **kwargs):
 
-	return TanksWorldEnv(cfg.args.exe,
+	return TanksWorldEnv(exe,
 		action_repeat=6, 			# step between decisions, will be 6 in evaluation
 		image_scale=128,            # image size, will be 128 in evaluation
 		timeout=timeout,				# maximum number of steps before episode forces a reset

@@ -1,3 +1,5 @@
+import pdb
+
 import numpy as np
 import scipy.signal
 from gym.spaces import Box, Discrete
@@ -23,6 +25,11 @@ def combined_shape_v2(length, seq_len, shape=None):
     if shape is None:
         return (length, seq_len,)
     return (length, seq_len, shape) if np.isscalar(shape) else (length, seq_len, *shape)
+
+def combined_shape_v3(length, batch_len, seq_len, shape=None):
+    if shape is None:
+        return (length, batch_len, seq_len,)
+    return (length, batch_len, seq_len, shape) if np.isscalar(shape) else (length, batch_len, seq_len, *shape)
 
 
 def mlp(sizes, activation, output_activation=nn.Identity):
@@ -110,7 +117,7 @@ class MLPCategoricalActor(Actor):
         if cnn_net is not None:
             self.cnn_net = cnn_net
             dummy_img = torch.rand((1,) + observation_space.shape)
-            mpi_print(dummy_img.shape)
+            #mpi_print(dummy_img.shape)
             self.logits_net = nn.Sequential(
                 nn.Linear(cnn_net(dummy_img).shape[1], 512),
                 activation(),
@@ -139,7 +146,7 @@ class MLPBetaActor(Actor):
         if cnn_net is not None:
             self.cnn_net = cnn_net
             dummy_img = torch.rand((1,) + observation_space.shape)
-            mpi_print(dummy_img.shape)
+            #mpi_print(dummy_img.shape)
             self.alpha_net = nn.Sequential(
                 nn.Linear(cnn_net(dummy_img).shape[1], act_dim),
                 activation()
@@ -177,7 +184,7 @@ class MLPGaussianActor(Actor):
 
         elif cnn_net is not None:
             dummy_img = torch.rand((1,) + observation_space.shape)
-            mpi_print(dummy_img.shape)
+            #mpi_print(dummy_img.shape)
             if two_fc_layers:
                 self.mu_net = nn.Sequential(
                     nn.Linear(cnn_net(dummy_img).shape[1], 512),
@@ -201,13 +208,19 @@ class MLPGaussianActor(Actor):
     def _distribution(self, obs):
         if len(obs.shape) == 4:
             obs = obs.unsqueeze(0)
+        elif len(obs.shape) == 6:
+            if obs.shape[1] == 1:
+                obs = obs.squeeze(1)
+            else:
+                obs = obs.squeeze(2)
+
         if self.cnn_net is not None:
             batch_size = obs.shape[0]
             seq_size = obs.shape[1]
             try:
                 obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
             except:
-                print('obs', obs.shape)
+                print('OBS', obs.shape)
                 exit(0)
             obs = self.cnn_net(obs)
             obs = obs.reshape(batch_size, seq_size, obs.shape[1])
@@ -252,6 +265,9 @@ class MLPCritic(nn.Module):
     def forward(self, obs):
         if len(obs.shape) == 4:
             obs = obs.unsqueeze(0)
+        elif len(obs.shape) == 6:
+            obs = obs.squeeze(2)
+
         if self.cnn_net is not None:
             batch_size = obs.shape[0]
             seq_size = obs.shape[1]
@@ -297,7 +313,8 @@ class MLPActorCritic(nn.Module):
             a = pi.sample()
             logp_a = self.pi._log_prob_from_distribution(pi, a)
             v = self.v(obs)
-        return a.cpu().numpy(), v.cpu().numpy(), logp_a.cpu().numpy()
+        return a, v, logp_a
+        #return a.cpu().numpy(), v.cpu().numpy(), logp_a.cpu().numpy()
 
     def act(self, obs):
         return self.step(obs)[0]
