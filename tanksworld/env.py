@@ -1,5 +1,6 @@
 # ©2020 Johns Hopkins University Applied Physics Laboratory LLC.
 import pdb
+import pprint
 import sys, time, random
 import json
 import gym
@@ -100,7 +101,6 @@ class TanksWorldEnv(gym.Env):
         self._workerid = MPI.COMM_WORLD.Get_rank() #int(os.environ['L2EXPLORER_WORKER_ID'])
         self._filename =  exe#'/home/rivercg1/projects/aisafety/build/aisafetytanks_0.1.2/TanksWorld.x86_64'
         self.observation_space = None
-        #self.observation_space = gym.spaces.box.Box(0,255,(128,128,4))
         self.observation_space = gym.spaces.box.Box(0,255,(4,128,128))
         self.action_space = gym.spaces.box.Box(-1,1,(3,))
         if seed == -1:
@@ -261,6 +261,19 @@ class TanksWorldEnv(gym.Env):
         self.blue_team_stats = team_stats_dict(self)
 
         state = self.get_state()
+
+        # Reset the statistics
+        self.finished_episode = False
+        self.per_episode_statistics = {
+            'red_enemy_damage': 0.0,
+            'red_ally_damage': 0.0,
+            'blue_enemy_damage': 0.0,
+            'blue_ally_damage': 0.0,
+            'red_enemy_kills': 0,
+            'red_ally_kills': 0,
+            'blue_enemy_kills': 0,
+            'blue_ally_kills': 0
+        }
 
         return state
 
@@ -546,6 +559,9 @@ class TanksWorldEnv(gym.Env):
 
     def step(self, action):
 
+        if self.finished_episode:
+            self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), self.info
+
         action = action[:]
 
         self.reward = [0.0]*len(self.training_tanks)
@@ -605,10 +621,24 @@ class TanksWorldEnv(gym.Env):
                 self.game_statistics['total_episodes'] += 1
                 self.update_number_of_wins(self._env_info.vector_observations[0])
                 updated_wins = True
+                self.finished_episode = True
 
             if self.done:
                 break
 
+        if self.log_statistics:
+            mean_statistics = {}
+            std_statistics = {}
+            if len(self.all_episode_statistics) > 0:
+                for key in self.all_episode_statistics[0]:
+                    last_hundred = self.all_episode_statistics[-100:]
+                    all_stats = [last_hundred[idx][key] for idx in range(len(last_hundred))]
+                    mean_statistics[key] = np.average(all_stats)
+                    std_statistics[key] = np.std(all_stats)
+            self.info = {'mean': mean_statistics, 'std': std_statistics}
+        else:
+            self.info = {"red_stats": self.red_team_stats, "blue_stats": self.blue_team_stats}
+        '''
         if self.log_statistics:
             return_statistics = {}
 
@@ -632,12 +662,11 @@ class TanksWorldEnv(gym.Env):
                         self.red_losing_episode_statistics[key] / self.game_statistics['num_blue_wins']
                 else:
                     return_statistics['red_losing_episode_{}'.format(key)] = 0
+            
+            self.info = {'average': return_statistics, 'all': self.all_episode_statistics}
+        '''
 
-            info = {'average': return_statistics, 'all': self.all_episode_statistics}
-        else:
-            info = {"red_stats": self.red_team_stats, "blue_stats": self.blue_team_stats}
-
-        return self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), info
+        return self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), self.info
 
 
     def get_statistics(self):
