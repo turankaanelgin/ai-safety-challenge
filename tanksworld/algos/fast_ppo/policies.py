@@ -65,6 +65,20 @@ class MyActorCriticCnnPolicy(ActorCriticCnnPolicy):
         for name, param in self.features_extractor.named_parameters():
             param.requires_grad = False
 
+    def _build(self, lr_schedule: Schedule) -> None:
+
+        feature_dim = 9216
+        self.mu_net = nn.Sequential(nn.Linear(feature_dim, 3), nn.Tanh())
+        self.v_net = nn.Sequential(nn.Linear(feature_dim, 1), nn.Tanh())
+        log_std = -0.5 * np.ones(3, dtype=np.float32)
+        self.log_std = nn.Parameter(th.as_tensor(log_std))
+
+        #parameters = list(self.mu_net.parameters()) + list(self.v_net.parameters()) + [self.log_std]
+        self.pi_optimizer = self.optimizer_class(list(self.mu_net.parameters())+[self.log_std],
+                                                 lr=3e-4, **self.optimizer_kwargs)
+        self.vf_optimizer = self.optimizer_class(self.v_net.parameters(), lr=1e-3, **self.optimizer_kwargs)
+        #self.optimizer = self.optimizer_class(parameters, lr=lr_schedule(1), **self.optimizer_kwargs)
+
     def extract_features(self, obs: th.Tensor) -> th.Tensor:
 
         assert self.features_extractor is not None, "No features extractor was set"
@@ -81,9 +95,31 @@ class MyActorCriticCnnPolicy(ActorCriticCnnPolicy):
         """
         # Preprocess the observation if needed
         features = self.extract_features(obs)
-        latent_pi, latent_vf = self.mlp_extractor(features)
-        distribution = self._get_action_dist_from_latent(latent_pi)
+        mu = self.mu_net(features)
+        std = th.exp(self.log_std)
+
+        distribution = self.action_dist.proba_distribution(mu, std)
+        values = self.v_net(features)
+
         actions = actions.reshape(actions.shape[0]*actions.shape[1], actions.shape[2])
         log_prob = distribution.log_prob(actions)
-        values = self.value_net(latent_vf)
         return values, log_prob, distribution.entropy()
+
+    def forward(self, obs: th.Tensor, deterministic: bool = False) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
+        """
+        Forward pass in all the networks (actor and critic)
+        :param obs: Observation
+        :param deterministic: Whether to sample or use deterministic actions
+        :return: action, value and log probability of the action
+        """
+        # Preprocess the observation if needed
+        features = self.extract_features(obs)
+        mu = self.mu_net(features)
+        std = th.exp(self.log_std)
+
+        distribution = self.action_dist.proba_distribution(mu, std)
+        values = self.v_net(features)
+
+        actions = distribution.get_actions(deterministic=deterministic)
+        log_prob = distribution.log_prob(actions)
+        return actions, values, log_prob

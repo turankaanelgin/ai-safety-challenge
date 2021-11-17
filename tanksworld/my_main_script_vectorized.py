@@ -14,16 +14,16 @@ from algos.torch_ppo.mappo import PPOPolicy as TorchMAPPOPolicy
 from algos.torch_ppo.mappo_gpu import PPOPolicy as TorchGPUMAPPOPolicy
 from algos.fast_ppo.ppo import PPO as FastPPO
 from algos.fast_ppo.policies import MyActorCriticCnnPolicy
+from algos.fast_ppo.vec_env import VecMonitor, SubprocVecEnv
 
 from stable_baselines3.common.policies import ActorCriticPolicy, ActorCriticCnnPolicy
 from stable_baselines3.common.policies import register_policy
 from algos.torch_ppo.core import MLPActorCritic
 from make_env import make_env
 
-from stable_baselines3.common.vec_env import SubprocVecEnv
+#from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.callbacks import CheckpointCallback
-from vec_monitor_customized import VecMonitorCustomized
 
 from core.policy_record import PolicyRecord
 
@@ -44,7 +44,7 @@ if __name__ == '__main__':
     parser.add_argument('--policy_lr_schedule', type=str, default='cons')
     parser.add_argument('--value_lr_schedule', type=str, default='cons')
     parser.add_argument('--batch_size', type=int, default=64)
-    parser.add_argument('--n_steps', type=int, default=128)
+    parser.add_argument('--n_steps', type=int, default=512)
     parser.add_argument('--n_epochs', type=int, default=10)
     parser.add_argument('--ent_coef', type=float, default=0.0)
     parser.add_argument('--vf_coef', type=float, default=1.0)
@@ -137,6 +137,7 @@ if __name__ == '__main__':
             env_functions.append(lambda : make_env(**kwargs_1[i]))
         stacked_env = [env_functions[i] for i in range(len(args.env_seed))]
         env = SubprocVecEnv(stacked_env)
+    #env = VecMonitor(env)
 
     pr = PolicyRecord(1, folder_name, './logs/'+args.logdir+'/')
 
@@ -152,15 +153,14 @@ if __name__ == '__main__':
         'clip_range': 0.2,
         'ent_coef': config['ent_coef'],
         'vf_coef': config['vf_coef'],
-        'max_grad_norm': 0.5,
+        'max_grad_norm': float('inf'),
         'use_sde': False,
         'target_kl': 0.01,
         'seed': args.policy_seed,
         'policy_kwargs': {'features_extractor_class': CustomCNN},
-        'save_dir': os.path.join('./logs', args.logdir, folder_name)
     }
 
     register_policy('MyCnnPolicy', MyActorCriticCnnPolicy)
     policy = FastPPO(**policy_kwargs)
     checkpoint_callback = CheckpointCallback(save_freq=5000, save_path=pr.data_dir, name_prefix='tanks_model')
-    policy.learn(total_timesteps=args.num_iter, callback=checkpoint_callback, policy_record=pr)
+    policy.learn(total_timesteps=args.num_iter, callback=None, policy_record=pr)

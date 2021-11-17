@@ -7,7 +7,7 @@ import torch as th
 from gym import spaces
 from torch.nn import functional as F
 
-from algos.fast_ppo.on_policy_algorithm import MyOnPolicyAlgorithm as OnPolicyAlgorithm
+from algos.fast_ppo.on_policy_algorithm import CustomOnPolicyAlgorithm
 from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import explained_variance, get_schedule_fn
@@ -15,7 +15,7 @@ from stable_baselines3.common.utils import explained_variance, get_schedule_fn
 from core.policy_record import PolicyRecord
 
 
-class PPO(OnPolicyAlgorithm):
+class PPO(CustomOnPolicyAlgorithm):
     """
     Proximal Policy Optimization algorithm (PPO) (clip version)
 
@@ -92,7 +92,6 @@ class PPO(OnPolicyAlgorithm):
         seed: Optional[int] = None,
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
-        save_dir='./logs',
     ):
 
         super(PPO, self).__init__(
@@ -141,7 +140,7 @@ class PPO(OnPolicyAlgorithm):
                 warnings.warn(
                     f"You have specified a mini-batch size of {batch_size},"
                     f" but because the `RolloutBuffer` is of size `n_steps * n_envs = {buffer_size}`,"
-                    f" after every {untruncated_batches} untruncated mini-batches,"
+                    f" after every {untruncated_batches} truncated mini-batches,"
                     f" there will be a truncated mini-batch of size {buffer_size % batch_size}\n"
                     f"We recommend using a `batch_size` that is a factor of `n_steps * n_envs`.\n"
                     f"Info: (n_steps={self.n_steps} and n_envs={self.env.num_envs})"
@@ -173,7 +172,8 @@ class PPO(OnPolicyAlgorithm):
         # Switch to train mode (this affects batch norm / dropout)
         self.policy.set_training_mode(True)
         # Update optimizer learning rate
-        self._update_learning_rate(self.policy.optimizer)
+        #self._update_learning_rate(self.policy.optimizer)
+
         # Compute current clip range
         clip_range = self.clip_range(self._current_progress_remaining)
         # Optional: clip range for the value function
@@ -202,6 +202,7 @@ class PPO(OnPolicyAlgorithm):
 
                 values, log_prob, entropy = self.policy.evaluate_actions(rollout_data.observations, actions)
                 values = values.flatten()
+
                 # Normalize advantage
                 advantages = rollout_data.advantages
                 advantages = (advantages - advantages.mean(dim=0)) / (advantages.std(dim=0) + 1e-8)
@@ -260,11 +261,15 @@ class PPO(OnPolicyAlgorithm):
                     break
 
                 # Optimization step
-                self.policy.optimizer.zero_grad()
+                self.policy.pi_optimizer.zero_grad()
+                self.policy.vf_optimizer.zero_grad()
+                #self.policy.optimizer.zero_grad()
                 loss.backward()
                 # Clip grad norm
                 th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
-                self.policy.optimizer.step()
+                self.policy.pi_optimizer.step()
+                self.policy.vf_optimizer.step()
+                #self.policy.optimizer.step()
 
             if not continue_training:
                 break
