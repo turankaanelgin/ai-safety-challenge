@@ -166,6 +166,72 @@ class PPO(CustomOnPolicyAlgorithm):
             self.clip_range_vf = get_schedule_fn(self.clip_range_vf)
 
     def train(self) -> None:
+
+        # Compute policy loss
+        def compute_loss_pi(data):
+            actions = data.actions
+            if isinstance(self.action_space, spaces.Discrete):
+                # Convert discrete action from float to long
+                actions = actions.long().flatten()
+
+            # Re-sample the noise matrix because the log_std has changed
+            if self.use_sde:
+                self.policy.reset_noise(self.batch_size)
+
+            _, log_prob, entropy = self.policy.evaluate_actions(data.observations, actions)
+
+            # Normalize advantage
+            advantages = data.advantages
+            advantages = (advantages - advantages.mean(dim=0)) / (advantages.std(dim=0) + 1e-8)
+            advantages = advantages.flatten()
+
+            # ratio between old and new policy, should be one at the first iteration
+            ratio = th.exp(log_prob - data.old_log_prob)
+
+            # clipped surrogate loss
+            policy_loss_1 = advantages * ratio
+            policy_loss_2 = advantages * th.clamp(ratio, 1 - clip_range, 1 + clip_range)
+            policy_loss = -th.min(policy_loss_1, policy_loss_2).mean()
+
+            # Logging
+            pg_losses.append(policy_loss.item())
+            clip_fraction = th.mean((th.abs(ratio - 1) > clip_range).float()).item()
+            clip_fractions.append(clip_fraction)
+
+            # Calculate approximate form of reverse KL Divergence for early stopping
+            # see issue #417: https://github.com/DLR-RM/stable-baselines3/issues/417
+            # and discussion in PR #419: https://github.com/DLR-RM/stable-baselines3/pull/419
+            # and Schulman blog: http://joschu.net/blog/kl-approx.html
+            with th.no_grad():
+                log_ratio = log_prob - data.old_log_prob
+                approx_kl_div = th.mean((th.exp(log_ratio) - 1) - log_ratio).cpu().numpy()
+            pi_info = dict(kl=approx_kl_div, ent=entropy, cf=clip_fraction)
+
+            return policy_loss, pi_info
+
+        # Compute value loss
+        def compute_loss_v(data):
+            actions = data.actions
+            if isinstance(self.action_space, spaces.Discrete):
+                # Convert discrete action from float to long
+                actions = actions.long().flatten()
+
+            values, _, _ = self.policy.evaluate_actions(data.observations, actions)
+            values = values.flatten()
+
+            if self.clip_range_vf is None:
+                # No clipping
+                values_pred = values
+            else:
+                # Clip the different between old and new value
+                # NOTE: this depends on the reward scaling
+                values_pred = data.old_values + th.clamp(
+                    values - data.old_values, -clip_range_vf, clip_range_vf
+                )
+            # Value loss using the TD(gae_lambda) target
+            value_loss = F.mse_loss(data.returns, values_pred)
+            return value_loss
+
         """
         Update policy using the currently gathered rollout buffer.
         """
@@ -186,6 +252,38 @@ class PPO(CustomOnPolicyAlgorithm):
 
         continue_training = True
 
+        # Do a complete pass on the rollout buffer
+        for rollout_data in self.rollout_buffer.get(self.batch_size):
+
+            # Train policy with multiple steps of gradient descent
+            for epoch in range(self.n_epochs):
+                self.policy.pi_optimizer.zero_grad()
+                loss_pi, pi_info = compute_loss_pi(rollout_data)
+                kl = pi_info['kl']
+                if self.target_kl is not None and kl > 1.5 * self.target_kl:
+                    continue_training = False
+                    if self.verbose >= 1:
+                        print(f"Early stopping at step {epoch} due to reaching max kl: {approx_kl_div:.2f}")
+                    break
+                loss_pi.backward()
+                self.policy.pi_optimizer.step()
+
+                if not continue_training:
+                    break
+
+            # Value function learning
+            for epoch in range(self.n_epochs):
+                self.policy.vf_optimizer.zero_grad()
+                loss_v = compute_loss_v(rollout_data)
+                loss_v.backward()
+                self.policy.vf_optimizer.step()
+
+                if not continue_training:
+                    break
+
+            if not continue_training:
+                break
+        '''
         # train for n_epochs epochs
         for epoch in range(self.n_epochs):
             approx_kl_divs = []
@@ -270,13 +368,14 @@ class PPO(CustomOnPolicyAlgorithm):
                 self.policy.pi_optimizer.step()
                 self.policy.vf_optimizer.step()
                 #self.policy.optimizer.step()
-
+            
             if not continue_training:
                 break
+            '''
 
         self._n_updates += self.n_epochs
         explained_var = explained_variance(self.rollout_buffer.values.flatten(), self.rollout_buffer.returns.flatten())
-
+        '''
         # Logs
         self.logger.record("train/entropy_loss", np.mean(entropy_losses))
         self.logger.record("train/policy_gradient_loss", np.mean(pg_losses))
@@ -292,7 +391,7 @@ class PPO(CustomOnPolicyAlgorithm):
         self.logger.record("train/clip_range", clip_range)
         if self.clip_range_vf is not None:
             self.logger.record("train/clip_range_vf", clip_range_vf)
-
+        '''
 
     def learn(
         self,
