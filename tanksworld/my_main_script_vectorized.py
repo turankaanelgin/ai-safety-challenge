@@ -111,10 +111,8 @@ if __name__ == '__main__':
         folder_name += '__CS={}__CF={}'.format(config['curriculum_start'], config['curriculum_stop'])
     folder_name += '__seed{}'.format(config['seed_index'])
 
-    if isinstance(args.env_seed, int):
-        env_seed = [args.env_seed]
-    else:
-        env_seed = args.env_seed
+    _MAX_INT = 2147483647  # Max int for Unity ML Seed
+    env_seed = [np.random.randint(_MAX_INT) for _ in range(args.n_env_seeds)]
 
     stats_dir = './runs/stats_{}'.format(args.logdir)
     os.makedirs(stats_dir, exist_ok=True)
@@ -133,9 +131,9 @@ if __name__ == '__main__':
         env = make_env(**kwargs_1[0])
     else:
         env_functions = []
-        for i in range(len(args.env_seed)):
+        for i in range(len(env_seed)):
             env_functions.append(lambda : make_env(**kwargs_1[i]))
-        stacked_env = [env_functions[i] for i in range(len(args.env_seed))]
+        stacked_env = [env_functions[i] for i in range(len(env_seed))]
         env = SubprocVecEnv(stacked_env)
     #env = VecMonitor(env)
 
@@ -149,7 +147,7 @@ if __name__ == '__main__':
         'batch_size': config['batch_size'],
         'n_epochs': config['n_epochs'],
         'gamma': 0.99,
-        'gae_lambda': 0.95,
+        'gae_lambda': 0.97,
         'clip_range': 0.2,
         'ent_coef': config['ent_coef'],
         'vf_coef': config['vf_coef'],
@@ -160,7 +158,23 @@ if __name__ == '__main__':
         'policy_kwargs': {'features_extractor_class': CustomCNN},
     }
 
+    policy_kwargs_old = {
+        'steps_per_epoch': 64,
+        'train_pi_iters': 4,
+        'train_v_iters': 4,
+        'seed': args.policy_seed,
+        'cnn_model_path': './models/frozen-cnn-0.8/4000000.pth',
+        'model_path': None,
+        'n_envs': 5,
+        'model_id': 'test',
+        'save_dir': os.path.join(pr.data_dir, 'checkpoints'),
+    }
+
     register_policy('MyCnnPolicy', MyActorCriticCnnPolicy)
     policy = FastPPO(**policy_kwargs)
     checkpoint_callback = CheckpointCallback(save_freq=5000, save_path=pr.data_dir, name_prefix='tanks_model')
     policy.learn(total_timesteps=args.num_iter, callback=None, policy_record=pr)
+    '''
+    policy = TorchGPUMAPPOPolicy(env, False, **policy_kwargs_old)
+    policy.run(pr, num_steps=1000000)
+    '''
