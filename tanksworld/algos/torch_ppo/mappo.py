@@ -24,8 +24,6 @@ from stable_baselines.trpo_mpi.utils import flatten_lists
 from algos.torch_ppo.mappo_utils import valuenorm
 from algos.torch_ppo.mappo_utils.util import huber_loss
 
-import pdb
-
 #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device('cpu')
 
@@ -532,23 +530,33 @@ class PPOPolicy():
         vf_optimizer = Adam(ac.v.parameters(), lr=vf_lr)
         start_step = 0
 
+        scheduler_policy = None
         if pi_scheduler == 'smart':
             scheduler_policy = ReduceLROnPlateau(pi_optimizer, mode='max', factor=0.5, patience=1000)
         elif pi_scheduler == 'linear':
-            scheduler_policy = LinearLR(pi_optimizer, start_factor=0.5, end_factor=1.0, total_iters=1000)
+            scheduler_policy = LinearLR(pi_optimizer, start_factor=0.5, end_factor=1.0, total_iters=2000)
 
+        scheduler_value = None
         if vf_scheduler == 'smart':
             scheduler_value = ReduceLROnPlateau(vf_optimizer, mode='max', factor=0.5, patience=1000)
         elif vf_scheduler == 'linear':
-            scheduler_value = LinearLR(vf_optimizer, start_factor=0.5, end_factor=1.0, total_iters=1000)
+            scheduler_value = LinearLR(vf_optimizer, start_factor=0.5, end_factor=1.0, total_iters=2000)
 
+        assert pi_scheduler != 'cons' and scheduler_policy or not scheduler_policy
+        assert vf_scheduler != 'cons' and scheduler_value or not scheduler_value
+
+        # Load from previous checkpoint
         if self.kargs['model_path']:
             ckpt = torch.load(self.kargs['model_path'])
             ac.load_state_dict(ckpt['model_state_dict'], strict=True)
             pi_optimizer.load_state_dict(ckpt['pi_optimizer_state_dict'])
             vf_optimizer.load_state_dict(ckpt['vf_optimizer_state_dict'])
+            if pi_scheduler != 'cons':
+                scheduler_policy.load_state_dict(ckpt['pi_scheduler_state_dict'])
+            if vf_scheduler != 'cons':
+                scheduler_value.load_state_dict(ckpt['vf_scheduler_state_dict'])
             start_step = ckpt['step']
-
+        # Only load the representation part
         elif self.kargs['cnn_model_path']:
             state_dict = torch.load(self.kargs['cnn_model_path'])
 
@@ -619,8 +627,6 @@ class PPOPolicy():
             nonlocal loss_p_index, loss_v_index
             data = buf.get(comm)
 
-            pi_l_old, pi_info_old = compute_loss_pi(data)
-
             # Train policy with multiple steps of gradient descent
             for i in range(train_pi_iters):
                 pi_optimizer.zero_grad()
@@ -646,17 +652,15 @@ class PPOPolicy():
                 mpi_avg_grads(comm, ac.v)  # average grads across MPI processes
                 vf_optimizer.step()
 
-            # Log changes from update
-            # kl, ent, cf = pi_info['kl'], pi_info_old['ent'], pi_info['cf']
-
-            del data, pi_info, pi_info_old
+            del data, pi_info
 
         # Prepare for interaction with environment
         # Main loop: collect experience in env and update/log each epoch
 
-        if comm.Get_rank() == root:
-            from pathlib import Path
-            Path(os.path.join('./models', str(kargs['model_id']))).mkdir(parents=True, exist_ok=True)
+        if policy_record is not None:
+            if not os.path.exists(os.path.join(policy_record.data_dir, str(kargs['model_id']))):
+                from pathlib import Path
+                Path(os.path.join(policy_record.data_dir, str(kargs['model_id']))).mkdir(parents=True, exist_ok=True)
 
         total_step = start_step
 
@@ -681,13 +685,17 @@ class PPOPolicy():
                 env.friendly_fire_weight += 0.05
                 env.friendly_fire_weight = min(env.friendly_fire_weight, curriculum_stop)
 
-            if comm.Get_rank() == 0 and (step+1) % 25000 == 0:
-                model_path = os.path.join('./models', str(kargs['model_id']), str(step) + '.pth')
-                torch.save({'step': step,
+            if policy_record is not None and ((step+1) % 25000 == 0 or step == 0):
+                model_path = os.path.join(policy_record.data_dir, str(kargs['model_id']), str(step) + '.pth')
+                ckpt_dict = {'step': step,
                             'model_state_dict': ac.state_dict(),
                             'pi_optimizer_state_dict': pi_optimizer.state_dict(),
-                            'vf_optimizer_state_dict': vf_optimizer.state_dict()},
-                           model_path)
+                            'vf_optimizer_state_dict': vf_optimizer.state_dict()}
+                if pi_scheduler != 'cons':
+                    ckpt_dict['pi_scheduler_state_dict'] = scheduler_policy.state_dict()
+                if vf_scheduler != 'cons':
+                    ckpt_dict['vf_scheduler_state_dict'] = scheduler_value.state_dict()
+                torch.save(ckpt_dict, model_path)
 
             step += 1
             o = torch.as_tensor(o, dtype=torch.float32).to(device)
