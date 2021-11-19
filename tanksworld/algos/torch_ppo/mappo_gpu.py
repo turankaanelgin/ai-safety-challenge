@@ -216,12 +216,10 @@ class PPOPolicy():
             std_statistics[key] = np.std(list_of_stats)
             all_statistics[key] = list_of_stats
 
-        block_num = step // 2500
-
         if policy_record is not None:
-            with open(os.path.join(policy_record.data_dir, 'mean_statistics_{}.json'.format(block_num)), 'w+') as f:
+            with open(os.path.join(policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
                 json.dump(mean_statistics, f, indent=True)
-            with open(os.path.join(policy_record.data_dir, 'std_statistics_{}.json'.format(block_num)), 'w+') as f:
+            with open(os.path.join(policy_record.data_dir, 'std_statistics.json'), 'w+') as f:
                 json.dump(std_statistics, f, indent=True)
 
 
@@ -409,7 +407,7 @@ class PPOPolicy():
 
         ac = ac.to(device)
 
-        buf = PPOBufferCUDAImproved(obs_dim, act_dim, steps_per_epoch, gamma, lam, n_envs=kargs['n_envs'], use_rnn=use_rnn)
+        buf = PPOBufferCUDA(obs_dim, act_dim, steps_per_epoch, gamma, lam, n_envs=kargs['n_envs'], use_rnn=use_rnn)
 
         # Set up function for computing PPO policy loss
         def compute_loss_pi(data):
@@ -460,6 +458,7 @@ class PPOPolicy():
 
         def update():
             nonlocal loss_p_index, loss_v_index
+            nonlocal policy_losses, value_losses
             data = buf.get()
 
             # Train policy with multiple steps of gradient descent
@@ -471,6 +470,7 @@ class PPOPolicy():
                     # logger.log('Early stopping at step %d due to reaching max kl.'%i)
                     break
                 loss_pi.backward()
+                policy_losses.append(loss_pi.item())
                 loss_p_index += 1
                 pi_optimizer.step()
             # Value function learning
@@ -478,6 +478,7 @@ class PPOPolicy():
                 vf_optimizer.zero_grad()
                 loss_v = compute_loss_v(data)
                 loss_v.backward()
+                value_losses.append(loss_v.item())
                 loss_v_index += 1
                 vf_optimizer.step()
 
@@ -498,6 +499,8 @@ class PPOPolicy():
         episode_returns = []
         policy_learning_rates = [pi_lr]
         value_learning_rates = [vf_lr]
+        policy_losses = []
+        value_losses = []
 
         if curriculum_start >= 0.0:
             env.friendly_fire_weight = curriculum_start
@@ -505,7 +508,7 @@ class PPOPolicy():
             period = int(steps_to_run // period)
             assert curriculum_stop >= curriculum_start
 
-        #fig, ax = plt.subplots(1,1,figsize=(12,6))
+        fig1, ax1 = plt.subplots(1,1,figsize=(12,6))
 
         while step < steps_to_run:
 
@@ -591,6 +594,11 @@ class PPOPolicy():
                 #ax.plot(policy_learning_rates, label='Policy LR')
                 #ax.plot(value_learning_rates, label='Value LR')
                 #plt.savefig(os.path.join(policy_record.data_dir, 'learning_rate.png'))
+
+                ax1.plot(policy_losses, label='Policy Loss')
+                ax1.plot(value_losses, label='Value Loss')
+                plt.savefig(os.path.join(policy_record.data_dir, 'loss.png'))
+
 
             if step % tsboard_freq == 0:
                 lens, rews = episode_lengths, episode_returns
