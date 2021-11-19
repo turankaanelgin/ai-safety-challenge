@@ -625,7 +625,7 @@ class TanksWorldEnv(gym.Env):
 
             if self.done:
                 break
-
+        '''
         if self.log_statistics:
             mean_statistics = {}
             std_statistics = {}
@@ -638,8 +638,8 @@ class TanksWorldEnv(gym.Env):
             self.info = {'mean': mean_statistics, 'std': std_statistics}
         else:
             self.info = {"red_stats": self.red_team_stats, "blue_stats": self.blue_team_stats}
-
         '''
+
         if self.log_statistics:
             return_statistics = {}
 
@@ -665,7 +665,7 @@ class TanksWorldEnv(gym.Env):
                     return_statistics['red_losing_episode_{}'.format(key)] = 0
             
             self.info = {'average': return_statistics, 'all': self.all_episode_statistics}
-        '''
+
         return self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), self.info
 
 
