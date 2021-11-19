@@ -6,28 +6,17 @@ from torch import nn
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau, ExponentialLR, CyclicLR
 from torch.optim.lr_scheduler import _LRScheduler
-import gym
-import time
-from .utils.logx import EpochLogger
-from .utils.mpi_pytorch import setup_pytorch_for_mpi, sync_params, mpi_avg_grads
-from .utils.mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs
-import sys
-from mpi4py import MPI
-from arena5.core.utils import mpi_print
-# from torch.utils.tensorboard import SummaryWriter
-from datetime import datetime
+
 from . import core
 import os
 import json
 from matplotlib import pyplot as plt
 
-from stable_baselines.trpo_mpi.utils import flatten_lists
 from algos.torch_ppo.mappo_utils import valuenorm
 from algos.torch_ppo.mappo_utils.util import huber_loss
 
 
-#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = 'cpu'
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class PPOBufferCUDA:
 
@@ -41,6 +30,7 @@ class PPOBufferCUDA:
         self.logp_buf = torch.zeros((size, n_envs, 5)).to(device)
         self.gamma, self.lam = gamma, lam
         self.ptr, self.path_start_idx, self.max_size = 0, 0, size
+        self.n_envs = n_envs
 
     def store(self, obs, act, rew, val, logp):
         """
@@ -97,9 +87,10 @@ class PPOBufferCUDA:
         assert self.ptr == self.max_size  # buffer has to be full before you can get
         self.ptr, self.path_start_idx = 0, 0
         # the next two lines implement the advantage normalization trick
-        adv_mean, adv_std = torch.std_mean(self.adv_buf, dim=0)
-        #adv_mean, adv_std = mpi_statistics_scalar(comm, self.adv_buf.flatten())
-        self.adv_buf = (self.adv_buf - adv_mean) / adv_std
+        adv_buf = self.adv_buf.flatten(start_dim=1)
+        adv_std, adv_mean = torch.std_mean(adv_buf, dim=0)
+        adv_buf = (adv_buf - adv_mean) / adv_std
+        self.adv_buf = adv_buf.reshape(adv_buf.shape[0], self.n_envs, 5)
         data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
                     adv=self.adv_buf, logp=self.logp_buf)
         return {k: torch.as_tensor(v, dtype=torch.float32).to(device) for k, v in data.items()}
@@ -210,26 +201,25 @@ class PPOPolicy():
 
         episode_statistics = [episode_statistics[env_idx]['all'][-min(100, length):] \
                               for env_idx in range(len(episode_statistics))]
+
         for env_idx in range(len(episode_statistics)):
-            episode_statistics[env_idx] = {key: np.average([episode_statistics[env_idx][i][key]] \
-                                                           for i in range(len(episode_statistics[env_idx]))) \
+            episode_statistics[env_idx] = {key: np.average([episode_statistics[env_idx][i][key] \
+                                                           for i in range(len(episode_statistics[env_idx]))]) \
                                                            for key in episode_statistics[env_idx][0]}
 
         mean_statistics = {}
         std_statistics = {}
         all_statistics = {}
         for key in episode_statistics[0]:
-            list_of_stats = list(episode_statistics[idx][key] for idx in range(len(episode_statistics)))
+            list_of_stats = [episode_statistics[idx][key] for idx in range(len(episode_statistics))]
             mean_statistics[key] = np.average(list_of_stats)
             std_statistics[key] = np.std(list_of_stats)
             all_statistics[key] = list_of_stats
 
-        block_num = step // 2500
-
         if policy_record is not None:
-            with open(os.path.join(policy_record.data_dir, 'mean_statistics_{}.json'.format(block_num)), 'w+') as f:
+            with open(os.path.join(policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
                 json.dump(mean_statistics, f, indent=True)
-            with open(os.path.join(policy_record.data_dir, 'std_statistics_{}.json'.format(block_num)), 'w+') as f:
+            with open(os.path.join(policy_record.data_dir, 'std_statistics.json'), 'w+') as f:
                 json.dump(std_statistics, f, indent=True)
 
 
@@ -238,7 +228,7 @@ class PPOPolicy():
               vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97,
               target_kl=0.01, tsboard_freq=-1,
               curriculum_start=-1, curriculum_stop=-1, use_value_norm=False,
-              use_huber_loss=False, use_rnn=False, pi_scheduler='const', vf_scheduler='const', **kargs):
+              use_huber_loss=False, use_rnn=False, pi_scheduler='cons', vf_scheduler='cons', **kargs):
         """
         Proximal Policy Optimization (by clipping),
 
@@ -348,8 +338,6 @@ class PPOPolicy():
             else:
                 tsboard_freq = steps_to_run // 1000
 
-        # Special function to avoid certain slowdowns from PyTorch + MPI combo.
-        root = 0
         env = self.env
 
         # Random seed
@@ -470,6 +458,7 @@ class PPOPolicy():
 
         def update():
             nonlocal loss_p_index, loss_v_index
+            nonlocal policy_losses, value_losses
             data = buf.get()
 
             # Train policy with multiple steps of gradient descent
@@ -481,6 +470,7 @@ class PPOPolicy():
                     # logger.log('Early stopping at step %d due to reaching max kl.'%i)
                     break
                 loss_pi.backward()
+                policy_losses.append(loss_pi.item())
                 loss_p_index += 1
                 pi_optimizer.step()
             # Value function learning
@@ -488,6 +478,7 @@ class PPOPolicy():
                 vf_optimizer.zero_grad()
                 loss_v = compute_loss_v(data)
                 loss_v.backward()
+                value_losses.append(loss_v.item())
                 loss_v_index += 1
                 vf_optimizer.step()
 
@@ -508,6 +499,8 @@ class PPOPolicy():
         episode_returns = []
         policy_learning_rates = [pi_lr]
         value_learning_rates = [vf_lr]
+        policy_losses = []
+        value_losses = []
 
         if curriculum_start >= 0.0:
             env.friendly_fire_weight = curriculum_start
@@ -515,7 +508,7 @@ class PPOPolicy():
             period = int(steps_to_run // period)
             assert curriculum_stop >= curriculum_start
 
-        #fig, ax = plt.subplots(1,1,figsize=(12,6))
+        fig1, ax1 = plt.subplots(1,1,figsize=(12,6))
 
         while step < steps_to_run:
 
@@ -557,20 +550,21 @@ class PPOPolicy():
             o = next_o
 
             epoch_ended = step > 0 and step % steps_per_epoch == 0
-            if np.any(terminal) or epoch_ended:
+
+            if np.all(terminal) or epoch_ended:
                 episode_lengths.append(ep_len)
                 episode_returns.append(ep_ret)
 
-                if epoch_ended and not (np.any(terminal)):
-                    pass
-                    # print('Warning: trajectory cut off by epoch at %d steps.' % ep_len, flush=True)
+                #if epoch_ended and not np.all(terminal):
+                #   pass
+                #   print('Warning: trajectory cut off by epoch at %d steps.' % ep_len, flush=True)
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if epoch_ended:
                     _, v, _ = ac.step(torch.as_tensor(o, dtype=torch.float32).to(device))
                 else:
                     v = torch.zeros((kargs['n_envs'], 5)).to(device)
                 buf.finish_path(v)
-                if np.any(terminal):
+                if np.all(terminal):
                     o, ep_ret, ep_len = env.reset(), 0, 0
                     o = torch.as_tensor(o, dtype=torch.float32).to(device)
 
@@ -601,13 +595,17 @@ class PPOPolicy():
                 #ax.plot(value_learning_rates, label='Value LR')
                 #plt.savefig(os.path.join(policy_record.data_dir, 'learning_rate.png'))
 
+                ax1.plot(policy_losses, label='Policy Loss')
+                ax1.plot(value_losses, label='Value Loss')
+                plt.savefig(os.path.join(policy_record.data_dir, 'loss.png'))
+
+
             if step % tsboard_freq == 0:
                 lens, rews = episode_lengths, episode_returns
 
                 if policy_record is not None:
                     for idx in range(len(lens)):
                         policy_record.add_result(rews[idx], lens[idx])
-
                     policy_record.save()
 
                 episode_lengths = []
