@@ -1,7 +1,5 @@
-import math, time, random
 import os
 import pdb
-import sys
 import argparse
 
 import numpy as np
@@ -9,16 +7,12 @@ import torch as th
 import torch.nn as nn
 import gym
 
-from algos.torch_ppo.ppo import PPOPolicy as TorchPPOPolicy
-from algos.torch_ppo.mappo import PPOPolicy as TorchMAPPOPolicy
 from algos.torch_ppo.mappo_gpu import PPOPolicy as TorchGPUMAPPOPolicy
 from algos.fast_ppo.ppo import PPO as FastPPO
 from algos.fast_ppo.policies import MyActorCriticCnnPolicy
 from algos.fast_ppo.vec_env import VecMonitor, SubprocVecEnv
 
-from stable_baselines3.common.policies import ActorCriticPolicy, ActorCriticCnnPolicy
 from stable_baselines3.common.policies import register_policy
-from algos.torch_ppo.core import MLPActorCritic
 from make_env import make_env
 
 #from stable_baselines3.common.vec_env import SubprocVecEnv
@@ -44,8 +38,6 @@ if __name__ == '__main__':
     parser.add_argument('--policy_lr_schedule', type=str, default='cons')
     parser.add_argument('--value_lr_schedule', type=str, default='cons')
     parser.add_argument('--batch_size', type=int, default=64)
-    parser.add_argument('--n_steps', type=int, default=512)
-    parser.add_argument('--n_epochs', type=int, default=10)
     parser.add_argument('--ent_coef', type=float, default=0.0)
     parser.add_argument('--vf_coef', type=float, default=1.0)
     parser.add_argument('--death_penalty', action='store_true', default=False)
@@ -111,9 +103,7 @@ if __name__ == '__main__':
         folder_name += '__CS={}__CF={}'.format(config['curriculum_start'], config['curriculum_stop'])
     folder_name += '__seed{}'.format(config['seed_index'])
 
-    _MAX_INT = 2147483647  # Max int for Unity ML Seed
-    env_seed = [np.random.randint(_MAX_INT) for _ in range(args.n_env_seeds)]
-
+    env_seed = args.env_seed
     stats_dir = './runs/stats_{}'.format(args.logdir)
     os.makedirs(stats_dir, exist_ok=True)
 
@@ -138,7 +128,7 @@ if __name__ == '__main__':
     #env = VecMonitor(env)
 
     pr = PolicyRecord(1, folder_name, './logs/'+args.logdir+'/')
-
+    '''
     policy_kwargs = {
         'policy': 'MyCnnPolicy',
         'env': env,
@@ -157,24 +147,27 @@ if __name__ == '__main__':
         'seed': args.policy_seed,
         'policy_kwargs': {'features_extractor_class': CustomCNN},
     }
+    '''
+    model_id = '{}---{}-{}-{}'.format(args.logdir.split('/')[-1], folder_name, args.seed_index, args.save_tag)
 
     policy_kwargs_old = {
-        'steps_per_epoch': 64,
+        'steps_per_epoch': config['batch_size'],
         'train_pi_iters': 4,
         'train_v_iters': 4,
         'seed': args.policy_seed,
         'cnn_model_path': './models/frozen-cnn-0.8/4000000.pth',
         'model_path': None,
-        'n_envs': 5,
-        'model_id': 'test',
+        'n_envs': len(env_seed),
+        'model_id': model_id,
         'save_dir': os.path.join(pr.data_dir, 'checkpoints'),
     }
 
+    '''
     register_policy('MyCnnPolicy', MyActorCriticCnnPolicy)
     policy = FastPPO(**policy_kwargs)
     checkpoint_callback = CheckpointCallback(save_freq=5000, save_path=pr.data_dir, name_prefix='tanks_model')
     policy.learn(total_timesteps=args.num_iter, callback=None, policy_record=pr)
     '''
+
     policy = TorchGPUMAPPOPolicy(env, False, **policy_kwargs_old)
-    policy.run(pr, num_steps=1000000)
-    '''
+    policy.run(pr, num_steps=args.num_iter)
