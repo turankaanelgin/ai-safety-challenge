@@ -11,34 +11,38 @@ parser.add_argument('--logdir',help='the location of saved policys and logs')
 parser.add_argument('--exe', help='the absolute path of the tanksworld executable')
 parser.add_argument('--teamname1', help='the name for team 1', default='red')
 parser.add_argument('--teamname2', help='the name for team 2', default='blue')
-parser.add_argument('--reward_weight', nargs='+', type=float, default=1.0)
+parser.add_argument('--reward_weight', type=float, default=1.0)
 parser.add_argument('--penalty_weight', nargs='+', type=float, default=1.0)
 parser.add_argument('--ff_weight', nargs='+', type=float, default=0.0)
-parser.add_argument('--curriculum_start', nargs='+', type=float, default=-1)
-parser.add_argument('--curriculum_stop', nargs='+', type=float, default=-1)
+parser.add_argument('--curriculum_start', type=float, default=-1)
+parser.add_argument('--curriculum_stop', type=float, default=-1)
 parser.add_argument('--policy_lr', nargs='+', type=float, default=3e-4)
 parser.add_argument('--value_lr', nargs='+', type=float, default=1e-3)
 parser.add_argument('--policy_lr_schedule', nargs='+', type=str, default='cons')
 parser.add_argument('--value_lr_schedule', nargs='+', type=str, default='cons')
-parser.add_argument('--steps_per_epoch', nargs='+', type=int, default=64)
+parser.add_argument('--batch_size', type=int, default=64)
+parser.add_argument('--ent_coef', nargs='+', type=float, default=0.0)
+parser.add_argument('--vf_coef', nargs='+', type=float, default=1.0)
 parser.add_argument('--death_penalty', action='store_true', default=False)
 parser.add_argument('--friendly_fire', action='store_true', default=True)
+parser.add_argument('--take_damage_penalty', action='store_true', default=True)
 parser.add_argument('--kill_bonus', action='store_true', default=False)
 parser.add_argument('--eval_mode', action='store_true', default=False)
 parser.add_argument('--n_env_seeds', type=int, default=1)
 parser.add_argument('--n_policy_seeds', type=int, default=1)
 parser.add_argument('--num_iter', type=int, default=1000)
 parser.add_argument('--env_seed', nargs='+', type=int, default=-1)
-parser.add_argument('--policy_seed', nargs='+', type=int, default=-1)
+parser.add_argument('--policy_seed', type=int, default=-1)
 parser.add_argument('--eval_checkpoint', type=str, default='')
-parser.add_argument('--seed_id', type=str, default='seeds')
 parser.add_argument('--save_tag', type=str, default='')
 parser.add_argument('--load_from_checkpoint', action='store_true', default=False)
+parser.add_argument('--seed_index', type=int, default=0)
+
 args = parser.parse_args()
 args_dict = vars(args)
 
 for param in ['reward_weight', 'penalty_weight', 'ff_weight', 'policy_lr', 'value_lr',
-              'policy_lr_schedule', 'value_lr_schedule', 'steps_per_epoch', 'curriculum_start',
+              'policy_lr_schedule', 'value_lr_schedule', 'batch_size', 'curriculum_start',
               'curriculum_stop']:
     if type(args_dict[param]) != list:
         args_dict[param] = [args_dict[param]]
@@ -50,7 +54,7 @@ grid = itertools.product(args_dict['reward_weight'],
                          args_dict['value_lr'],
                          args_dict['policy_lr_schedule'],
                          args_dict['value_lr_schedule'],
-                         args_dict['steps_per_epoch'],
+                         args_dict['batch_size'],
                          args_dict['curriculum_start'],
                          args_dict['curriculum_stop'])
 grid = [{'reward_weight': x[0],
@@ -60,7 +64,7 @@ grid = [{'reward_weight': x[0],
          'value_lr': x[4],
          'policy_lr_schedule': x[5],
          'value_lr_schedule': x[6],
-         'steps_per_epoch': x[7],
+         'batch_size': x[7],
          'curriculum_start': x[8],
          'curriculum_stop': x[9],
          'death_penalty': False,
