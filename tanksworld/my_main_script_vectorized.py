@@ -39,7 +39,6 @@ if __name__ == '__main__':
     parser.add_argument('--value_lr_schedule', type=str, default='cons')
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--ent_coef', type=float, default=0.0)
-    parser.add_argument('--vf_coef', type=float, default=1.0)
     parser.add_argument('--death_penalty', action='store_true', default=False)
     parser.add_argument('--friendly_fire', action='store_true', default=True)
     parser.add_argument('--take_damage_penalty', action='store_true', default=True)
@@ -92,9 +91,10 @@ if __name__ == '__main__':
 
 
     config = vars(args)
-    folder_name = 'lr={}{}__r={}__p={}__ff={}__B={}__{}'.format(config['policy_lr'],
+    folder_name = 'pi_lr={}{}__vf_lr={}{}__p={}__ff={}__B={}__{}'.format(config['policy_lr'],
                                                                 config['policy_lr_schedule'],
-                                                                config['reward_weight'],
+                                                                config['value_lr'],
+                                                                config['value_lr_schedule'],
                                                                 config['penalty_weight'],
                                                                 config['ff_weight'],
                                                                 config['batch_size'],
@@ -154,12 +154,18 @@ if __name__ == '__main__':
         'steps_per_epoch': config['batch_size'],
         'train_pi_iters': 4,
         'train_v_iters': 4,
+        'pi_lr': config['policy_lr'],
+        'vf_lr': config['value_lr'],
+        'ent_coef': config['ent_coef'],
+        'pi_scheduler': config['policy_lr_schedule'],
+        'vf_scheduler': config['value_lr_schedule'],
         'seed': args.policy_seed,
         'cnn_model_path': './models/frozen-cnn-0.8/4000000.pth',
         'model_path': None,
         'n_envs': len(env_seed),
         'model_id': model_id,
         'save_dir': os.path.join(pr.data_dir, 'checkpoints'),
+        'freeze_rep': True,
     }
 
     '''

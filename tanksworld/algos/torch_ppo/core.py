@@ -311,10 +311,10 @@ class MLPActorCritic(nn.Module):
         with torch.no_grad():
             pi = self.pi._distribution(obs)
             a = pi.sample()
+            entropy = pi.entropy()
             logp_a = self.pi._log_prob_from_distribution(pi, a)
             v = self.v(obs)
-        return a, v, logp_a
-        #return a.cpu().numpy(), v.cpu().numpy(), logp_a.cpu().numpy()
+        return a, v, logp_a, entropy
 
     def act(self, obs):
         return self.step(obs)[0]

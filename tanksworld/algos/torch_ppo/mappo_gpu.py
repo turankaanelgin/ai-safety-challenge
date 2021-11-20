@@ -6,6 +6,7 @@ from torch import nn
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau, ExponentialLR, CyclicLR
 from torch.optim.lr_scheduler import _LRScheduler
+from torch.utils.tensorboard import SummaryWriter
 
 from . import core
 import os
@@ -16,7 +17,8 @@ from algos.torch_ppo.mappo_utils import valuenorm
 from algos.torch_ppo.mappo_utils.util import huber_loss
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device('cuda')
 
 class PPOBufferCUDA:
 
@@ -28,11 +30,12 @@ class PPOBufferCUDA:
         self.ret_buf = torch.zeros((size, n_envs, 5)).to(device)
         self.val_buf = torch.zeros((size, n_envs, 5)).to(device)
         self.logp_buf = torch.zeros((size, n_envs, 5)).to(device)
+        self.entropy_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, act_dim)).to(device)
         self.gamma, self.lam = gamma, lam
         self.ptr, self.path_start_idx, self.max_size = 0, 0, size
         self.n_envs = n_envs
 
-    def store(self, obs, act, rew, val, logp):
+    def store(self, obs, act, rew, val, logp, entropy):
         """
         Append one timestep of agent-environment interaction to the buffer.
         """
@@ -43,6 +46,7 @@ class PPOBufferCUDA:
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
         self.logp_buf[self.ptr] = logp
+        self.entropy_buf[self.ptr] = entropy
         self.ptr += 1
 
     def finish_path(self, last_val=[0, 0, 0, 0, 0]):
@@ -92,7 +96,7 @@ class PPOBufferCUDA:
         adv_buf = (adv_buf - adv_mean) / adv_std
         self.adv_buf = adv_buf.reshape(adv_buf.shape[0], self.n_envs, 5)
         data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
-                    adv=self.adv_buf, logp=self.logp_buf)
+                    adv=self.adv_buf, logp=self.logp_buf, entropy=self.entropy_buf)
         return {k: torch.as_tensor(v, dtype=torch.float32).to(device) for k, v in data.items()}
 
 
@@ -225,10 +229,11 @@ class PPOPolicy():
 
     def learn(self, policy_record, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=-1,
               steps_per_epoch=800, steps_to_run=100000, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
-              vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97,
+              vf_lr=1e-3, ent_coef=0.0, train_pi_iters=80, train_v_iters=80, lam=0.97,
               target_kl=0.01, tsboard_freq=-1,
               curriculum_start=-1, curriculum_stop=-1, use_value_norm=False,
-              use_huber_loss=False, use_rnn=False, pi_scheduler='cons', vf_scheduler='cons', **kargs):
+              use_huber_loss=False, use_rnn=False, pi_scheduler='cons', vf_scheduler='cons',
+              freeze_rep=True, **kargs):
         """
         Proximal Policy Optimization (by clipping),
 
@@ -339,6 +344,7 @@ class PPOPolicy():
                 tsboard_freq = steps_to_run // 1000
 
         env = self.env
+        tb = SummaryWriter()
 
         # Random seed
         if seed == -1:
@@ -390,6 +396,12 @@ class PPOPolicy():
             if vf_scheduler != 'cons':
                 scheduler_value.load_state_dict(ckpt['vf_scheduler_state_dict'])
             start_step = ckpt['step']
+
+            if freeze_rep:
+                for name, param in ac.named_parameters():
+                    if 'cnn_net' in name:
+                        param.requires_grad = False
+
         # Only load the representation part
         elif self.kargs['cnn_model_path']:
             state_dict = torch.load(self.kargs['cnn_model_path'])
@@ -454,34 +466,49 @@ class PPOPolicy():
                     value_loss = (error ** 2).mean()
                 return value_loss.mean()
 
+        # Set up function for computing entropy loss
+        def compute_loss_entropy(data):
+            entropy_loss = -torch.mean(data['entropy'])
+            return entropy_loss
+
         loss_p_index, loss_v_index = 0, 0
 
         def update():
             nonlocal loss_p_index, loss_v_index
-            nonlocal policy_losses, value_losses
+            nonlocal step
+            nonlocal writer
             data = buf.get()
 
             # Train policy with multiple steps of gradient descent
             for i in range(train_pi_iters):
                 pi_optimizer.zero_grad()
                 loss_pi, pi_info = compute_loss_pi(data)
+                if ent_coef > 0.0:
+                    loss_entropy = compute_loss_entropy(data)
                 kl = pi_info['kl']
                 if kl > 1.5 * target_kl:
                     # logger.log('Early stopping at step %d due to reaching max kl.'%i)
                     break
-                loss_pi.backward()
-                policy_losses.append(loss_pi.item())
+                if ent_coef > 0.0:
+                    loss = loss_pi + ent_coef * loss_entropy
+                else:
+                    loss = loss_pi
+                loss.backward()
                 loss_p_index += 1
+                writer.add_scalar('loss/Policy loss', loss_pi, loss_p_index)
+                writer.add_scalar('loss/Entropy loss', loss_entropy, loss_p_index)
                 pi_optimizer.step()
             # Value function learning
             for i in range(train_v_iters):
                 vf_optimizer.zero_grad()
                 loss_v = compute_loss_v(data)
                 loss_v.backward()
-                value_losses.append(loss_v.item())
                 loss_v_index += 1
+                writer.add_scalar('loss/value loss', loss_v, loss_v_index)
                 vf_optimizer.step()
-
+            writer.add_scalar('std_dev/translation', torch.exp(ac.pi.log_std)[0].item(), step)
+            writer.add_scalar('std_dev/orientation', torch.exp(ac.pi.log_std)[1].item(), step)
+            writer.add_scalar('std_dev/shoot', torch.exp(ac.pi.log_std)[2].item(), step)
             del data, pi_info
 
         # Prepare for interaction with environment
@@ -490,6 +517,7 @@ class PPOPolicy():
         if not os.path.exists(os.path.join(kargs['save_dir'], str(kargs['model_id']))):
             from pathlib import Path
             Path(os.path.join(kargs['save_dir'], str(kargs['model_id']))).mkdir(parents=True, exist_ok=True)
+        writer = SummaryWriter(os.path.join(policy_record.data_dir, 'tsboard'))
 
         total_step = start_step
 
@@ -499,16 +527,12 @@ class PPOPolicy():
         episode_returns = []
         policy_learning_rates = [pi_lr]
         value_learning_rates = [vf_lr]
-        policy_losses = []
-        value_losses = []
 
         if curriculum_start >= 0.0:
             env.friendly_fire_weight = curriculum_start
             period = (curriculum_stop - curriculum_start) // 0.05
             period = int(steps_to_run // period)
             assert curriculum_stop >= curriculum_start
-
-        fig1, ax1 = plt.subplots(1,1,figsize=(12,6))
 
         while step < steps_to_run:
 
@@ -530,7 +554,7 @@ class PPOPolicy():
 
             step += 1
             o = torch.as_tensor(o, dtype=torch.float32).to(device)
-            a, v, logp = ac.step(o)
+            a, v, logp, entropy = ac.step(o)
             next_o, r, terminal, info = env.step(a.cpu().numpy())
 
             ep_ret += sum(r)
@@ -544,7 +568,7 @@ class PPOPolicy():
             a = torch.as_tensor(a, dtype=torch.float32).to(device)
             v = torch.as_tensor(v, dtype=torch.float32).to(device)
             logp = torch.as_tensor(logp, dtype=torch.float32).to(device)
-            buf.store(o, a, r, v, logp)
+            buf.store(o, a, r, v, logp, entropy)
 
             # Update obs (critical!)
             o = next_o
@@ -560,7 +584,7 @@ class PPOPolicy():
                 #   print('Warning: trajectory cut off by epoch at %d steps.' % ep_len, flush=True)
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if epoch_ended:
-                    _, v, _ = ac.step(torch.as_tensor(o, dtype=torch.float32).to(device))
+                    _, v, _, _ = ac.step(torch.as_tensor(o, dtype=torch.float32).to(device))
                 else:
                     v = torch.zeros((kargs['n_envs'], 5)).to(device)
                 buf.finish_path(v)
@@ -577,12 +601,14 @@ class PPOPolicy():
                     scheduler_policy.step(ep_ret_scheduler/ep_len_scheduler)
                 elif pi_scheduler != 'cons':
                     scheduler_policy.step()
+                writer.add_scalar('learning_rate/Policy LR', pi_optimizer.param_groups[0]['lr'], step)
                 policy_learning_rates.append(pi_optimizer.param_groups[0]['lr'])
 
                 if vf_scheduler == 'smart':
                     scheduler_value.step(ep_ret_scheduler/ep_len_scheduler)
                 elif vf_scheduler != 'cons':
                     scheduler_value.step()
+                writer.add_scalar('learning_rate/Value LR', vf_optimizer.param_groups[0]['lr'], step)
                 value_learning_rates.append(vf_optimizer.param_groups[0]['lr'])
 
                 ep_ret_scheduler, ep_len_scheduler = 0, 0
@@ -590,15 +616,6 @@ class PPOPolicy():
             if step % 50 == 0 or step == 4:
                 episode_statistics = info
                 self.save_metrics(episode_statistics, policy_record, step=step)
-
-                #ax.plot(policy_learning_rates, label='Policy LR')
-                #ax.plot(value_learning_rates, label='Value LR')
-                #plt.savefig(os.path.join(policy_record.data_dir, 'learning_rate.png'))
-
-                ax1.plot(policy_losses, label='Policy Loss')
-                ax1.plot(value_losses, label='Value Loss')
-                plt.savefig(os.path.join(policy_record.data_dir, 'loss.png'))
-
 
             if step % tsboard_freq == 0:
                 lens, rews = episode_lengths, episode_returns
@@ -611,3 +628,5 @@ class PPOPolicy():
                 episode_lengths = []
                 episode_returns = []
                 del lens, rews
+
+        tb.close()
