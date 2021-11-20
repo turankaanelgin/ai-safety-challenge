@@ -22,7 +22,6 @@ parser.add_argument('--policy_lr_schedule', nargs='+', type=str, default='cons')
 parser.add_argument('--value_lr_schedule', nargs='+', type=str, default='cons')
 parser.add_argument('--batch_size', type=int, default=64)
 parser.add_argument('--ent_coef', nargs='+', type=float, default=0.0)
-parser.add_argument('--vf_coef', nargs='+', type=float, default=1.0)
 parser.add_argument('--death_penalty', action='store_true', default=False)
 parser.add_argument('--friendly_fire', action='store_true', default=True)
 parser.add_argument('--take_damage_penalty', action='store_true', default=True)
@@ -43,7 +42,7 @@ args_dict = vars(args)
 
 for param in ['reward_weight', 'penalty_weight', 'ff_weight', 'policy_lr', 'value_lr',
               'policy_lr_schedule', 'value_lr_schedule', 'batch_size', 'curriculum_start',
-              'curriculum_stop']:
+              'ent_coef', 'curriculum_stop']:
     if type(args_dict[param]) != list:
         args_dict[param] = [args_dict[param]]
 
@@ -56,7 +55,8 @@ grid = itertools.product(args_dict['reward_weight'],
                          args_dict['value_lr_schedule'],
                          args_dict['batch_size'],
                          args_dict['curriculum_start'],
-                         args_dict['curriculum_stop'])
+                         args_dict['curriculum_stop'],
+                         args_dict['ent_coef'])
 grid = [{'reward_weight': x[0],
          'penalty_weight': x[1],
          'ff_weight': x[2],
@@ -67,6 +67,7 @@ grid = [{'reward_weight': x[0],
          'batch_size': x[7],
          'curriculum_start': x[8],
          'curriculum_stop': x[9],
+         'ent_coef': x[10],
          'death_penalty': False,
          'friendly_fire': True,
          'kill_bonus': False,

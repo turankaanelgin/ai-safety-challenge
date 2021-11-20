@@ -72,6 +72,8 @@ for config in cfg.grid:
         command += ['--policy_seed', '{}'.format(p_seed)]
         command += ['--seed_index', '{}'.format(seed_idx)]
         command += ['--num_iter', '{}'.format(num_iter)]
+        if args.load_from_checkpoint:
+            command += ['--load_from_checkpoint']
         commands.append(command)
 
 for c in commands:

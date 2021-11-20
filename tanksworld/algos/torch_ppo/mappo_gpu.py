@@ -396,6 +396,7 @@ class PPOPolicy():
             if vf_scheduler != 'cons':
                 scheduler_value.load_state_dict(ckpt['vf_scheduler_state_dict'])
             start_step = ckpt['step']
+            start_step -= start_step % steps_per_epoch
 
             if freeze_rep:
                 for name, param in ac.named_parameters():
@@ -464,6 +465,7 @@ class PPOPolicy():
                     value_loss = huber_loss(error, 10.0)
                 else:
                     value_loss = (error ** 2).mean()
+                del data
                 return value_loss.mean()
 
         # Set up function for computing entropy loss
@@ -496,7 +498,8 @@ class PPOPolicy():
                 loss.backward()
                 loss_p_index += 1
                 writer.add_scalar('loss/Policy loss', loss_pi, loss_p_index)
-                writer.add_scalar('loss/Entropy loss', loss_entropy, loss_p_index)
+                if ent_coef > 0.0:
+                    writer.add_scalar('loss/Entropy loss', loss_entropy, loss_p_index)
                 pi_optimizer.step()
             # Value function learning
             for i in range(train_v_iters):

@@ -52,6 +52,7 @@ if __name__ == '__main__':
     parser.add_argument('--eval_checkpoint', type=str, default='')
     parser.add_argument('--save_tag', type=str, default='')
     parser.add_argument('--load_from_checkpoint', action='store_true', default=False)
+    parser.add_argument('--model_path', type=str, default='')
     parser.add_argument('--seed_index', type=int, default=0)
     args = parser.parse_args()
 
@@ -125,7 +126,6 @@ if __name__ == '__main__':
             env_functions.append(lambda : make_env(**kwargs_1[i]))
         stacked_env = [env_functions[i] for i in range(len(env_seed))]
         env = SubprocVecEnv(stacked_env)
-    #env = VecMonitor(env)
 
     pr = PolicyRecord(1, folder_name, './logs/'+args.logdir+'/')
     '''
@@ -149,6 +149,12 @@ if __name__ == '__main__':
     }
     '''
     model_id = '{}---{}-{}-{}'.format(args.logdir.split('/')[-1], folder_name, args.seed_index, args.save_tag)
+    model_path = None
+    if args.load_from_checkpoint:
+        model_path = os.path.join(pr.data_dir, 'checkpoints', model_id)
+        checkpoint_files = os.listdir(model_path)
+        checkpoint_files.sort(key=lambda f: int(f.split('.')[0]))
+        model_path = os.path.join(model_path, checkpoint_files[-1])
 
     policy_kwargs_old = {
         'steps_per_epoch': config['batch_size'],
@@ -161,7 +167,7 @@ if __name__ == '__main__':
         'vf_scheduler': config['value_lr_schedule'],
         'seed': args.policy_seed,
         'cnn_model_path': './models/frozen-cnn-0.8/4000000.pth',
-        'model_path': None,
+        'model_path': model_path,
         'n_envs': len(env_seed),
         'model_id': model_id,
         'save_dir': os.path.join(pr.data_dir, 'checkpoints'),
