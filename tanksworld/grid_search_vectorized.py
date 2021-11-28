@@ -61,7 +61,7 @@ for config in cfg.grid:
         for arg_name in config:
             arg_value = config[arg_name]
             if isinstance(arg_value, bool):
-                if arg_value:
+                if arg_value or arg_name == 'freeze_rep':
                     command += ['--{}'.format(arg_name)]
             else:
                 command += ['--{}'.format(arg_name)]
