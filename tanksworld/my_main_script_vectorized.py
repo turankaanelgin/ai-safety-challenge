@@ -8,6 +8,7 @@ import torch.nn as nn
 import gym
 
 from algos.torch_ppo.mappo_gpu import PPOPolicy as TorchGPUMAPPOPolicy
+from algos.torch_ppo.mappo_gpu_separate_env import PPOPolicy as TorchGPUMAPPOPolicyUpdated
 from algos.fast_ppo.ppo import PPO as FastPPO
 from algos.fast_ppo.policies import MyActorCriticCnnPolicy
 from algos.fast_ppo.vec_env import VecMonitor, SubprocVecEnv
@@ -54,6 +55,9 @@ if __name__ == '__main__':
     parser.add_argument('--load_from_checkpoint', action='store_true', default=False)
     parser.add_argument('--model_path', type=str, default='')
     parser.add_argument('--seed_index', type=int, default=0)
+    parser.add_argument('--use_popart', action='store_true', default=False)
+    parser.add_argument('--use_rnn', action='store_true', default=False)
+    parser.add_argument('--freeze_rep', action='store_false', default=True)
     args = parser.parse_args()
 
 
@@ -92,16 +96,20 @@ if __name__ == '__main__':
 
 
     config = vars(args)
-    folder_name = 'pi_lr={}{}__vf_lr={}{}__p={}__ff={}__B={}__{}'.format(config['policy_lr'],
+    folder_name = 'pi_lr={}{}__vf_lr={}{}__p={}__ff={}__B={}'.format(config['policy_lr'],
                                                                 config['policy_lr_schedule'],
                                                                 config['value_lr'],
                                                                 config['value_lr_schedule'],
                                                                 config['penalty_weight'],
                                                                 config['ff_weight'],
-                                                                config['batch_size'],
-                                                                args.save_tag)
+                                                                config['batch_size'])
     if config['curriculum_start'] >= 0.0:
         folder_name += '__CS={}__CF={}'.format(config['curriculum_start'], config['curriculum_stop'])
+    if config['use_popart']:
+        folder_name += '__popart'
+    if config['use_rnn']:
+        folder_name += '__rnn'
+    folder_name += '__{}'.format(args.save_tag)
     folder_name += '__seed{}'.format(config['seed_index'])
 
     env_seed = args.env_seed
@@ -171,7 +179,10 @@ if __name__ == '__main__':
         'n_envs': len(env_seed),
         'model_id': model_id,
         'save_dir': os.path.join(pr.data_dir, 'checkpoints'),
-        'freeze_rep': True,
+        'freeze_rep': config['freeze_rep'],
+        'use_rnn': config['use_rnn'],
+        'num_states': 4,
+        'use_popart': config['use_popart'],
     }
 
     '''
@@ -181,5 +192,5 @@ if __name__ == '__main__':
     policy.learn(total_timesteps=args.num_iter, callback=None, policy_record=pr)
     '''
 
-    policy = TorchGPUMAPPOPolicy(env, False, **policy_kwargs_old)
+    policy = TorchGPUMAPPOPolicyUpdated(env, False, **policy_kwargs_old)
     policy.run(pr, num_steps=args.num_iter)

@@ -100,8 +100,8 @@ class TanksWorldEnv(gym.Env):
         # call reset() to begin playing
         self._workerid = MPI.COMM_WORLD.Get_rank() #int(os.environ['L2EXPLORER_WORKER_ID'])
         self._filename =  exe#'/home/rivercg1/projects/aisafety/build/aisafetytanks_0.1.2/TanksWorld.x86_64'
-        self.observation_space = None
-        self.observation_space = gym.spaces.box.Box(0,255,(4,128,128))
+        #self.observation_space = gym.spaces.box.Box(0,255,(4,128,128))
+        self.observation_space = gym.spaces.box.Box(0,255,(3,128,128))
         self.action_space = gym.spaces.box.Box(-1,1,(3,))
         if seed == -1:
             self._seed = np.random.randint(TanksWorldEnv._MAX_INT) #integer seed required, convert
@@ -220,6 +220,9 @@ class TanksWorldEnv(gym.Env):
             ret_states = [cv2.resize(s, (self.image_scale, self.image_scale)) for s in ret_states]
 
         ret_states = [np.expand_dims(s.transpose((2, 0, 1)), 0) for s in ret_states]
+
+        # Remove third channel since we ignore neutral tanks
+        ret_states = [np.concatenate((s[:,:2,:,:], s[:,3:,:,:]), axis=1) for s in ret_states]
         return ret_states
 
     def reset(self,**kwargs):
@@ -290,6 +293,10 @@ class TanksWorldEnv(gym.Env):
             return True
         return False
 
+    def compute_dead_tanks(self, state):
+        training_health = [i * TanksWorldEnv._tank_data_len + 3 for i in self.training_tanks]
+        training_dead = [state[i] <= 0 for i in training_health]
+        return np.nonzero(training_dead)
 
     def log_stats(self):
         if self.tblogs is None:
@@ -559,8 +566,8 @@ class TanksWorldEnv(gym.Env):
 
     def step(self, action):
 
-        if self.finished_episode:
-            self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), self.info
+        #if self.finished_episode:
+        #    self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), self.info
 
         action = action[:]
 
@@ -600,7 +607,6 @@ class TanksWorldEnv(gym.Env):
                 else:
                     new_action[aidx][0] *= self.speed_blue
                     new_action[aidx][1] *= self.speed_blue
-
             #step
             new_action = np.array(new_action)
             self._env_info = self._env.step(new_action)[self._default_brain]
@@ -615,6 +621,7 @@ class TanksWorldEnv(gym.Env):
 
             #done
             self.done = self._env_info.local_done[0]
+            #self.done = np.all(self._env_info.local_done)
 
             if (self.done or self.is_done(self._env_info.vector_observations[0])) and \
                     not updated_wins:
@@ -641,6 +648,8 @@ class TanksWorldEnv(gym.Env):
         '''
 
         if self.log_statistics:
+            dead_tanks = self.compute_dead_tanks(self._env_info.vector_observations[0])
+
             return_statistics = {}
 
             for key in self.game_statistics:
@@ -664,7 +673,7 @@ class TanksWorldEnv(gym.Env):
                 else:
                     return_statistics['red_losing_episode_{}'.format(key)] = 0
             
-            self.info = {'average': return_statistics, 'all': self.all_episode_statistics}
+            self.info = {'average': return_statistics, 'all': self.all_episode_statistics, 'dead': dead_tanks}
 
         return self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), self.info
 
