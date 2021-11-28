@@ -18,45 +18,60 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 from env_original.make_env import make_env as make_env_origin
 from env_rgb.make_env import make_env as make_env_rgb
 import torch
+from torchsummary import summary
 import sys
+import os
+import yaml
+from datetime import datetime
+from stable_baselines3.common.vec_env import (
+    DummyVecEnv,
+    SubprocVecEnv,
+    VecEnv,
+    VecFrameStack,
+    VecNormalize,
+    VecTransposeImage,
+    is_vecenv_wrapped,
+)
+
+class CustomCNN(BaseFeaturesExtractor):
+    """
+    :param observation_space: (gym.Space)
+    :param features_dim: (int) Number of features extracted.
+        This corresponds to the number of unit for the last layer.
+    """
+
+    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256):
+        super(CustomCNN, self).__init__(observation_space, features_dim)
+        # We assume CxHxW images (channels first)
+        # Re-ordering will be done by pre-preprocessing or wrapper
+        n_input_channels = observation_space.shape[0]
+        self.cnn = nn.Sequential(
+            nn.Conv2d(n_input_channels, 32, kernel_size=8, stride=4, padding=0),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
+            nn.ReLU(),
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=0),
+            nn.ReLU(),
+            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=0),
+            nn.ReLU(),
+            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=0),
+            nn.ReLU(),
+            nn.Flatten(),
+        )
+
+        # Compute shape by doing one forward pass
+        with th.no_grad():
+            n_flatten = self.cnn(
+                th.as_tensor(observation_space.sample()[None]).float()
+            ).shape[1]
+
+        self.linear = nn.Sequential(nn.Linear(n_flatten, features_dim), nn.ReLU())
+
+    def forward(self, observations: th.Tensor) -> th.Tensor:
+        return self.linear(self.cnn(observations))
 
 if __name__ == '__main__':  
     args = cfg.args
-
-    class CustomCNN(BaseFeaturesExtractor):
-        """
-        :param observation_space: (gym.Space)
-        :param features_dim: (int) Number of features extracted.
-            This corresponds to the number of unit for the last layer.
-        """
-
-        def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256):
-            super(CustomCNN, self).__init__(observation_space, features_dim)
-            # We assume CxHxW images (channels first)
-            # Re-ordering will be done by pre-preprocessing or wrapper
-            n_input_channels = observation_space.shape[0]
-            self.cnn = nn.Sequential(
-                nn.Conv2d(n_input_channels, 32, kernel_size=8, stride=4, padding=0),
-                nn.ReLU(),
-                nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
-                nn.ReLU(),
-                nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=0),
-                nn.ReLU(),
-                nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=0),
-                nn.ReLU(),
-                nn.Flatten(),
-            )
-
-            # Compute shape by doing one forward pass
-            with th.no_grad():
-                n_flatten = self.cnn(
-                    th.as_tensor(observation_space.sample()[None]).float()
-                ).shape[1]
-
-            self.linear = nn.Sequential(nn.Linear(n_flatten, features_dim), nn.ReLU())
-
-        def forward(self, observations: th.Tensor) -> th.Tensor:
-            return self.linear(self.cnn(observations))
 
 
     stats_dir = './runs/stats_{}'.format(args.logdir)
@@ -83,8 +98,11 @@ if __name__ == '__main__':
 
     elif args.record_rgb:
         print('load path', args.save_path)
-        #model = PPO.load(args.save_path)
-        env = make_env_rgb(**kwargs_1)
+        if args.save_path is not None:
+            model = PPO.load(args.save_path)
+        env = DummyVecEnv([lambda: make_env_rgb(**kwargs_1)])
+        if args.stack_frame > 0:
+            env = VecFrameStack(env, 4)
         #model = PPO("CnnPolicy", env, n_steps=args.horizon, verbose=2)
         #env = create_env()
         observation = env.reset()
@@ -94,16 +112,17 @@ if __name__ == '__main__':
         game = 0
         observation_list = []
         while game < args.record_episode:
-            #action, _ = model.predict(observation)
-            action = np.random.rand(5,3)
+            action, _ = model.predict(observation)
+            #action = np.random.rand(5,3)
             observation, reward, done, info = env.step(action)
             observation_list.append(observation)
             if done:
                 step = 0
                 game += 1
                 observation = env.reset()
-        out = cv2.VideoWriter('tmp/tank.avi', cv2.VideoWriter_fourcc(*"MJPG"), 5, (128, 128), True)
+        out = cv2.VideoWriter(args.video_path, cv2.VideoWriter_fourcc(*"MJPG"), 5, (128, 128), True)
         for img in observation_list:
+            img = np.squeeze(img, axis=0)[:,:,-3:]
             img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
             out.write(img)
         out.release()
@@ -152,42 +171,44 @@ if __name__ == '__main__':
             json.dump(std_statistics, f, indent=True)
 
     else:
-        from datetime import datetime
-        date_str = datetime.now().strftime("%y-%m-%d-%H:%M")
+        date_str = datetime.now().strftime("%y-%m-%d-%H:%M:%S")
         if args.testing:
             save_path = './testing/'+date_str+'-'+args.desc
         else:
             save_path = './results/'+date_str+'-'+args.desc
-        import os
         os.mkdir(save_path)
-        import yaml
         with open(save_path+'/config.yaml', 'w') as file:
             yaml.dump(args.__dict__,file)
 
 
+        def create_env1():
+            #return Monitor(make_env(**kwargs_1))
+            return make_env_rgb(**kwargs_1)
         if args.n_env == 1:
-            env = create_env()
+            env = create_env1()
         else:
-            env = SubprocVecEnv([create_env] * args.n_env)
+            env = SubprocVecEnv([create_env1] * args.n_env)
+            if args.stack_frame > 0:
+                env = VecFrameStack(env, 4)
+
+
             env = VecMonitor(env)
 
-        #env = Monitor(env)
-        #print(is_wrapped(env, Monitor))
-        #import pdb; pdb.set_trace();
-        #model = CustomCNN(env.observation_space)
-        policy_kwargs = dict(
-            features_extractor_class=CustomCNN,
-            features_extractor_kwargs=dict(features_dim=512),
-            net_arch=[512, dict(pi=[512, 512], vf=[512, 512])]
-        )
-        #model = PPO("CnnPolicy", env, policy_kwargs=policy_kwargs)1024
-
-
         
-        if args.save_path is not None> 0:
-            model = PPO.load(args.save_path)
+        if args.save_path is not None:
+            model = PPO.load(args.save_path, env=env)
         else:
-            model = PPO("CnnPolicy", env, policy_kwargs=policy_kwargs, n_steps=args.horizon, verbose=2,tensorboard_log=save_path)
+            policy_kwargs = {}
+            if args.model_size == 'large':
+                policy_kwargs = dict(
+                    features_extractor_class=CustomCNN,
+                    features_extractor_kwargs=dict(features_dim=512),
+                    net_arch=[dict(pi=[512], vf=[512])]
+                )
+            model = PPO("CnnPolicy", env, policy_kwargs=policy_kwargs, n_steps=args.n_steps, 
+                    verbose=2, batch_size=32, ent_coef=args.ent_coef, clip_range=0.1, n_epochs=4,
+                    tensorboard_log=save_path)
+
 
         checkpoint_callback = CheckpointCallback(save_freq=args.save_freq, save_path=save_path + '/checkpoints', name_prefix='rl_model')
         model.learn(total_timesteps=args.timestep, callback=checkpoint_callback)
