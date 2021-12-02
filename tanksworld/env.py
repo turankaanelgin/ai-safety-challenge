@@ -95,7 +95,8 @@ class TanksWorldEnv(gym.Env):
     #DO this in reset to allow seed to be set
     def __init__(self, exe, action_repeat=6, image_scale=128, timeout=500, friendly_fire=True, take_damage_penalty=True, kill_bonus=True, death_penalty=True,
         static_tanks=[], random_tanks=[], disable_shooting=[], penalty_weight=1.0, reward_weight=1.0, will_render=False,
-        speed_red=1.0, speed_blue=1.0, tblogs='runs/stats', seed=-1, log_statistics=False, no_timeout=False, friendly_fire_weight=1.0):
+        speed_red=1.0, speed_blue=1.0, tblogs='runs/stats', seed=-1, log_statistics=False, no_timeout=False, friendly_fire_weight=1.0,
+        curriculum_stop=-1.0, curriculum_steps=1000):
 
         # call reset() to begin playing
         self._workerid = MPI.COMM_WORLD.Get_rank() #int(os.environ['L2EXPLORER_WORKER_ID'])
@@ -121,6 +122,13 @@ class TanksWorldEnv(gym.Env):
         self.reward_weight = reward_weight
         self.penalty_weight = penalty_weight
         self.friendly_fire_weight = friendly_fire_weight
+
+        self.curriculum_stop = curriculum_stop
+        self.steps_so_far = 0
+        if curriculum_stop > 0.0:
+            period = (curriculum_stop - penalty_weight) / 0.05
+            self.curriculum_period = int(curriculum_steps // period)
+            assert curriculum_stop >= penalty_weight
 
         self.static_tanks = static_tanks
         self.random_tanks = random_tanks
@@ -297,6 +305,10 @@ class TanksWorldEnv(gym.Env):
         training_health = [i * TanksWorldEnv._tank_data_len + 3 for i in self.training_tanks]
         training_dead = [state[i] <= 0 for i in training_health]
         return np.nonzero(training_dead)
+
+    def set_penalty_weight(self, penalty_weight):
+        self.penalty_weight = penalty_weight
+        print('SET PENALTY WEIGHT', self.penalty_weight)
 
     def log_stats(self):
         if self.tblogs is None:
@@ -566,8 +578,13 @@ class TanksWorldEnv(gym.Env):
 
     def step(self, action):
 
-        #if self.finished_episode:
-        #    self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), self.info
+        if self.curriculum_stop > 0.0 and self.steps_so_far % self.curriculum_period == 0:
+            self.penalty_weight += 0.05
+            self.penalty_weight = min(self.penalty_weight, self.curriculum_stop)
+        self.steps_so_far += 1
+
+        if self.finished_episode:
+            self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), self.info
 
         action = action[:]
 

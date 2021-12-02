@@ -17,13 +17,162 @@ from algos.torch_ppo.mappo_utils import valuenorm
 from algos.torch_ppo.mappo_utils.util import huber_loss
 
 
-#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device('cuda')
+
+
+class LinearLR(_LRScheduler):
+    """Decays the learning rate of each parameter group by linearly changing small
+    multiplicative factor until the number of epoch reaches a pre-defined milestone: total_iters.
+    Notice that such decay can happen simultaneously with other changes to the learning rate
+    from outside this scheduler. When last_epoch=-1, sets initial lr as lr.
+
+    Args:
+        optimizer (Optimizer): Wrapped optimizer.
+        start_factor (float): The number we multiply learning rate in the first epoch.
+            The multiplication factor changes towards end_factor in the following epochs.
+            Default: 1./3.
+        end_factor (float): The number we multiply learning rate at the end of linear changing
+            process. Default: 1.0.
+        total_iters (int): The number of iterations that multiplicative factor reaches to 1.
+            Default: 5.
+        last_epoch (int): The index of the last epoch. Default: -1.
+        verbose (bool): If ``True``, prints a message to stdout for
+            each update. Default: ``False``.
+
+    Example:
+        >>> # Assuming optimizer uses lr = 0.05 for all groups
+        >>> # lr = 0.025    if epoch == 0
+        >>> # lr = 0.03125  if epoch == 1
+        >>> # lr = 0.0375   if epoch == 2
+        >>> # lr = 0.04375  if epoch == 3
+        >>> # lr = 0.005    if epoch >= 4
+        >>> scheduler = LinearLR(self.opt, start_factor=0.5, total_iters=4)
+        >>> for epoch in range(100):
+        >>>     train(...)
+        >>>     validate(...)
+        >>>     scheduler.step()
+    """
+
+    def __init__(self, optimizer, start_factor=1.0 / 3, end_factor=1.0, total_iters=5, last_epoch=-1,
+                 verbose=False):
+        if start_factor > 1.0 or start_factor < 0:
+            raise ValueError('Starting multiplicative factor expected to be between 0 and 1.')
+
+        if end_factor > 1.0 or end_factor < 0:
+            raise ValueError('Ending multiplicative factor expected to be between 0 and 1.')
+
+        self.start_factor = start_factor
+        self.end_factor = end_factor
+        self.total_iters = total_iters
+        super(LinearLR, self).__init__(optimizer, last_epoch, verbose)
+
+    def get_lr(self):
+        if not self._get_lr_called_within_step:
+            warnings.warn("To get the last learning rate computed by the scheduler, "
+                          "please use `get_last_lr()`.", UserWarning)
+
+        if self.last_epoch == 0:
+            return [group['lr'] * self.start_factor for group in self.optimizer.param_groups]
+
+        if (self.last_epoch > self.total_iters):
+            return [group['lr'] for group in self.optimizer.param_groups]
+
+        return [group['lr'] * (1. + (self.end_factor - self.start_factor) /
+                               (self.total_iters * self.start_factor + (self.last_epoch - 1) * (self.end_factor - self.start_factor)))
+                for group in self.optimizer.param_groups]
+
+    def _get_closed_form_lr(self):
+        return [base_lr * (self.start_factor +
+                           (self.end_factor - self.start_factor) * min(self.total_iters, self.last_epoch) / self.total_iters)
+                for base_lr in self.base_lrs]
+
+
+class PPOBufferCUDAUpdated:
+
+    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95, n_envs=1, use_rnn=False, n_states=3):
+        if use_rnn:
+            self.obs_buf = torch.zeros(core.combined_shape_v4(size, n_envs, 5, n_states, obs_dim)).to(device)
+        else:
+            self.obs_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, obs_dim)).to(device)
+        self.act_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, act_dim)).to(device)
+        self.adv_buf = torch.zeros((size, n_envs, 5)).to(device)
+        self.rew_buf = torch.zeros((size, n_envs, 5)).to(device)
+        self.ret_buf = torch.zeros((size, n_envs, 5)).to(device)
+        self.val_buf = torch.zeros((size, n_envs, 5)).to(device)
+        self.logp_buf = torch.zeros((size, n_envs, 5)).to(device)
+        self.entropy_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, act_dim)).to(device)
+        self.masks = torch.ones((size+1, n_envs, 5)).to(device)
+        self.active_masks = torch.ones_like(self.masks)
+        self.gamma, self.lam = gamma, lam
+        self.ptr, self.path_start_idx, self.max_size = 0, 0, size
+        self.n_envs = n_envs
+        self.use_rnn = use_rnn
+
+    def store(self, obs, act, rew, val, logp, entropy, terminal, active_mask):
+        """
+        Append one timestep of agent-environment interaction to the buffer.
+        """
+
+        assert self.ptr < self.max_size  # buffer has to have room so you can store
+        if self.use_rnn:
+            self.obs_buf[self.ptr] = obs
+        else:
+            self.obs_buf[self.ptr] = obs.squeeze(2)
+        self.act_buf[self.ptr] = act
+        self.rew_buf[self.ptr] = rew
+        self.val_buf[self.ptr] = val
+        self.logp_buf[self.ptr] = logp
+        self.entropy_buf[self.ptr] = entropy
+        self.masks[self.ptr+1] = 1-torch.cuda.LongTensor(terminal)
+        self.active_masks[self.ptr+1] = active_mask
+        self.ptr += 1
+
+    def finish_path(self, last_val):
+
+        path_slice = slice(self.path_start_idx, self.ptr)
+
+        last_val = last_val.unsqueeze(0)
+        vals = torch.cat((self.val_buf[path_slice], last_val), dim=0)
+        rews = self.rew_buf[path_slice]
+        gae = 0
+        for step in reversed(range(rews.shape[0])):
+            delta = rews[step] + self.gamma * vals[step+1] * self.masks[step+1] - vals[step]
+            gae = delta + self.gamma * self.lam * self.masks[step+1] * gae
+            self.ret_buf[step] = gae + vals[step]
+
+        deltas = rews + self.gamma * vals[1:] - vals[:-1]
+        discount_delta = core.discount_cumsum(deltas.cpu().numpy(), self.gamma * self.lam)
+        self.adv_buf[path_slice] = torch.as_tensor(discount_delta.copy(), dtype=torch.float32).to(device)
+        #self.adv_buf[self.active_masks[:-1] == 0.0] = np.nan
+
+        self.path_start_idx = self.ptr
+
+    def get(self):
+        """
+        Call this at the end of an epoch to get all of the data from
+        the buffer, with advantages appropriately normalized (shifted to have
+        mean zero and std one). Also, resets some pointers in the buffer.
+        """
+        assert self.ptr == self.max_size  # buffer has to be full before you can get
+        self.ptr, self.path_start_idx = 0, 0
+        # the next two lines implement the advantage normalization trick
+        adv_buf = self.adv_buf.flatten(start_dim=1).cpu().numpy()
+        adv_mean = np.nanmean(adv_buf, axis=0)
+        adv_std = np.nanstd(adv_buf, axis=0)
+        adv_buf = (adv_buf - adv_mean) / (adv_std + 1e-5)
+        self.adv_buf = torch.as_tensor(adv_buf.reshape(adv_buf.shape[0], self.n_envs, 5)).to(device)
+        data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
+                    adv=self.adv_buf, logp=self.logp_buf, entropy=self.entropy_buf)
+        return {k: torch.as_tensor(v, dtype=torch.float32).to(device) for k, v in data.items()}
+
 
 class PPOBufferCUDA:
 
-    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95, n_envs=1, use_rnn=False):
-        self.obs_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, obs_dim)).to(device)
+    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95, n_envs=1, use_rnn=False, n_states=3):
+        if use_rnn:
+            self.obs_buf = torch.zeros(core.combined_shape_v4(size, n_envs, 5, n_states, obs_dim)).to(device)
+        else:
+            self.obs_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, obs_dim)).to(device)
         self.act_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, act_dim)).to(device)
         self.adv_buf = torch.zeros((size, n_envs, 5)).to(device)
         self.rew_buf = torch.zeros((size, n_envs, 5)).to(device)
@@ -34,6 +183,7 @@ class PPOBufferCUDA:
         self.gamma, self.lam = gamma, lam
         self.ptr, self.path_start_idx, self.max_size = 0, 0, size
         self.n_envs = n_envs
+        self.use_rnn = use_rnn
 
     def store(self, obs, act, rew, val, logp, entropy):
         """
@@ -41,7 +191,10 @@ class PPOBufferCUDA:
         """
 
         assert self.ptr < self.max_size  # buffer has to have room so you can store
-        self.obs_buf[self.ptr] = obs.squeeze(2)
+        if self.use_rnn:
+            self.obs_buf[self.ptr] = obs
+        else:
+            self.obs_buf[self.ptr] = obs.squeeze(2)
         self.act_buf[self.ptr] = act
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
@@ -230,9 +383,8 @@ class PPOPolicy():
     def learn(self, policy_record, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=-1,
               steps_per_epoch=800, steps_to_run=100000, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
               vf_lr=1e-3, ent_coef=0.0, train_pi_iters=80, train_v_iters=80, lam=0.97,
-              target_kl=0.01, tsboard_freq=-1,
-              curriculum_start=-1, curriculum_stop=-1, use_value_norm=False,
-              use_huber_loss=False, use_rnn=False, pi_scheduler='cons', vf_scheduler='cons',
+              target_kl=0.01, tsboard_freq=-1, curriculum_start=-1, curriculum_stop=-1, use_value_norm=False,
+              use_huber_loss=False, use_rnn=False, use_popart=False, pi_scheduler='cons', vf_scheduler='cons',
               freeze_rep=True, **kargs):
         """
         Proximal Policy Optimization (by clipping),
@@ -362,7 +514,15 @@ class PPOPolicy():
         act_dim = env.action_space.shape
         o, ep_ret, ep_len = env.reset(), 0, 0
         ep_ret_scheduler, ep_len_scheduler = 0, 0
+        num_states = kargs['num_states'] if 'num_states' in kargs else None
+        if use_rnn:
+            assert num_states is not None
+            state_history = [o] * num_states
+            ac_kwargs['use_rnn'] = True
+        if use_popart:
+            ac_kwargs['use_popart'] = True
 
+        #ac_kwargs['use_sde'] = True # TODO remove
         ac = actor_critic(env.observation_space, env.action_space, **ac_kwargs).to(device)
 
         # Set up optimizers for policy and value function
@@ -374,13 +534,17 @@ class PPOPolicy():
         if pi_scheduler == 'smart':
             scheduler_policy = ReduceLROnPlateau(pi_optimizer, mode='max', factor=0.5, patience=1000)
         elif pi_scheduler == 'linear':
-            scheduler_policy = LinearLR(pi_optimizer, start_factor=0.5, end_factor=1.0, total_iters=2000)
+            scheduler_policy = LinearLR(pi_optimizer, start_factor=0.5, end_factor=1.0, total_iters=5000)
+        elif pi_scheduler == 'cyclic':
+            scheduler_policy = CyclicLR(pi_optimizer, base_lr=pi_lr, max_lr=3e-4, mode='triangular2', cycle_momentum=False)
 
         scheduler_value = None
         if vf_scheduler == 'smart':
             scheduler_value = ReduceLROnPlateau(vf_optimizer, mode='max', factor=0.5, patience=1000)
         elif vf_scheduler == 'linear':
-            scheduler_value = LinearLR(vf_optimizer, start_factor=0.5, end_factor=1.0, total_iters=2000)
+            scheduler_value = LinearLR(vf_optimizer, start_factor=0.5, end_factor=1.0, total_iters=5000)
+        elif vf_scheduler == 'cyclic':
+            scheduler_value = CyclicLR(vf_optimizer, base_lr=vf_lr, max_lr=1e-3, mode='triangular2', cycle_momentum=False)
 
         assert pi_scheduler != 'cons' and scheduler_policy or not scheduler_policy
         assert vf_scheduler != 'cons' and scheduler_value or not scheduler_value
@@ -404,7 +568,7 @@ class PPOPolicy():
                         param.requires_grad = False
 
         # Only load the representation part
-        elif self.kargs['cnn_model_path']:
+        elif self.kargs['cnn_model_path'] and freeze_rep:
             state_dict = torch.load(self.kargs['cnn_model_path'])
 
             temp_state_dict = {}
@@ -418,15 +582,23 @@ class PPOPolicy():
                 if 'cnn_net' in name:
                     param.requires_grad = False
 
-        ac = ac.to(device)
+        buf = PPOBufferCUDA(obs_dim, act_dim, steps_per_epoch, gamma, lam, n_envs=kargs['n_envs'],
+                            use_rnn=use_rnn, n_states=num_states)
 
-        buf = PPOBufferCUDA(obs_dim, act_dim, steps_per_epoch, gamma, lam, n_envs=kargs['n_envs'], use_rnn=use_rnn)
+        if use_popart:
+            value_normalizer = ac.v.v_net
+        else:
+            value_normalizer = None
 
         # Set up function for computing PPO policy loss
         def compute_loss_pi(data):
             obs, act, adv, logp_old = data['obs'], data['act'], data['adv'], data['logp']
             obs, act, adv, logp_old = obs.to(device), act.to(device), adv.to(device), logp_old.to(device)
-            obs, act = torch.flatten(obs, end_dim=2), torch.flatten(act, end_dim=2)
+            obs = torch.flatten(obs, end_dim=2)
+            if use_rnn:
+                act = torch.flatten(act, end_dim=1)
+            else:
+                act = torch.flatten(act, end_dim=2)
 
             # Policy loss
             pi, logp = ac.pi(obs, act)
@@ -449,14 +621,23 @@ class PPOPolicy():
         def compute_loss_v(data):
             obs, ret = data['obs'], data['ret']
             obs, ret = obs.to(device), ret.to(device)
-            obs, ret = torch.flatten(obs, end_dim=2), torch.flatten(ret)
+            obs = torch.flatten(obs, end_dim=2)
+            ret = torch.flatten(ret)
 
             if not use_value_norm:
                 if use_huber_loss:
                     error = ret - ac.v(obs)
                     return huber_loss(error, 10.0).mean()
                 else:
-                    return ((ac.v(obs).squeeze(0) - ret) ** 2).mean()
+                    if use_rnn:
+                        return ((ac.v(obs).flatten() - ret) ** 2).mean()
+                    else:
+                        return ((ac.v(obs).squeeze(0) - ret) ** 2).mean()
+            elif use_popart:
+                values = ac.v(obs)
+                value_normalizer.update(ret)
+                error = value_normalizer.normalize(ret) - values
+                return (error ** 2).mean()
             else:
                 values = ac.v(obs)
                 value_normalizer.update(ret)
@@ -509,9 +690,9 @@ class PPOPolicy():
                 loss_v_index += 1
                 writer.add_scalar('loss/value loss', loss_v, loss_v_index)
                 vf_optimizer.step()
-            writer.add_scalar('std_dev/translation', torch.exp(ac.pi.log_std)[0].item(), step)
-            writer.add_scalar('std_dev/orientation', torch.exp(ac.pi.log_std)[1].item(), step)
-            writer.add_scalar('std_dev/shoot', torch.exp(ac.pi.log_std)[2].item(), step)
+            #writer.add_scalar('std_dev/translation', torch.exp(ac.pi.log_std)[0].item(), step)
+            #writer.add_scalar('std_dev/orientation', torch.exp(ac.pi.log_std)[1].item(), step)
+            #writer.add_scalar('std_dev/shoot', torch.exp(ac.pi.log_std)[2].item(), step)
             del data, pi_info
 
         # Prepare for interaction with environment
@@ -531,17 +712,9 @@ class PPOPolicy():
         policy_learning_rates = [pi_lr]
         value_learning_rates = [vf_lr]
 
-        if curriculum_start >= 0.0:
-            env.friendly_fire_weight = curriculum_start
-            period = (curriculum_stop - curriculum_start) // 0.05
-            period = int(steps_to_run // period)
-            assert curriculum_stop >= curriculum_start
+        fig, ax = plt.subplots(1, 1, figsize=(12, 6))
 
         while step < steps_to_run:
-
-            if curriculum_start >= 0.0 and (step + 1) % period == 0:
-                env.friendly_fire_weight += 0.05
-                env.friendly_fire_weight = min(env.friendly_fire_weight, curriculum_stop)
 
             if (step+1) % 25000 == 0 or step == 0:
                 model_path = os.path.join(kargs['save_dir'], str(kargs['model_id']), str(step) + '.pth')
@@ -556,7 +729,11 @@ class PPOPolicy():
                 torch.save(ckpt_dict, model_path)
 
             step += 1
-            o = torch.as_tensor(o, dtype=torch.float32).to(device)
+            if use_rnn:
+                o = [torch.as_tensor(o, dtype=torch.float32).to(device) for o in state_history]
+                o = torch.cat(o, dim=2)
+            else:
+                o = torch.as_tensor(o, dtype=torch.float32).to(device)
             a, v, logp, entropy = ac.step(o)
             next_o, r, terminal, info = env.step(a.cpu().numpy())
 
@@ -571,6 +748,8 @@ class PPOPolicy():
             a = torch.as_tensor(a, dtype=torch.float32).to(device)
             v = torch.as_tensor(v, dtype=torch.float32).to(device)
             logp = torch.as_tensor(logp, dtype=torch.float32).to(device)
+            if use_popart:
+                v = value_normalizer.denormalize(v)
             buf.store(o, a, r, v, logp, entropy)
 
             # Update obs (critical!)
@@ -587,13 +766,20 @@ class PPOPolicy():
                 #   print('Warning: trajectory cut off by epoch at %d steps.' % ep_len, flush=True)
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if epoch_ended:
-                    _, v, _, _ = ac.step(torch.as_tensor(o, dtype=torch.float32).to(device))
+                    if use_rnn:
+                        o = [torch.as_tensor(o, dtype=torch.float32).to(device) for o in state_history]
+                        o = torch.cat(o, dim=2)
+                        _, v, _, _ = ac.step(o)
+                    else:
+                        _, v, _, _ = ac.step(torch.as_tensor(o, dtype=torch.float32).to(device))
                 else:
                     v = torch.zeros((kargs['n_envs'], 5)).to(device)
                 buf.finish_path(v)
                 if np.all(terminal):
                     o, ep_ret, ep_len = env.reset(), 0, 0
                     o = torch.as_tensor(o, dtype=torch.float32).to(device)
+                    if use_rnn:
+                        state_history = [o] * num_states
 
                 ep_ret, ep_len = 0, 0
 
@@ -620,6 +806,12 @@ class PPOPolicy():
                 episode_statistics = info
                 self.save_metrics(episode_statistics, policy_record, step=step)
 
+                ax.plot(policy_learning_rates, color='red')
+                ax.plot(value_learning_rates, color='blue')
+                ax.set_xlabel('Episode')
+                ax.set_ylabel('Learning Rate')
+                plt.savefig(os.path.join(policy_record.data_dir, 'learning_rate.png'))
+
             if step % tsboard_freq == 0:
                 lens, rews = episode_lengths, episode_returns
 
@@ -630,6 +822,5 @@ class PPOPolicy():
 
                 episode_lengths = []
                 episode_returns = []
-                del lens, rews
 
         tb.close()
