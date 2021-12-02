@@ -1,17 +1,20 @@
 import pdb
 
 import numpy as np
+import math
 import scipy.signal
 from gym.spaces import Box, Discrete
 from arena5.core.utils import mpi_print
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.distributions.normal import Normal
 from torch.distributions.categorical import Categorical
 from torch.distributions.beta import Beta
 from torch.distributions.bernoulli import Bernoulli
 
+from algos.torch_ppo.distributions import StateDependentNoiseDistribution
 from algos.torch_ppo import rnn
 
 
@@ -31,6 +34,11 @@ def combined_shape_v3(length, batch_len, seq_len, shape=None):
         return (length, batch_len, seq_len,)
     return (length, batch_len, seq_len, shape) if np.isscalar(shape) else (length, batch_len, seq_len, *shape)
 
+def combined_shape_v4(length, num_envs, num_agents, seq_len, shape=None):
+    if shape is None:
+        return (length, num_envs, num_agents, seq_len,)
+    return (length, num_envs, num_agents, seq_len, shape) if np.isscalar(shape) \
+                                                          else (length, num_envs, num_agents, seq_len, *shape)
 
 def mlp(sizes, activation, output_activation=nn.Identity):
     layers = []
@@ -38,21 +46,6 @@ def mlp(sizes, activation, output_activation=nn.Identity):
         act = activation if j < len(sizes) - 2 else output_activation
         layers += [nn.Linear(sizes[j], sizes[j + 1]), act()]
     return nn.Sequential(*layers)
-
-
-class CNNEncodeAttention(nn.Module):
-    def __init__(self, observation_space):
-        super(CNNEncodeAttention, self).__init__()
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)
-        self.conv = nn.Conv2d(4, 4, 1, 1, bias=True)
-        self.sigmoid = nn.Sigmoid()
-        self.cnn_encode = cnn(observation_space)
-
-    def forward(self, observation):
-        pooled = self.avg_pool(observation)
-        attn = self.sigmoid(self.conv(pooled))
-        input = attn * observation
-        return self.cnn_encode(input)
 
 
 def cnn(observation_space):
@@ -167,6 +160,38 @@ class MLPBetaActor(Actor):
         return pi.log_prob(act).sum(axis=-1)  # Last axis sum needed for Torch Normal distribution
 
 
+class MLPSDEActor(Actor):
+
+    def __init__(self, observation_space, act_dim, hidden_sizes, activation, cnn_net=None):
+        super().__init__()
+        self.cnn_net = cnn_net
+        self.dist = StateDependentNoiseDistribution(act_dim)
+
+        if cnn_net is not None:
+            dummy_img = torch.rand((1,) + observation_space.shape)
+            self.mu_net, self.log_std = self.dist.proba_distribution_net(latent_dim=cnn_net(dummy_img).shape[1],
+                                                                         log_std_init=-0.5)
+
+    def _distribution(self, obs):
+        if len(obs.shape) == 4:
+            obs = obs.unsqueeze(0)
+        elif len(obs.shape) == 6:
+            if obs.shape[1] == 1:
+                obs = obs.squeeze(1)
+            elif obs.shape[2] == 1:
+                obs = obs.squeeze(2)
+
+        if self.cnn_net is not None:
+            obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
+                              obs.shape[3], obs.shape[4])
+            feat = self.cnn_net(obs)
+        mu = self.mu_net(feat)
+        return self.dist.proba_distribution(mu, self.log_std, feat)
+
+    def _log_prob_from_distribution(self, pi, act):
+        return pi.log_prob(act).sum(axis=-1)  # Last axis sum needed for Torch Normal distribution
+
+
 class MLPGaussianActor(Actor):
 
     def __init__(self, observation_space, act_dim, hidden_sizes, activation, cnn_net=None, rnn_net=None, two_fc_layers=False):
@@ -206,22 +231,21 @@ class MLPGaussianActor(Actor):
             self.mu_net = mlp([obs_dim] + list(hidden_sizes) + [act_dim], activation)
 
     def _distribution(self, obs):
-        if len(obs.shape) == 4:
+        if len(obs.shape) == 4 and self.rnn_net is None:
             obs = obs.unsqueeze(0)
         elif len(obs.shape) == 6:
             if obs.shape[1] == 1:
                 obs = obs.squeeze(1)
-            else:
+            elif obs.shape[2] == 1:
                 obs = obs.squeeze(2)
+            else:
+                obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
+                                  obs.shape[3], obs.shape[4], obs.shape[5])
 
         if self.cnn_net is not None:
             batch_size = obs.shape[0]
             seq_size = obs.shape[1]
-            try:
-                obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
-            except:
-                print('OBS', obs.shape)
-                exit(0)
+            obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
             obs = self.cnn_net(obs)
             obs = obs.reshape(batch_size, seq_size, obs.shape[1])
         if self.rnn_net is not None:
@@ -229,6 +253,8 @@ class MLPGaussianActor(Actor):
             obs, _ = self.rnn_net(obs, hidden)
         mu = self.mu_net(obs)
         std = torch.exp(self.log_std)
+        if self.rnn_net is not None:
+            mu = mu.reshape(batch_size//5, 5, -1)
         return Normal(mu, std)
 
     def _log_prob_from_distribution(self, pi, act):
@@ -237,7 +263,8 @@ class MLPGaussianActor(Actor):
 
 class MLPCritic(nn.Module):
 
-    def __init__(self, observation_space, hidden_sizes, activation, cnn_net=None, rnn_net=None):
+    def __init__(self, observation_space, hidden_sizes, activation, cnn_net=None, rnn_net=None,
+                 use_popart=False):
         super().__init__()
         self.cnn_net = cnn_net
         self.rnn_net = rnn_net
@@ -250,45 +277,50 @@ class MLPCritic(nn.Module):
 
         elif self.cnn_net is not None:
             dummy_img = torch.rand((1,) + observation_space.shape)
-            self.v_net = nn.Sequential(
-                # nn.Linear(cnn_net(dummy_img).shape[1], 512),
-                # activation(),
-                # nn.Linear(512, 1),
-                # activation()
-                nn.Linear(cnn_net(dummy_img).shape[1], 1),
-                activation()
-            )
+            if not use_popart:
+                self.v_net = nn.Sequential(
+                    nn.Linear(cnn_net(dummy_img).shape[1], 1),
+                    activation()
+                )
+            else:
+                self.v_net = PopArt(cnn_net(dummy_img).shape[1], 1)
         else:
             obs_dim = observation_space.shape[0]
             self.v_net = mlp([obs_dim] + list(hidden_sizes) + [1], activation)
 
     def forward(self, obs):
-        if len(obs.shape) == 4:
+        if len(obs.shape) == 4 and self.rnn_net is None:
             obs = obs.unsqueeze(0)
         elif len(obs.shape) == 6:
-            obs = obs.squeeze(2)
+            if obs.shape[1] == 1:
+                obs = obs.squeeze(1)
+            elif obs.shape[2] == 1:
+                obs = obs.squeeze(2)
+            else:
+                obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
+                                  obs.shape[3], obs.shape[4], obs.shape[5])
 
         if self.cnn_net is not None:
             batch_size = obs.shape[0]
             seq_size = obs.shape[1]
-            obs = obs.reshape(obs.shape[0]*obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
+            obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
             obs = self.cnn_net(obs)
             obs = obs.reshape(batch_size, seq_size, obs.shape[1])
         if self.rnn_net is not None:
             hidden = self.rnn_net.init_hidden(batch_size)
             obs, _ = self.rnn_net(obs, hidden)
-        return torch.squeeze(self.v_net(obs), -1)  # Critical to ensure v has right shape.
+        v_out = self.v_net(obs)
+        if self.rnn_net is not None:
+            v_out = v_out.reshape(batch_size//5, 5, -1)
+        return torch.squeeze(v_out, -1)  # Critical to ensure v has right shape.
 
 
 class MLPActorCritic(nn.Module):
 
     def __init__(self, observation_space, action_space,
                  hidden_sizes=(64, 64), activation=nn.Tanh, two_fc_layers=False,
-                 use_rnn=False):
+                 use_rnn=False, use_popart=False, use_sde=False):
         super().__init__()
-
-        # policy builder depends on action space
-        obs_dim = observation_space.shape[0]
 
         use_cnn = len(observation_space.shape) == 3
         cnn_net = None
@@ -296,16 +328,21 @@ class MLPActorCritic(nn.Module):
         if use_cnn:
             cnn_net = cnn(observation_space)
         if use_rnn:
-            rnn_net = rnn.GRUNet(input_dim=9216, hidden_dim=2048, output_dim=1024, n_layers=2)
+            rnn_net = rnn.GRUNet(input_dim=9216, hidden_dim=1024, output_dim=512, n_layers=1)
 
         if isinstance(action_space, Box):
-            self.pi = MLPGaussianActor(observation_space, action_space.shape[0], hidden_sizes, activation,
-                                       cnn_net=cnn_net, rnn_net=rnn_net, two_fc_layers=two_fc_layers)
+            if not use_sde:
+                self.pi = MLPGaussianActor(observation_space, action_space.shape[0], hidden_sizes, activation,
+                                           cnn_net=cnn_net, rnn_net=rnn_net, two_fc_layers=two_fc_layers)
+            else:
+                self.pi = MLPSDEActor(observation_space, action_space.shape[0], hidden_sizes, activation, cnn_net=cnn_net)
         elif isinstance(action_space, Discrete):
             self.pi = MLPCategoricalActor(observation_space, action_space.n, hidden_sizes, activation, cnn_net=cnn_net)
 
         # build value function
-        self.v = MLPCritic(observation_space, hidden_sizes, activation, cnn_net=cnn_net, rnn_net=rnn_net)
+        self.v = MLPCritic(observation_space, hidden_sizes, activation, cnn_net=cnn_net, rnn_net=rnn_net,
+                           use_popart=use_popart)
+        self.use_sde = use_sde
 
     def step(self, obs):
         with torch.no_grad():
@@ -314,7 +351,99 @@ class MLPActorCritic(nn.Module):
             entropy = pi.entropy()
             logp_a = self.pi._log_prob_from_distribution(pi, a)
             v = self.v(obs)
+        if self.use_sde:
+            a = a.reshape(a.shape[0]//5, 5, a.shape[1])
+            entropy = entropy.reshape(entropy.shape[0]//5, 5, entropy.shape[1])
+            logp_a = logp_a.reshape(logp_a.shape[0]//5, 5)
         return a, v, logp_a, entropy
 
     def act(self, obs):
         return self.step(obs)[0]
+
+
+class PopArt(nn.Module):
+
+    def __init__(self, input_shape, output_shape, norm_axes=1, beta=0.99999, epsilon=1e-5):
+
+        super(PopArt, self).__init__()
+
+        self.beta = beta
+        self.epsilon = epsilon
+        self.norm_axes = norm_axes
+
+        self.input_shape = input_shape
+        self.output_shape = output_shape
+
+        self.weight = nn.Parameter(torch.Tensor(output_shape, input_shape))
+        self.bias = nn.Parameter(torch.Tensor(output_shape))
+
+        self.stddev = nn.Parameter(torch.ones(output_shape), requires_grad=False)
+        self.mean = nn.Parameter(torch.zeros(output_shape), requires_grad=False)
+        self.mean_sq = nn.Parameter(torch.zeros(output_shape), requires_grad=False)
+        self.debiasing_term = nn.Parameter(torch.tensor(0.0), requires_grad=False)
+
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        torch.nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        if self.bias is not None:
+            fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(self.weight)
+            bound = 1 / math.sqrt(fan_in)
+            torch.nn.init.uniform_(self.bias, -bound, bound)
+        self.mean.zero_()
+        self.mean_sq.zero_()
+        self.debiasing_term.zero_()
+
+    def forward(self, input_vector):
+        if type(input_vector) == np.ndarray:
+            input_vector = torch.from_numpy(input_vector)
+
+        return F.linear(input_vector, self.weight, self.bias)
+
+    @torch.no_grad()
+    def update(self, input_vector):
+        if type(input_vector) == np.ndarray:
+            input_vector = torch.from_numpy(input_vector)
+        input_vector = input_vector.to(**self.tpdv)
+
+        old_mean, old_var = self.debiased_mean_var()
+        old_stddev = torch.sqrt(old_var)
+
+        batch_mean = input_vector.mean(dim=tuple(range(self.norm_axes)))
+        batch_sq_mean = (input_vector ** 2).mean(dim=tuple(range(self.norm_axes)))
+
+        self.mean.mul_(self.beta).add_(batch_mean * (1.0 - self.beta))
+        self.mean_sq.mul_(self.beta).add_(batch_sq_mean * (1.0 - self.beta))
+        self.debiasing_term.mul_(self.beta).add_(1.0 * (1.0 - self.beta))
+
+        self.stddev = (self.mean_sq - self.mean ** 2).sqrt().clamp(min=1e-4)
+
+        new_mean, new_var = self.debiased_mean_var()
+        new_stddev = torch.sqrt(new_var)
+
+        self.weight = self.weight * old_stddev / new_stddev
+        self.bias = (old_stddev * self.bias + old_mean - new_mean) / new_stddev
+
+    def debiased_mean_var(self):
+        debiased_mean = self.mean / self.debiasing_term.clamp(min=self.epsilon)
+        debiased_mean_sq = self.mean_sq / self.debiasing_term.clamp(min=self.epsilon)
+        debiased_var = (debiased_mean_sq - debiased_mean ** 2).clamp(min=1e-2)
+        return debiased_mean, debiased_var
+
+    def normalize(self, input_vector):
+        if type(input_vector) == np.ndarray:
+            input_vector = torch.from_numpy(input_vector)
+
+        mean, var = self.debiased_mean_var()
+        out = (input_vector - mean[(None,) * self.norm_axes]) / torch.sqrt(var)[(None,) * self.norm_axes]
+
+        return out
+
+    def denormalize(self, input_vector):
+        if type(input_vector) == np.ndarray:
+            input_vector = torch.from_numpy(input_vector)
+
+        mean, var = self.debiased_mean_var()
+        out = input_vector * torch.sqrt(var)[(None,) * self.norm_axes] + mean[(None,) * self.norm_axes]
+
+        return out

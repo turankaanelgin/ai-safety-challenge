@@ -103,8 +103,8 @@ if __name__ == '__main__':
                                                                 config['penalty_weight'],
                                                                 config['ff_weight'],
                                                                 config['batch_size'])
-    if config['curriculum_start'] >= 0.0:
-        folder_name += '__CS={}__CF={}'.format(config['curriculum_start'], config['curriculum_stop'])
+    if config['curriculum_stop'] >= 0.0:
+        folder_name += '__CS={}__CF={}'.format(config['penalty_weight'], config['curriculum_stop'])
     if config['use_popart']:
         folder_name += '__popart'
     if config['use_rnn']:
@@ -124,7 +124,7 @@ if __name__ == '__main__':
                          'take_damage_penalty': True, 'tblogs': stats_dir,
                          'penalty_weight': config['penalty_weight'], 'reward_weight': config['reward_weight'],
                          'friendly_fire_weight': config['ff_weight'], 'timeout': 500, 'log_statistics': True,
-                         'seed': seed})
+                         'seed': seed, 'curriculum_stop': config['curriculum_stop'], 'curriculum_steps': args.num_iter})
 
     if len(env_seed) == 1:
         env = make_env(**kwargs_1[0])
@@ -192,5 +192,6 @@ if __name__ == '__main__':
     policy.learn(total_timesteps=args.num_iter, callback=None, policy_record=pr)
     '''
 
-    policy = TorchGPUMAPPOPolicyUpdated(env, False, **policy_kwargs_old)
+    #policy = TorchGPUMAPPOPolicyUpdated(env, False, **policy_kwargs_old)
+    policy = TorchGPUMAPPOPolicy(env, False, **policy_kwargs_old)
     policy.run(pr, num_steps=args.num_iter)
