@@ -578,13 +578,13 @@ class TanksWorldEnv(gym.Env):
 
     def step(self, action):
 
-        if self.finished_episode:
-            self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), self.info
-
         if self.curriculum_stop > 0.0 and self.steps_so_far % self.curriculum_period == 0:
             self.penalty_weight += 0.05
             self.penalty_weight = min(self.penalty_weight, self.curriculum_stop)
         self.steps_so_far += 1
+
+        if self.finished_episode:
+            self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), self.info
 
         action = action[:]
 
