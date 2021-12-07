@@ -46,11 +46,22 @@ train(){
         --logdir testrun --save-freq 20000  \
         --stack-frame $1 --desc $2 --model-size $3 --n-steps $4 --penalty-weight $5 --timestep $6 --n-env $7 --ent-coef $8\
         #--save-path $7
+}
+debug(){
+    python vectorized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
+        --logdir testrun --save-freq 20000  --env-stacked\
+        --stack-frame $1 --desc $2 --model-size $3 --n-steps $4 --penalty-weight $5 --timestep $6 --n-env $7 --ent-coef $8\
+        --testing
+        #--save-path $7
+
+
 
 
 }
 if [[ $1 == test ]]; then
     test
+elif [[ $1 == debug ]]; then
+    debug 0 "neg0.00-small-steps32-ent-0.0-stacked-2reds-train" "large" 32 0.00 4000000 1 0.0
 elif [[ $1 == train1 ]]; then
     #train 4 "neg0.0-small-steps8" "small" 8 0.0 4000000 "/home/ado8/ai-safety-challenge/tanksworld/results/21-11-26-10:43:28-neg0.0-small-steps8/checkpoints/rl_model_1000000_steps.zip"
     #train 4 "neg0.00-small-steps16-ent-0.000625" "small" 16 0.00 2000000 8 0.000625
@@ -65,14 +76,16 @@ elif [[ $1 == train2 ]]; then
     #train 4 "neg0.15-large-steps32-ent-0.0-stacked" "large" 32 0.15 2000000 8 0.0
     #train 4 "neg0.15-large-steps64-ent-0.0-stacked" "large" 64 0.15 2000000 8 0.0
 elif [[ $1 == record-rgb-all ]]; then
-    DIR_NAME=/home/ado8/ai-safety-challenge/tanksworld/results/21-12-06-18:25:43-neg0.00-small-steps32-ent-0.0-stacked-2reds-train/checkpoints
+    EXPMNT=21-12-06-18:25:58-neg0.15-small-steps32-ent-0.0-stacked-2reds-train
+    DIR_NAME=/home/ado8/ai-safety-challenge/tanksworld/results/$EXPMNT/checkpoints
     for FILE in $(ls $DIR_NAME)
     do
         record_rgb $DIR_NAME/$FILE ./tmp/tank-vid/2reds-neg-0.15/$FILE.avi 4 10
     done
 elif [[ $1 == record-rgb ]]; then
     #for step in 480000 800000 1120000 1920000
-    for step in 160000 320000 480000 
+    #for step in 160000 320000 480000 
+    for step in 480000 
     do
         record_rgb "/home/ado8/ai-safety-challenge/tanksworld/results/21-12-06-18:25:43-neg0.00-small-steps32-ent-0.0-stacked-2reds-train/checkpoints/rl_model_${step}_steps.zip" "./tmp/tank-vid/neg-0.15-small-2reds-${step}.avi" 4 10
     done

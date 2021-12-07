@@ -16,6 +16,7 @@ from stable_baselines3.common.env_util import is_wrapped
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import CheckpointCallback
 from env_original.make_env import make_env as make_env_origin
+from env_stacked.make_env import make_env as make_env_stacked
 from env_rgb.make_env import make_env as make_env_rgb
 import torch
 from torchsummary import summary
@@ -75,7 +76,7 @@ if __name__ == '__main__':
 
 
     stats_dir = './runs/stats_{}'.format(args.logdir)
-    kwargs_1 = {"static_tanks": [2,3,4, 5,6,7,8,9], "random_tanks": [], "disable_shooting": [2,3,4,5,6,7,8,9],
+    kwargs_1 = {"static_tanks": [5,6,7,8,9], "random_tanks": [], "disable_shooting": [2,3,4,5,6,7,8,9],
                 "friendly_fire":True, 'kill_bonus':False, 'death_penalty':False, 'take_damage_penalty': False,
                 'tblogs':stats_dir, 'penalty_weight':args.penalty_weight, 'reward_weight':1.0, 'log_statistics': True, 'timeout': 500}
     def create_env():
@@ -181,13 +182,20 @@ if __name__ == '__main__':
             yaml.dump(args.__dict__,file)
 
 
-        def create_env1():
+        def create_env_rgb():
             #return Monitor(make_env(**kwargs_1))
             return make_env_rgb(**kwargs_1)
+        def create_env_stacked():
+            return make_env_stacked(**kwargs_1)
+        if args.env_stacked:
+            create_env = create_env_stacked
+        elif args.env_rgb:
+            create_env = create_env_rgb
         if args.n_env == 1:
-            env = create_env1()
+            env = create_env()
+            check_env(env)
         else:
-            env = SubprocVecEnv([create_env1] * args.n_env)
+            env = SubprocVecEnv([create_env] * args.n_env)
             if args.stack_frame > 0:
                 env = VecFrameStack(env, 4)
 
