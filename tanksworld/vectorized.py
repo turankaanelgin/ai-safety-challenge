@@ -15,6 +15,7 @@ from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 from stable_baselines3.common.env_util import is_wrapped
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import CheckpointCallback
+from torchsummary import summary
 from env_original.make_env import make_env as make_env_origin
 from env_stacked.make_env import make_env as make_env_stacked
 from env_rgb.make_env import make_env as make_env_rgb
@@ -53,10 +54,10 @@ class CustomCNN(BaseFeaturesExtractor):
             nn.ReLU(),
             nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=0),
             nn.ReLU(),
-            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=0),
-            nn.ReLU(),
             nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=0),
             nn.ReLU(),
+            #nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=0),
+            #nn.ReLU(),
             nn.Flatten(),
         )
 
@@ -76,26 +77,45 @@ if __name__ == '__main__':
 
 
     stats_dir = './runs/stats_{}'.format(args.logdir)
-    kwargs_1 = {"static_tanks": [5,6,7,8,9], "random_tanks": [], "disable_shooting": [2,3,4,5,6,7,8,9],
+    kwargs_1 = {"static_tanks": [2,3,4,5,6,7,8,9], "random_tanks": [], "disable_shooting": [2,3,4,5,6,7,8,9],
                 "friendly_fire":True, 'kill_bonus':False, 'death_penalty':False, 'take_damage_penalty': False,
                 'tblogs':stats_dir, 'penalty_weight':args.penalty_weight, 'reward_weight':1.0, 'log_statistics': True, 'timeout': 500}
-    def create_env():
-        #return Monitor(make_env(**kwargs_1))
-        return make_env(**kwargs_1)
-    if args.record:
-        model = PPO.load(args.save_path)
-        env = create_env()
+    if args.record_stacked:
+        print('load path', args.save_path)
+        #env = DummyVecEnv([lambda: make_env_stacked(**kwargs_1)])
+        env = make_env_stacked(**kwargs_1)
+        if args.save_path is not None:
+            model = PPO.load(args.save_path)
+        else:
+            policy_kwargs = {}
+            policy_kwargs = dict(
+                features_extractor_class=CustomCNN,
+                features_extractor_kwargs=dict(features_dim=512),
+                net_arch=[dict(pi=[512], vf=[512])]
+            )
+            model = PPO("CnnPolicy", env, policy_kwargs=policy_kwargs, n_steps=args.n_steps, 
+                    verbose=2, batch_size=32, ent_coef=args.ent_coef, clip_range=0.1, n_epochs=4)
         observation = env.reset()
         step = 0
         old_step =0
         env_count = 0
         game = 0
-        while game < 500:
+        observation_list = []
+        while game < args.n_episode:
             action, _ = model.predict(observation)
+            #action = np.random.rand(5,3)
             observation, reward, done, info = env.step(action)
+            img = env.overview_map()
+            observation_list.append(img)
             if done:
+                step = 0
                 game += 1
                 observation = env.reset()
+        out = cv2.VideoWriter(args.video_path, cv2.VideoWriter_fourcc(*"MJPG"), 5, (128, 128), True)
+        for img in observation_list:
+            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            out.write(img)
+        out.release()
 
     elif args.record_rgb:
         print('load path', args.save_path)
@@ -116,6 +136,7 @@ if __name__ == '__main__':
             action, _ = model.predict(observation)
             #action = np.random.rand(5,3)
             observation, reward, done, info = env.step(action)
+            img = env.overview_map()
             observation_list.append(observation)
             if done:
                 step = 0
@@ -171,7 +192,7 @@ if __name__ == '__main__':
         with open(pjoin(args.save_path, 'std_statistics.json'), 'w+') as f:
             json.dump(std_statistics, f, indent=True)
 
-    else:
+    else:#training
         date_str = datetime.now().strftime("%y-%m-%d-%H:%M:%S")
         if args.testing:
             save_path = './testing/'+date_str+'-'+args.desc
@@ -187,17 +208,19 @@ if __name__ == '__main__':
             return make_env_rgb(**kwargs_1)
         def create_env_stacked():
             return make_env_stacked(**kwargs_1)
+
         if args.env_stacked:
             create_env = create_env_stacked
         elif args.env_rgb:
             create_env = create_env_rgb
+
         if args.n_env == 1:
             env = create_env()
             check_env(env)
         else:
             env = SubprocVecEnv([create_env] * args.n_env)
-            if args.stack_frame > 0:
-                env = VecFrameStack(env, 4)
+            #if args.stack_frame > 0:
+            #    env = VecFrameStack(env, 4)
 
 
             env = VecMonitor(env)
@@ -207,7 +230,7 @@ if __name__ == '__main__':
             model = PPO.load(args.save_path, env=env)
         else:
             policy_kwargs = {}
-            if args.model_size == 'large':
+            if args.env_stacked or args.model_size == 'large':
                 policy_kwargs = dict(
                     features_extractor_class=CustomCNN,
                     features_extractor_kwargs=dict(features_dim=512),
@@ -219,6 +242,8 @@ if __name__ == '__main__':
 
 
         checkpoint_callback = CheckpointCallback(save_freq=args.save_freq, save_path=save_path + '/checkpoints', name_prefix='rl_model')
+        #import pdb; pdb.set_trace();
+        #summary(model, (
         model.learn(total_timesteps=args.timestep, callback=checkpoint_callback)
 
 

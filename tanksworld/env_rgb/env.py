@@ -750,7 +750,7 @@ class TanksWorldEnv(gym.Env):
             self.per_episode_statistics[key] = 0
 
 
-    def render(self):
+    def render(self, mode=''):
         if self.will_render:
             for idx,s in enumerate(self.disp_states):
                 display_cvimage("player_"+str(idx), s)

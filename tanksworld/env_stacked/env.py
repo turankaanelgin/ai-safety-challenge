@@ -6,10 +6,11 @@ import os
 from mpi4py import MPI
 import numpy as np
 import matplotlib.pyplot as plt
-from tanksworld.minimap_util import minimap_for_player, displayable_rgb_map, display_cvimage
+from tanksworld.env_stacked.minimap_util import minimap_for_player, displayable_rgb_map, display_cvimage, overview_map
 import cv2
 import pathlib
 from tensorboardX import SummaryWriter
+from PIL import Image
 #from .utils import get_l2explorer_worker_id, get_l2explorer_app_location
 
 # Enforce Python 3.6.x (the only version supported by Unity MLAgents)
@@ -95,7 +96,7 @@ class TanksWorldEnv(gym.Env):
         self._workerid = MPI.COMM_WORLD.Get_rank() #int(os.environ['L2EXPLORER_WORKER_ID'])
         self._filename =  exe#'/home/rivercg1/projects/aisafety/build/aisafetytanks_0.1.2/TanksWorld.x86_64'
         self.observation_space = None
-        self.observation_space = gym.spaces.box.Box(0,255,(128,128,4))
+        self.observation_space = gym.spaces.box.Box(0,255,(20, 128,128))
         self.action_space = gym.spaces.Box(-1,1,(15,))
         #self.action_space = None
         self._seed = None
@@ -129,6 +130,8 @@ class TanksWorldEnv(gym.Env):
         for i in range(10):
             if i not in self.static_tanks and i not in self.random_tanks:
                 self.training_tanks.append(i)
+        # TODO: 
+        
 
         #load the obstaces image
         path_name = pathlib.Path(__file__).resolve().parent
@@ -140,6 +143,10 @@ class TanksWorldEnv(gym.Env):
             self.log_iter = 0
 
         self.reset(params={})
+
+        barrier = Image.open(os.path.join(path_name,'obstaclemap_fixed.png')).convert('RGB')
+        barrier = barrier.resize((128,128), Image.BILINEAR)
+        self.barrier_overview = np.array(barrier)
 
     def seed(self, val):
         self._seed = int(val)%TanksWorldEnv._MAX_INT #integer seed required, convert
@@ -153,6 +160,7 @@ class TanksWorldEnv(gym.Env):
 
             state_reformat.append(refmt)
 
+        self.internal_state_render = state_reformat
         barriers = self.barrier_img/255.0  #np.array(self._env_info.visual_observations[1][0])
 
         ret_states = [minimap_for_player(state_reformat,i,barriers) for i in self.training_tanks]
@@ -163,7 +171,9 @@ class TanksWorldEnv(gym.Env):
         if self.image_scale != 128:
             ret_states = [cv2.resize(s, (self.image_scale, self.image_scale)) for s in ret_states]
 
-        import pdb; pdb.set_trace();
+        ret_states = [np.expand_dims(s.transpose((2, 0, 1)), 0) for s in ret_states]
+        ret_states = np.concatenate(ret_states, axis=1).squeeze()
+        #stack 5 4-layers iamges=20 layers
         return ret_states
 
     def reset(self,**kwargs):
@@ -179,7 +189,7 @@ class TanksWorldEnv(gym.Env):
         if not TanksWorldEnv._env:
             try:
                 print('WARNING: seed not set, using default')
-                TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=np.random.randint(65000) + self._workerid, seed=1234,timeout_wait=500)
+                TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=np.random.randint(65000) + self._workerid, seed=np.random.randint(650000),timeout_wait=500)
                 print('finished initializing environment')
                 TanksWorldEnv._env_params['filename'] = self._filename
                 TanksWorldEnv._env_params['workerid'] = self._workerid
@@ -202,8 +212,9 @@ class TanksWorldEnv(gym.Env):
         self.red_team_stats = team_stats_dict(self)
         self.blue_team_stats = team_stats_dict(self)
 
-        import pdb; pdb.set_trace();
         state = self.get_state()
+        print(params)
+        self.training_tanks = [0,1,2,3,4]#hard code training tanks
 
         return state
 
@@ -449,6 +460,7 @@ class TanksWorldEnv(gym.Env):
 
     def step(self, action):
 
+        action = action.reshape(5,3).tolist()
         action = action[:]
 
         self.reward = [0.0]*len(self.training_tanks)
@@ -476,6 +488,10 @@ class TanksWorldEnv(gym.Env):
             #turn off shooting for any tanks with disabled shooting
             for didx, totalidx in enumerate(self.disable_shooting):
                 new_action[totalidx][-1] = -1.0
+
+            for trainidx, totalidx in enumerate(self.static_tanks):
+                new_action[totalidx][0] = 0.0
+                new_action[totalidx][1] = 0.0
 
             #turn and drive multipliers
             for aidx in range(len(new_action)):
@@ -505,14 +521,21 @@ class TanksWorldEnv(gym.Env):
             if self.done:
                 break
 
-        info = [{"red_stats":self.red_team_stats, "blue_stats":self.blue_team_stats}]*len(self.training_tanks)
+        #info = [{"red_stats":self.red_team_stats, "blue_stats":self.blue_team_stats}]*len(self.training_tanks)
+        info = {"red_stats":self.red_team_stats, "blue_stats":self.blue_team_stats}
+        self.reward = np.sum(self.reward)
         return self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), info
 
 
-    def render(self):
+    def render(self, mode=''):
         if self.will_render:
             for idx,s in enumerate(self.disp_states):
                 display_cvimage("player_"+str(idx), s)
+
+    def overview_map(self):
+        #barriers = self.barrier_img/255.0  #np.array(self._env_info.visual_observations[1][0])
+        img = overview_map(self.internal_state_render, self.barrier_overview)
+        return img
 
 
 
