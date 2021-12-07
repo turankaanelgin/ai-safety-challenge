@@ -75,8 +75,8 @@ if __name__ == '__main__':
 
 
     stats_dir = './runs/stats_{}'.format(args.logdir)
-    kwargs_1 = {"static_tanks": [], "random_tanks": [5, 6, 7, 8, 9], "disable_shooting": [],
-                "friendly_fire":False, 'kill_bonus':False, 'death_penalty':False, 'take_damage_penalty': True,
+    kwargs_1 = {"static_tanks": [2,3,4, 5,6,7,8,9], "random_tanks": [], "disable_shooting": [2,3,4,5,6,7,8,9],
+                "friendly_fire":True, 'kill_bonus':False, 'death_penalty':False, 'take_damage_penalty': False,
                 'tblogs':stats_dir, 'penalty_weight':args.penalty_weight, 'reward_weight':1.0, 'log_statistics': True, 'timeout': 500}
     def create_env():
         #return Monitor(make_env(**kwargs_1))
@@ -111,7 +111,7 @@ if __name__ == '__main__':
         env_count = 0
         game = 0
         observation_list = []
-        while game < args.record_episode:
+        while game < args.n_episode:
             action, _ = model.predict(observation)
             #action = np.random.rand(5,3)
             observation, reward, done, info = env.step(action)

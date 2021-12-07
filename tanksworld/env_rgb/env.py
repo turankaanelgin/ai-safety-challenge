@@ -714,11 +714,12 @@ class TanksWorldEnv(gym.Env):
         else:
             info = [{"red_stats": self.red_team_stats, "blue_stats": self.blue_team_stats}] * len(self.training_tanks)
 
-        self.reward_stats[self.reward_stats_count] = self.reward
-        self.reward_stats_count += 1
         self.reward = np.sum(self.reward)
-        if self.reward_stats_count % 50000 == 0:
-            np.save('tmp/reward', self.reward_stats)
+        #self.reward_stats[self.reward_stats_count] = self.reward
+        #self.reward_stats_count += 1
+        ##self.reward = np.max(self.reward)
+        #if self.reward_stats_count % 50000 == 0:
+        #    np.save('tmp/reward', self.reward_stats)
         return self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), info[0]
 
 

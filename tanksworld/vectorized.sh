@@ -39,8 +39,7 @@ record_rgb(){
         --logdir testrun  --n-env 10 --penalty-weight 0.2 --save-freq 10000 --timestep 4000000 \
         --desc "hor64-penalty-0.8-larger-model-separate-arch-20-envs"\
         --save-path $1 \
-        --video-path $2 --record-episode 3 --stack-frame $3 --record-rgb
-        #results/21-10-31-13:55-hor64-penalty-0.6-larger-model-separate-arch-10-envs/checkpoints/rl_model_1900000_steps.zip\
+        --video-path $2  --stack-frame $3 --n-episode $4 --record-rgb
 }
 train(){
     python vectorized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
@@ -55,19 +54,28 @@ if [[ $1 == test ]]; then
 elif [[ $1 == train1 ]]; then
     #train 4 "neg0.0-small-steps8" "small" 8 0.0 4000000 "/home/ado8/ai-safety-challenge/tanksworld/results/21-11-26-10:43:28-neg0.0-small-steps8/checkpoints/rl_model_1000000_steps.zip"
     #train 4 "neg0.00-small-steps16-ent-0.000625" "small" 16 0.00 2000000 8 0.000625
-    train 4 "neg0.00-small-steps32-ent-0.0-stacked" "small" 32 0.00 2000000 8 0.0
-    train 4 "neg0.00-small-steps64-ent-0.0-stacked" "small" 64 0.00 2000000 8 0.0
-    train 4 "neg0.00-large-steps32-ent-0.0-stacked" "large" 32 0.00 2000000 8 0.0
-    train 4 "neg0.00-large-steps64-ent-0.0-stacked" "large" 64 0.00 2000000 8 0.0
+    #train 4 "neg0.00-small-steps32-ent-0.0-stacked" "small" 32 0.00 2000000 8 0.0
+    #train 4 "neg0.00-small-steps64-ent-0.0-stacked" "small" 64 0.00 2000000 8 0.0
+    #train 4 "neg0.00-large-steps32-ent-0.0-stacked" "large" 32 0.00 2000000 8 0.0
+    train 4 "neg0.00-small-steps32-ent-0.0-stacked-2reds-train" "small" 32 0.00 4000000 8 0.0
 elif [[ $1 == train2 ]]; then
     #train 4 "neg0.00-small-steps16-ent-0.00125" "small" 16 0.00 2000000 8 0.00125
-    train 4 "neg0.15-small-steps32-ent-0.0-stacked" "small" 32 0.15 2000000 8 0.0
-    train 4 "neg0.15-small-steps64-ent-0.0-stacked" "small" 64 0.15 2000000 8 0.0
-    train 4 "neg0.15-large-steps32-ent-0.0-stacked" "large" 32 0.15 2000000 8 0.0
-    train 4 "neg0.15-large-steps64-ent-0.0-stacked" "large" 64 0.15 2000000 8 0.0
+    train 4 "neg0.15-small-steps32-ent-0.0-stacked-2reds-train" "small" 32 0.15 4000000 8 0.0
+    #train 4 "neg0.15-small-steps64-ent-0.0-stacked" "small" 64 0.15 2000000 8 0.0
+    #train 4 "neg0.15-large-steps32-ent-0.0-stacked" "large" 32 0.15 2000000 8 0.0
+    #train 4 "neg0.15-large-steps64-ent-0.0-stacked" "large" 64 0.15 2000000 8 0.0
+elif [[ $1 == record-rgb-all ]]; then
+    DIR_NAME=/home/ado8/ai-safety-challenge/tanksworld/results/21-12-06-18:25:43-neg0.00-small-steps32-ent-0.0-stacked-2reds-train/checkpoints
+    for FILE in $(ls $DIR_NAME)
+    do
+        record_rgb $DIR_NAME/$FILE ./tmp/tank-vid/2reds-neg-0.15/$FILE.avi 4 10
+    done
 elif [[ $1 == record-rgb ]]; then
-    record_rgb "/home/ado8/ai-safety-challenge/tanksworld/results/21-11-27-22:15:45-neg0.15-small-steps32-ent-0.0-stacked/checkpoints/rl_model_1120000_steps.zip" "./tmp/tank-0.15-small.avi" 4
-    record_rgb "/home/ado8/ai-safety-challenge/tanksworld/results/21-11-27-22:15:27-neg0.00-small-steps32-ent-0.0-stacked/checkpoints/rl_model_1120000_steps.zip" "./tmp/tank-0.00-small.avi" 4
+    #for step in 480000 800000 1120000 1920000
+    for step in 160000 320000 480000 
+    do
+        record_rgb "/home/ado8/ai-safety-challenge/tanksworld/results/21-12-06-18:25:43-neg0.00-small-steps32-ent-0.0-stacked-2reds-train/checkpoints/rl_model_${step}_steps.zip" "./tmp/tank-vid/neg-0.15-small-2reds-${step}.avi" 4 10
+    done
 elif [[ $1 == ppotest ]]; then
     ppo_test
 elif [[ $1 == envexp ]]; then
