@@ -14,7 +14,6 @@ from torch.distributions.categorical import Categorical
 from torch.distributions.beta import Beta
 from torch.distributions.bernoulli import Bernoulli
 
-from algos.torch_ppo.distributions import StateDependentNoiseDistribution
 from algos.torch_ppo import rnn
 
 
@@ -22,7 +21,6 @@ def combined_shape(length, shape=None):
     if shape is None:
         return (length,)
     return (length, shape) if np.isscalar(shape) else (length, *shape)
-
 
 def combined_shape_v2(length, seq_len, shape=None):
     if shape is None:
@@ -38,7 +36,7 @@ def combined_shape_v4(length, num_envs, num_agents, seq_len, shape=None):
     if shape is None:
         return (length, num_envs, num_agents, seq_len,)
     return (length, num_envs, num_agents, seq_len, shape) if np.isscalar(shape) \
-                                                          else (length, num_envs, num_agents, seq_len, *shape)
+        else (length, num_envs, num_agents, seq_len, *shape)
 
 def mlp(sizes, activation, output_activation=nn.Identity):
     layers = []
@@ -59,7 +57,6 @@ def cnn(observation_space):
         nn.Flatten()
     )
     return model
-
 
 def count_vars(module):
     return sum([np.prod(p.shape) for p in module.parameters()])
@@ -231,6 +228,7 @@ class MLPGaussianActor(Actor):
             self.mu_net = mlp([obs_dim] + list(hidden_sizes) + [act_dim], activation)
 
     def _distribution(self, obs):
+
         if len(obs.shape) == 4 and self.rnn_net is None:
             obs = obs.unsqueeze(0)
         elif len(obs.shape) == 6:
@@ -242,16 +240,22 @@ class MLPGaussianActor(Actor):
                 obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
                                   obs.shape[3], obs.shape[4], obs.shape[5])
 
+        #batch_size, n_agents = obs.shape[0], obs.shape[1]
+        #obs = obs.reshape(batch_size*n_agents, obs.shape[2], obs.shape[3], obs.shape[4])
+
         if self.cnn_net is not None:
+
             batch_size = obs.shape[0]
             seq_size = obs.shape[1]
             obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
+
             obs = self.cnn_net(obs)
             obs = obs.reshape(batch_size, seq_size, obs.shape[1])
         if self.rnn_net is not None:
             hidden = self.rnn_net.init_hidden(batch_size)
             obs, _ = self.rnn_net(obs, hidden)
         mu = self.mu_net(obs)
+        #mu = mu.reshape(batch_size, n_agents, -1)
         std = torch.exp(self.log_std)
         if self.rnn_net is not None:
             mu = mu.reshape(batch_size//5, 5, -1)

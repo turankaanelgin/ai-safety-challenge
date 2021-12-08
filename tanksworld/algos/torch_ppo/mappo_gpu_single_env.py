@@ -20,87 +20,17 @@ from algos.torch_ppo.mappo_utils.util import huber_loss
 device = torch.device('cuda')
 
 
-class LinearLR(_LRScheduler):
-    """Decays the learning rate of each parameter group by linearly changing small
-    multiplicative factor until the number of epoch reaches a pre-defined milestone: total_iters.
-    Notice that such decay can happen simultaneously with other changes to the learning rate
-    from outside this scheduler. When last_epoch=-1, sets initial lr as lr.
-
-    Args:
-        optimizer (Optimizer): Wrapped optimizer.
-        start_factor (float): The number we multiply learning rate in the first epoch.
-            The multiplication factor changes towards end_factor in the following epochs.
-            Default: 1./3.
-        end_factor (float): The number we multiply learning rate at the end of linear changing
-            process. Default: 1.0.
-        total_iters (int): The number of iterations that multiplicative factor reaches to 1.
-            Default: 5.
-        last_epoch (int): The index of the last epoch. Default: -1.
-        verbose (bool): If ``True``, prints a message to stdout for
-            each update. Default: ``False``.
-
-    Example:
-        >>> # Assuming optimizer uses lr = 0.05 for all groups
-        >>> # lr = 0.025    if epoch == 0
-        >>> # lr = 0.03125  if epoch == 1
-        >>> # lr = 0.0375   if epoch == 2
-        >>> # lr = 0.04375  if epoch == 3
-        >>> # lr = 0.005    if epoch >= 4
-        >>> scheduler = LinearLR(self.opt, start_factor=0.5, total_iters=4)
-        >>> for epoch in range(100):
-        >>>     train(...)
-        >>>     validate(...)
-        >>>     scheduler.step()
-    """
-
-    def __init__(self, optimizer, start_factor=1.0 / 3, end_factor=1.0, total_iters=5, last_epoch=-1,
-                 verbose=False):
-        if start_factor > 1.0 or start_factor < 0:
-            raise ValueError('Starting multiplicative factor expected to be between 0 and 1.')
-
-        if end_factor > 1.0 or end_factor < 0:
-            raise ValueError('Ending multiplicative factor expected to be between 0 and 1.')
-
-        self.start_factor = start_factor
-        self.end_factor = end_factor
-        self.total_iters = total_iters
-        super(LinearLR, self).__init__(optimizer, last_epoch, verbose)
-
-    def get_lr(self):
-        if not self._get_lr_called_within_step:
-            warnings.warn("To get the last learning rate computed by the scheduler, "
-                          "please use `get_last_lr()`.", UserWarning)
-
-        if self.last_epoch == 0:
-            return [group['lr'] * self.start_factor for group in self.optimizer.param_groups]
-
-        if (self.last_epoch > self.total_iters):
-            return [group['lr'] for group in self.optimizer.param_groups]
-
-        return [group['lr'] * (1. + (self.end_factor - self.start_factor) /
-                               (self.total_iters * self.start_factor + (self.last_epoch - 1) * (self.end_factor - self.start_factor)))
-                for group in self.optimizer.param_groups]
-
-    def _get_closed_form_lr(self):
-        return [base_lr * (self.start_factor +
-                           (self.end_factor - self.start_factor) * min(self.total_iters, self.last_epoch) / self.total_iters)
-                for base_lr in self.base_lrs]
-
-
 class PPOBufferCUDA:
 
     def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95, n_envs=1, use_rnn=False, n_states=3):
-        if use_rnn:
-            self.obs_buf = torch.zeros(core.combined_shape_v4(size, n_envs, 5, n_states, obs_dim)).to(device)
-        else:
-            self.obs_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, obs_dim)).to(device)
-        self.act_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, act_dim)).to(device)
-        self.adv_buf = torch.zeros((size, n_envs, 5)).to(device)
-        self.rew_buf = torch.zeros((size, n_envs, 5)).to(device)
-        self.ret_buf = torch.zeros((size, n_envs, 5)).to(device)
-        self.val_buf = torch.zeros((size, n_envs, 5)).to(device)
-        self.logp_buf = torch.zeros((size, n_envs, 5)).to(device)
-        self.entropy_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, act_dim)).to(device)
+        self.obs_buf = torch.zeros(core.combined_shape_v2(size, 5, obs_dim), dtype=torch.float32).to(device)
+        self.act_buf = torch.zeros(core.combined_shape_v2(size, 5, act_dim), dtype=torch.float32).to(device)
+        self.adv_buf = torch.zeros((size, 5), dtype=torch.float32).to(device)
+        self.rew_buf = torch.zeros((size, 5), dtype=torch.float32).to(device)
+        self.ret_buf = torch.zeros((size, 5), dtype=torch.float32).to(device)
+        self.val_buf = torch.zeros((size, 5), dtype=torch.float32).to(device)
+        self.logp_buf = torch.zeros((size, 5), dtype=torch.float32).to(device)
+        self.entropy_buf = torch.zeros(core.combined_shape_v2(size, 5, act_dim), dtype=torch.float32).to(device)
         self.gamma, self.lam = gamma, lam
         self.ptr, self.path_start_idx, self.max_size = 0, 0, size
         self.n_envs = n_envs
@@ -112,15 +42,12 @@ class PPOBufferCUDA:
         """
 
         assert self.ptr < self.max_size  # buffer has to have room so you can store
-        if self.use_rnn:
-            self.obs_buf[self.ptr] = obs
-        else:
-            self.obs_buf[self.ptr] = obs.squeeze(2)
-        self.act_buf[self.ptr] = act
-        self.rew_buf[self.ptr] = rew
-        self.val_buf[self.ptr] = val
-        self.logp_buf[self.ptr] = logp
-        self.entropy_buf[self.ptr] = entropy
+        self.obs_buf[self.ptr] = obs.squeeze(0)
+        self.act_buf[self.ptr] = act.squeeze(0)
+        self.rew_buf[self.ptr] = rew.squeeze(0)
+        self.val_buf[self.ptr] = val.squeeze(0)
+        self.logp_buf[self.ptr] = logp.squeeze(0)
+        self.entropy_buf[self.ptr] = entropy.squeeze(0)
         self.ptr += 1
 
     def finish_path(self, last_val=[0, 0, 0, 0, 0]):
@@ -147,11 +74,11 @@ class PPOBufferCUDA:
 
         # the next two lines implement GAE-Lambda advantage calculation
         deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
-        discount_delta = core.discount_cumsum(deltas.cpu().numpy(), self.gamma * self.lam)
+        discount_delta = core.discount_cumsum(deltas.cpu().detach().numpy(), self.gamma * self.lam)
         self.adv_buf[path_slice] = torch.as_tensor(discount_delta.copy(), dtype=torch.float32).to(device)
 
         # the next line computes rewards-to-go, to be targets for the value function
-        discount_rews = core.discount_cumsum(rews.cpu().numpy(), self.gamma)[:-1]
+        discount_rews = core.discount_cumsum(rews.cpu().detach().numpy(), self.gamma)[:-1]
         self.ret_buf[path_slice] = torch.as_tensor(discount_rews.copy(), dtype=torch.float32).to(device)
 
         self.path_start_idx = self.ptr
@@ -165,21 +92,19 @@ class PPOBufferCUDA:
         assert self.ptr == self.max_size  # buffer has to be full before you can get
         self.ptr, self.path_start_idx = 0, 0
         # the next two lines implement the advantage normalization trick
-        pdb.set_trace()
-        adv_buf = self.adv_buf.flatten(start_dim=1)
-        adv_std, adv_mean = torch.std_mean(adv_buf, dim=0)
-        adv_buf = (adv_buf - adv_mean) / adv_std
-        self.adv_buf = adv_buf.reshape(adv_buf.shape[0], self.n_envs, 5)
+        adv_std, adv_mean = torch.std_mean(self.adv_buf)
+        self.adv_buf = (self.adv_buf - adv_mean) / adv_std
         data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
                     adv=self.adv_buf, logp=self.logp_buf, entropy=self.entropy_buf)
         return {k: torch.as_tensor(v, dtype=torch.float32).to(device) for k, v in data.items()}
 
 
 class PPOPolicy():
-    def __init__(self, env, eval_mode=False, **kargs):
+    def __init__(self, env, eval_mode=False, callback=None, **kargs):
         self.kargs = kargs
         self.env = env
         self.eval_mode = eval_mode
+        self.callback = callback
 
     def run(self, policy_record, num_steps):
 
@@ -278,28 +203,13 @@ class PPOPolicy():
         length = len(episode_statistics[0]['all'])
         if length < 3: return
 
-        episode_statistics = [episode_statistics[env_idx]['all'][-min(100, length):] \
-                              for env_idx in range(len(episode_statistics))]
-
-        for env_idx in range(len(episode_statistics)):
-            episode_statistics[env_idx] = {key: np.average([episode_statistics[env_idx][i][key] \
-                                                           for i in range(len(episode_statistics[env_idx]))]) \
-                                                           for key in episode_statistics[env_idx][0]}
-
-        mean_statistics = {}
-        std_statistics = {}
-        all_statistics = {}
-        for key in episode_statistics[0]:
-            list_of_stats = [episode_statistics[idx][key] for idx in range(len(episode_statistics))]
-            mean_statistics[key] = np.average(list_of_stats)
-            std_statistics[key] = np.std(list_of_stats)
-            all_statistics[key] = list_of_stats
-
+        episode_statistics = episode_statistics[0]['all'][-min(100, length):]
+        episode_statistics = {key: np.average([episode_statistics[i][key] \
+                                                for i in range(len(episode_statistics))]) \
+                                                for key in episode_statistics[0]}
         if policy_record is not None:
             with open(os.path.join(policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
-                json.dump(mean_statistics, f, indent=True)
-            with open(os.path.join(policy_record.data_dir, 'std_statistics.json'), 'w+') as f:
-                json.dump(std_statistics, f, indent=True)
+                json.dump(episode_statistics, f, indent=True)
 
 
     def learn(self, policy_record, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=-1,
@@ -515,12 +425,11 @@ class PPOPolicy():
         # Set up function for computing PPO policy loss
         def compute_loss_pi(data):
             obs, act, adv, logp_old = data['obs'], data['act'], data['adv'], data['logp']
+            obs, act, adv, logp_old = torch.as_tensor(obs, dtype=torch.float32),\
+                                      torch.as_tensor(act, dtype=torch.float32), \
+                                      torch.as_tensor(adv, dtype=torch.float32), \
+                                      torch.as_tensor(logp_old, dtype=torch.float32)
             obs, act, adv, logp_old = obs.to(device), act.to(device), adv.to(device), logp_old.to(device)
-            obs = torch.flatten(obs, end_dim=2)
-            if use_rnn:
-                act = torch.flatten(act, end_dim=1)
-            else:
-                act = torch.flatten(act, end_dim=2)
 
             # Policy loss
             pi, logp = ac.pi(obs, act)
@@ -542,8 +451,8 @@ class PPOPolicy():
         # Set up function for computing value loss
         def compute_loss_v(data):
             obs, ret = data['obs'], data['ret']
+            obs, ret = torch.as_tensor(obs, dtype=torch.float32), torch.as_tensor(ret, dtype=torch.float32)
             obs, ret = obs.to(device), ret.to(device)
-            obs = torch.flatten(obs, end_dim=2)
             ret = torch.flatten(ret)
 
             if not use_value_norm:
@@ -551,10 +460,7 @@ class PPOPolicy():
                     error = ret - ac.v(obs)
                     return huber_loss(error, 10.0).mean()
                 else:
-                    if use_rnn:
-                        return ((ac.v(obs).flatten() - ret) ** 2).mean()
-                    else:
-                        return ((ac.v(obs).squeeze(0) - ret) ** 2).mean()
+                    return ((ac.v(obs).flatten() - ret) ** 2).mean()
             elif use_popart:
                 values = ac.v(obs)
                 value_normalizer.update(ret)
@@ -658,6 +564,8 @@ class PPOPolicy():
                 o = torch.as_tensor(o, dtype=torch.float32).to(device)
             a, v, logp, entropy = ac.step(o)
             next_o, r, terminal, info = env.step(a.cpu().numpy())
+            if self.callback:
+                self.callback._on_step(r)
 
             ep_ret += sum(r)
             ep_ret_scheduler += sum(r)
@@ -666,12 +574,9 @@ class PPOPolicy():
             total_step += 1
 
             # save and log
-            r = torch.as_tensor(r, dtype=torch.float32).to(device)
-            a = torch.as_tensor(a, dtype=torch.float32).to(device)
-            v = torch.as_tensor(v, dtype=torch.float32).to(device)
-            logp = torch.as_tensor(logp, dtype=torch.float32).to(device)
             if use_popart:
                 v = value_normalizer.denormalize(v)
+            r = torch.as_tensor(r, dtype=torch.float32).to(device)
             buf.store(o, a, r, v, logp, entropy)
 
             # Update obs (critical!)
@@ -694,8 +599,9 @@ class PPOPolicy():
                         _, v, _, _ = ac.step(o)
                     else:
                         _, v, _, _ = ac.step(torch.as_tensor(o, dtype=torch.float32).to(device))
+                        v = v.squeeze(0)
                 else:
-                    v = torch.zeros((kargs['n_envs'], 5)).to(device)
+                    v = torch.zeros((5,)).to(device)
                 buf.finish_path(v)
                 if np.all(terminal):
                     o, ep_ret, ep_len = env.reset(), 0, 0

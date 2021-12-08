@@ -1,9 +1,10 @@
 # ©2020 Johns Hopkins University Applied Physics Laboratory LLC.
+import pdb
 import pickle, os
 from shutil import copy
 import matplotlib.pyplot as plt
 
-from arena5.core.plot_utils import *
+from core.plot_utils import *
 
 
 def get_dir_for_policy(policy_id, log_comms_dir):
@@ -12,65 +13,66 @@ def get_dir_for_policy(policy_id, log_comms_dir):
 
 
 class RecordChannel():
-    def __init__(self, data_dir, name="main", color="#eb0033", ylabel="Episodic Reward",
-        windows=[20,50,100], alphas=[0.1,0.3,1.0]):
+    def __init__(self, data_dir, color='#eb0033', ylabel='Episodic Damage',
+                 windows=[20,50,100], alphas=[0.1,0.3,1.0]):
 
         self.data_dir = data_dir
         self.ep_results = []
+        self.ep_red_blue_damages = []
+        self.ep_red_red_damages = []
+        self.ep_blue_red_damages = []
         self.ep_lengths = []
         self.ep_cumlens = []
         self.color = color
-        self.name = name
         self.ylabel = ylabel
         self.windows = windows
         self.alphas = alphas
 
     def save(self):
-        data = [self.ep_results, self.ep_lengths, self.ep_cumlens]
-        pickle.dump(data, open(self.data_dir+"policy_record_"+self.name+".p", "wb"))
+        data = [self.ep_results, self.ep_red_red_damages, self.ep_red_blue_damages, self.ep_blue_red_damages,
+                self.ep_lengths, self.ep_cumlens]
+        pickle.dump(data, open(self.data_dir+'policy_record.p', 'wb'))
 
-        #save a plot also
-        plot_policy_records([self], self.windows, self.alphas, 
-            self.data_dir+"plot_"+self.name+".png", colors=[self.color], 
-            episodic=False)
-        plot_policy_records([self], self.windows, self.alphas, 
-            self.data_dir+"plot_"+self.name+".png", colors=[self.color], 
-            episodic=True)
+        # save a plot also
+        plot_policy_records_damage([self], self.windows, self.alphas,
+                                   self.data_dir + "plot_damage.png", colors=[self.color],
+                                   episodic=False)
+        plot_policy_records([self], self.windows, self.alphas,
+                            self.data_dir + "plot_reward.png", colors=[self.color],
+                            episodic=False)
 
     def load(self):
-        path = self.data_dir+"policy_record_"+self.name+".p"
+        path = self.data_dir + "policy_record.p"
         if os.path.exists(path):
             data = pickle.load(open(path, "rb"))
-            self.ep_results, self.ep_lengths, self.ep_cumlens = data
-
+            self.ep_results, self.ep_red_red_damages, self.ep_red_blue_damages, self.ep_blue_red_damages, \
+                    self.ep_lengths, self.ep_cumlens = data
 
     def get_copy(self):
-        rc = RecordChannel(self.data_dir, 
-            name=self.name,
-            color=self.color,
-            ylabel=self.ylabel,
-            windows=self.windows,
-            alphas=self.alphas)
+        rc = RecordChannel(self.data_dir,
+                           color=self.color,
+                           ylabel=self.ylabel,
+                           windows=self.windows,
+                           alphas=self.alphas)
 
         rc.ep_results = self.ep_results[:]
+        rc.ep_red_red_damages = self.ep_red_red_damages[:]
+        rc.ep_blue_red_damages = self.ep_blue_red_damages[:]
+        rc.ep_red_blue_damages = self.ep_red_blue_damages[:]
         rc.ep_lengths = self.ep_lengths[:]
         rc.ep_cumlens = self.ep_cumlens[:]
         return rc
 
 
-
 class PolicyRecord():
 
-    def __init__(self, policy_id, policy_folder_name, log_comms_dir, plot_color="#eb0033", channel=0):
+    def __init__(self, policy_folder_name, log_comms_dir, plot_color="#eb0033"):
 
         self.plot_color = plot_color
 
         self.log_comms_dir = log_comms_dir
         self.data_dir = get_dir_for_policy(policy_folder_name, log_comms_dir)
-
-        self.channels = {
-            "main":RecordChannel(self.data_dir, name="{}".format(channel), color=plot_color)
-        }
+        self.channels = {'main': RecordChannel(self.data_dir, color=plot_color)}
 
         if not os.path.exists(self.data_dir):
             os.makedirs(self.data_dir)
@@ -78,7 +80,7 @@ class PolicyRecord():
             self.load()
 
 
-    def add_result(self, total_reward, ep_len, channel="main"):
+    def add_result(self, total_reward, red_blue_damage, red_red_damage, blue_red_damage, ep_len, channel="main"):
 
         if channel not in self.channels:
             self.add_channel(channel)
@@ -86,6 +88,9 @@ class PolicyRecord():
         ch = self.channels[channel]
 
         ch.ep_results.append(total_reward)
+        ch.ep_red_blue_damages.append(red_blue_damage)
+        ch.ep_blue_red_damages.append(blue_red_damage)
+        ch.ep_red_red_damages.append(red_red_damage)
         ch.ep_lengths.append(ep_len)
         if len(ch.ep_cumlens) == 0:
             ch.ep_cumlens.append(ep_len)
