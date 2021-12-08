@@ -54,28 +54,27 @@ else:
 
 commands = []
 for config in cfg.grid:
-    for seed_idx, p_seed in enumerate(policy_seeds):
-        command = ['python3.6', 'my_main_script_vectorized.py']
-        command += ['--exe', args.exe]
-        command += ['--logdir', args.logdir]
-        for arg_name in config:
-            arg_value = config[arg_name]
-            if isinstance(arg_value, bool):
-                if (arg_value and arg_name != 'freeze_rep') or \
-                        (arg_name == 'freeze_rep' and not arg_value):
+    for e_seed_idx, e_seed in enumerate(env_seeds):
+        for p_seed_idx, p_seed in enumerate(policy_seeds):
+            command = ['python3.6', 'my_main_script_updated.py']
+            command += ['--exe', args.exe]
+            command += ['--logdir', args.logdir]
+            for arg_name in config:
+                arg_value = config[arg_name]
+                if isinstance(arg_value, bool):
+                    if (arg_value and arg_name != 'freeze_rep') or \
+                            (arg_name == 'freeze_rep' and not arg_value):
+                        command += ['--{}'.format(arg_name)]
+                else:
                     command += ['--{}'.format(arg_name)]
-            else:
-                command += ['--{}'.format(arg_name)]
-                command += ['{}'.format(arg_value)]
-        command += ['--env_seed']
-        for e_seed in env_seeds:
-            command += ['{}'.format(e_seed)]
-        command += ['--policy_seed', '{}'.format(p_seed)]
-        command += ['--seed_index', '{}'.format(seed_idx)]
-        command += ['--num_iter', '{}'.format(num_iter)]
-        if args.load_from_checkpoint:
-            command += ['--load_from_checkpoint']
-        commands.append(command)
+                    command += ['{}'.format(arg_value)]
+            command += ['--env_seed', '{}'.format(e_seed)]
+            command += ['--policy_seed', '{}'.format(p_seed)]
+            command += ['--seed_index', '{}'.format(e_seed_idx*len(policy_seeds)+p_seed_idx)]
+            command += ['--num_iter', '{}'.format(num_iter)]
+            if args.load_from_checkpoint:
+                command += ['--load_from_checkpoint']
+            commands.append(command)
 
 for c in commands:
     print(' '.join(c))

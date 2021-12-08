@@ -5,6 +5,7 @@ import sys, time, random
 import json
 import gym
 from mlagents.envs import UnityEnvironment
+from collections import defaultdict
 import os
 from mpi4py import MPI
 import numpy as np
@@ -101,8 +102,8 @@ class TanksWorldEnv(gym.Env):
         # call reset() to begin playing
         self._workerid = MPI.COMM_WORLD.Get_rank() #int(os.environ['L2EXPLORER_WORKER_ID'])
         self._filename =  exe#'/home/rivercg1/projects/aisafety/build/aisafetytanks_0.1.2/TanksWorld.x86_64'
-        #self.observation_space = gym.spaces.box.Box(0,255,(4,128,128))
-        self.observation_space = gym.spaces.box.Box(0,255,(3,128,128))
+        self.observation_space = gym.spaces.box.Box(0,255,(4,128,128))
+        #self.observation_space = gym.spaces.box.Box(0,255,(3,128,128))
         self.action_space = gym.spaces.box.Box(-1,1,(3,))
         if seed == -1:
             self._seed = np.random.randint(TanksWorldEnv._MAX_INT) #integer seed required, convert
@@ -134,6 +135,8 @@ class TanksWorldEnv(gym.Env):
         self.random_tanks = random_tanks
         self.disable_shooting = disable_shooting
         self.will_render = will_render
+
+        self.current_damage = defaultdict(int)
 
         self.speed_red = speed_red
         self.speed_blue = speed_blue
@@ -230,7 +233,7 @@ class TanksWorldEnv(gym.Env):
         ret_states = [np.expand_dims(s.transpose((2, 0, 1)), 0) for s in ret_states]
 
         # Remove third channel since we ignore neutral tanks
-        ret_states = [np.concatenate((s[:,:2,:,:], s[:,3:,:,:]), axis=1) for s in ret_states]
+        #ret_states = [np.concatenate((s[:,:2,:,:], s[:,3:,:,:]), axis=1) for s in ret_states]
         return ret_states
 
     def reset(self,**kwargs):
@@ -248,6 +251,7 @@ class TanksWorldEnv(gym.Env):
                 print('WARNING: seed not set, using default')
                 TanksWorldEnv._env = UnityEnvironment(file_name=self._filename, worker_id=np.random.randint(10000)+self._workerid,
                                                       seed=self._seed, timeout_wait=500)
+                random.seed(self._seed)
                 print('finished initializing environment')
                 TanksWorldEnv._env_params['filename'] = self._filename
                 TanksWorldEnv._env_params['workerid'] = self._workerid
@@ -365,7 +369,6 @@ class TanksWorldEnv(gym.Env):
         self.blue_team_stats["team_health"]["enemy"] = red_health
         self.blue_team_stats["team_health"]["neutral"] = neutral_health
 
-
     #team stats that need to be updated on a tankwise basis
     def update_tank_stats(self, i, state, dhealth, ally_stats, enemy_stats, new_shot):
         damage_dealt = state[5]
@@ -412,9 +415,11 @@ class TanksWorldEnv(gym.Env):
                     if team_hit_type == 'ally':
                         self.game_statistics['ally_damage_amount_red'] += damage_dealt
                         self.per_episode_statistics['red_ally_damage'] += damage_dealt
+                        self.current_damage['red_ally_damage'] = damage_dealt
                     elif team_hit_type == 'enemy':
                         self.game_statistics['enemy_damage_amount_red'] += damage_dealt
                         self.per_episode_statistics['red_enemy_damage'] += damage_dealt
+                        self.current_damage['red_enemy_damage'] = damage_dealt
                     elif team_hit_type == 'neutral':
                         self.game_statistics['neutral_damage_amount_red'] += damage_dealt
                 else: # if tank is blue
@@ -424,6 +429,7 @@ class TanksWorldEnv(gym.Env):
                     elif team_hit_type == 'enemy':
                         self.game_statistics['enemy_damage_amount_blue'] += damage_dealt
                         self.per_episode_statistics['blue_enemy_damage'] += damage_dealt
+                        self.current_damage['blue_enemy_damage'] = damage_dealt
                     elif team_hit_type == 'neutral':
                         self.game_statistics['neutral_damage_amount_blue'] += damage_dealt
 
@@ -638,7 +644,6 @@ class TanksWorldEnv(gym.Env):
 
             #done
             self.done = self._env_info.local_done[0]
-            #self.done = np.all(self._env_info.local_done)
 
             if (self.done or self.is_done(self._env_info.vector_observations[0])) and \
                     not updated_wins:
@@ -689,8 +694,11 @@ class TanksWorldEnv(gym.Env):
                         self.red_losing_episode_statistics[key] / self.game_statistics['num_blue_wins']
                 else:
                     return_statistics['red_losing_episode_{}'.format(key)] = 0
-            
-            self.info = {'average': return_statistics, 'all': self.all_episode_statistics, 'dead': dead_tanks}
+
+            curr_damage = self.current_damage.copy()
+            self.current_damage = defaultdict(int)
+            self.info = {'average': return_statistics, 'all': self.all_episode_statistics,
+                         'current': curr_damage, 'dead': dead_tanks}
 
         return self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), self.info
 
