@@ -89,15 +89,15 @@ class TanksWorldEnv(gym.Env):
 
     #DO this in reset to allow seed to be set
     def __init__(self, exe, action_repeat=6, image_scale=128, timeout=500, friendly_fire=True, take_damage_penalty=True, kill_bonus=True, death_penalty=True,
-        static_tanks=[], random_tanks=[], disable_shooting=[], penalty_weight=1.0, reward_weight=1.0, will_render=False,
+        training_tanks=[], static_tanks=[], random_tanks=[], disable_shooting=[], penalty_weight=1.0, reward_weight=1.0, will_render=False,
         speed_red=1.0, speed_blue=1.0, tblogs='runs/stats'):
 
         # call reset() to begin playing
         self._workerid = MPI.COMM_WORLD.Get_rank() #int(os.environ['L2EXPLORER_WORKER_ID'])
         self._filename =  exe#'/home/rivercg1/projects/aisafety/build/aisafetytanks_0.1.2/TanksWorld.x86_64'
         self.observation_space = None
-        self.observation_space = gym.spaces.box.Box(0,255,(20, 128,128))
-        self.action_space = gym.spaces.Box(-1,1,(15,))
+        self.observation_space = gym.spaces.box.Box(0,255,(4 * len(training_tanks), 128,128))
+        self.action_space = gym.spaces.Box(-1,1,(3*len(training_tanks),))
         #self.action_space = None
         self._seed = None
 
@@ -126,12 +126,13 @@ class TanksWorldEnv(gym.Env):
         for s in static_tanks:
             assert s not in random_tanks
 
-        self.training_tanks = []
-        for i in range(10):
-            if i not in self.static_tanks and i not in self.random_tanks:
-                self.training_tanks.append(i)
-        # TODO: 
-        
+        self.training_tanks = training_tanks
+        self.n_train = len(self.training_tanks)
+        #for i in range(10):
+        #    if i not in self.static_tanks and i not in self.random_tanks:
+        #        self.training_tanks.append(i)
+        ## TODO: 
+        #self.training_tanks = [0,1,2,3,4]#hard code training tanks
 
         #load the obstaces image
         path_name = pathlib.Path(__file__).resolve().parent
@@ -213,8 +214,6 @@ class TanksWorldEnv(gym.Env):
         self.blue_team_stats = team_stats_dict(self)
 
         state = self.get_state()
-        print(params)
-        self.training_tanks = [0,1,2,3,4]#hard code training tanks
 
         return state
 
@@ -458,10 +457,12 @@ class TanksWorldEnv(gym.Env):
         return [reward[i] for i in self.training_tanks]
 
 
-    def step(self, action):
-
-        action = action.reshape(5,3).tolist()
-        action = action[:]
+    def step(self, action_):
+        action_ = action_.reshape(-1,3).tolist()
+        action2 = [[0,0,0]] * 5
+        for i in range(self.n_train):
+            action2[i] = action_[i]
+        action = action2[:]
 
         self.reward = [0.0]*len(self.training_tanks)
 
@@ -524,6 +525,12 @@ class TanksWorldEnv(gym.Env):
         #info = [{"red_stats":self.red_team_stats, "blue_stats":self.blue_team_stats}]*len(self.training_tanks)
         info = {"red_stats":self.red_team_stats, "blue_stats":self.blue_team_stats}
         self.reward = np.sum(self.reward)
+        # TODO: 
+        #print(self.red_team_stats['damage_inflicted_on']['enemy'], 
+        #        self.red_team_stats['damage_inflicted_on']['ally'], 
+        #        self.red_team_stats['damage_taken_by']['enemy'],
+        #        self.red_team_stats['damage_taken_by']['ally'],
+        #        )
         return self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), info
 
 

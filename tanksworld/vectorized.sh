@@ -49,25 +49,37 @@ train(){
 }
 debug(){
     python vectorized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
-        --logdir testrun --save-freq 20000  --env-stacked\
-        --stack-frame $1 --desc $2 --n-steps $3 --penalty-weight $4 --timestep $5 --n-env $6 --ent-coef $7\
+        --logdir testrun   --env-stacked\
+        --ent-coef $1 --desc $2 --n-steps $3 --penalty-weight $4 --timestep $5 --n-env $6 --timeout $7 --save-freq $8 \
+        --testing
         #--save-path $7
 }
 train_stacked(){
     python vectorized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
-        --logdir testrun --save-freq 20000  --env-stacked\
-        --ent-coef $1 --desc $2 --n-steps $3 --penalty-weight $4 --timestep $5 --n-env $6 \
-        ##--testing
+        --logdir testrun   --env-stacked\
+        --ent-coef $1 --desc $2 --n-steps $3 --penalty-weight $4 --timestep $5 --n-env $6 --timeout $7 --save-freq $8 \
+        #--testing
         #--save-path $7
 }
 if [[ $1 == test ]]; then
     test
 elif [[ $1 == debug ]]; then
-    debug 0 "neg0.00-small-steps32-ent-0.0-stacked-2reds-train" "large" 32 0.00 4000000 1 0.0
+    debug 0.00  "neg0.00-ent-0.00-steps512-nenvs-20-stacked-1reds" 32 0.3 2000000 2 1000 1000 
 elif [[ $1 == train-stacked1 ]]; then
-    train_stacked 0.0  "neg0.00-steps32-nenvs-10-stacked-2reds" 32 0.00 4000000 10
+    train_stacked 0.00  "neg0.00-ent-0.00-steps512-nenvs-20-stacked-1reds" 512 0.00 600000 20 1000 1000 
+    train_stacked 0.00  "neg0.3-ent-0.00-steps512-nenvs-20-stacked-1reds" 512 0.00 600000 20 1000 1000 
+    train_stacked 0.00  "neg0.6-ent-0.00-steps512-nenvs-20-stacked-1reds" 512 0.00 600000 20 1000 1000 
+    train_stacked 0.00  "neg0.8-ent-0.00-steps512-nenvs-20-stacked-1reds" 512 0.00 600000 20 1000 1000 
 elif [[ $1 == train-stacked2 ]]; then
-    train_stacked 0.0  "neg0.15-steps32-nenvs-10-stacked-2reds" 32 0.15 4000000 10
+    train_stacked 0.00  "neg0.00-ent-0.00-steps512-nenvs-20-stacked-1reds" 512 0.00 600000 20 1000 1000 
+    train_stacked 0.01  "neg0.00-ent-0.01-steps512-nenvs-20-stacked-1reds" 512 0.00 600000 20 1000 1000 
+    train_stacked 0.00  "neg0.00-ent-0.00-steps2048-nenvs-20-stacked-1reds" 2048 0.00 600000 20 1000 1000 
+    train_stacked 0.01  "neg0.00-ent-0.01-steps2048-nenvs-20-stacked-1reds" 2048 0.00 600000 20 1000 1000 
+
+    train_stacked 0.00  "neg0.15-ent-0.00-steps512-nenvs-20-stacked-1reds" 512 0.15 600000 20 1000 1000 
+    train_stacked 0.01  "neg0.15-ent-0.01-steps512-nenvs-20-stacked-1reds" 512 0.15 600000 20 1000 1000 
+    train_stacked 0.00  "neg0.15-ent-0.00-steps2048-nenvs-20-stacked-1reds" 2048 0.15 600000 20 1000 1000 
+    train_stacked 0.01  "neg0.15-ent-0.01-steps2048-nenvs-20-stacked-1reds" 2048 0.15 600000 20 1000 1000 
 elif [[ $1 == train1 ]]; then
     #train 4 "neg0.0-small-steps8" "small" 8 0.0 4000000 "/home/ado8/ai-safety-challenge/tanksworld/results/21-11-26-10:43:28-neg0.0-small-steps8/checkpoints/rl_model_1000000_steps.zip"
     #train 4 "neg0.00-small-steps16-ent-0.000625" "small" 16 0.00 2000000 8 0.000625
@@ -94,10 +106,17 @@ elif [[ $1 == record-rgb ]]; then
         record_rgb "/home/ado8/ai-safety-challenge/tanksworld/results/21-12-06-18:25:43-neg0.00-small-steps32-ent-0.0-stacked-2reds-train/checkpoints/rl_model_${step}_steps.zip" "./tmp/tank-vid/neg-0.15-small-2reds-${step}.avi" 4 10
     done
 elif [[ $1 == record-stacked ]]; then
-    python vectorized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
-        --logdir testrun  --n-env 1 --penalty-weight 0.2 --save-freq 10000 --timestep 4000000 \
-        --desc "hor64-penalty-0.8-larger-model-separate-arch-20-envs"\
-        --video-path ./tmp/stacked.avi  --stack-frame 0 --n-episode 3 --record-stacked
+    #EXPMNT=21-12-07-14:16:26-neg0.15-steps32-nenvs-10-stacked-2reds
+    #EXPMNT=21-12-07-14:15:52-neg0.00-steps32-nenvs-10-stacked-2reds
+    EXPMNT=21-12-08-11:26:00-neg0.00-steps32-nenvs-10-stacked-1reds
+    DIR_NAME=/home/ado8/ai-safety-challenge/tanksworld/results/$EXPMNT/checkpoints
+    for FILE in $(ls $DIR_NAME)
+    do
+        python vectorized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
+            --logdir testrun  --n-env 1 --penalty-weight 0.2 --save-freq 10000 --timestep 4000000 \
+            --desc "hor64-penalty-0.8-larger-model-separate-arch-20-envs"\
+            --video-path tmp/tank-vid/1reds-stacked/neg0.00-$FILE.avi  --n-episode 10 --record-stacked
+    done
 elif [[ $1 == ppotest ]]; then
     ppo_test
 elif [[ $1 == envexp ]]; then
