@@ -6,16 +6,26 @@ import os
 import argparse
 
 parser = argparse.ArgumentParser(description='AI Safety TanksWorld')
-parser.add_argument('--logdir',help='the location of saved policys and logs')
+#parser.add_argument('--logdir',help='the location of saved policys and logs')
 parser.add_argument('--exe', help='the absolute path of the tanksworld executable')
-parser.add_argument('--teamname1', help='the name for team 1')
-parser.add_argument('--teamname2', help='the name for team 2')
+#parser.add_argument('--teamname1', help='the name for team 1')
+#parser.add_argument('--teamname2', help='the name for team 2')
+parser.add_argument('--record', action='store_true', default=False)
+parser.add_argument('--debug', action='store_true', default=False)
+parser.add_argument('--training', action='store_true', default=False)
+parser.add_argument('--n-steps', type=int, default=1024)
+parser.add_argument('--timestep', type=int, default=1000000)
+parser.add_argument('--n-episode', type=int, default=5)
+parser.add_argument('--n-envs', type=float, default=1.0)
+parser.add_argument('--penalty-weight', type=float, default=1.0)
+parser.add_argument('--video-path', help='the absolute path of the tanksworld executable')
+parser.add_argument('--save-path', help='the absolute path of the tanksworld executable')
 args = parser.parse_args()
 
 # Tell the arena where it can put log files that describe the results of
 # specific policies.  This is also used to pass results between root processes.
 
-LOG_COMMS_DIR = "logs/"+args.logdir+"/"
+#LOG_COMMS_DIR = "logs/"+args.logdir+"/"
 #os.makedirs(LOG_COMMS_DIR, exist_ok=True)
 
 # Define where to find the environment
