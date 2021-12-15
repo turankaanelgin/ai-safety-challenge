@@ -451,8 +451,6 @@ class TanksWorldEnv(gym.Env):
         for i in range(self.n_train_tanks):
             action2[i] = action[i]
         action = action2[:]
-        print(action)
-        #action = action[:]
 
         self.reward = [0.0]*len(self.training_tanks)
 
@@ -479,6 +477,13 @@ class TanksWorldEnv(gym.Env):
             #turn off shooting for any tanks with disabled shooting
             for didx, totalidx in enumerate(self.disable_shooting):
                 new_action[totalidx][-1] = -1.0
+
+            #for didx, totalidx in enumerate(self.static_tanks):
+            #    new_action[totalidx][0] = 0.0
+            #    new_action[totalidx][1] = 0.0
+
+            for i, a in enumerate(new_action):
+                a[0] = 1.0
 
             #turn and drive multipliers
             for aidx in range(len(new_action)):
@@ -508,8 +513,9 @@ class TanksWorldEnv(gym.Env):
             if self.done:
                 break
 
-        info = [{"red_stats":self.red_team_stats, "blue_stats":self.blue_team_stats}]*len(self.training_tanks)
-        return self.state, self.reward, self.done or self.is_done(self._env_info.vector_observations[0]), info
+        info = {"red_stats":self.red_team_stats, "blue_stats":self.blue_team_stats}
+        reward = self.reward[0]
+        return self.state, reward, self.done or self.is_done(self._env_info.vector_observations[0]), info
 
 
     def render(self):
