@@ -1,3 +1,4 @@
+import pdb
 import subprocess
 from subprocess import Popen
 import argparse
@@ -52,6 +53,11 @@ else:
     with open(os.path.join('./logs', args.logdir, 'seeds.json'), 'w+') as f:
         json.dump({'env_seeds': env_seeds, 'policy_seeds': policy_seeds}, f)
 
+if n_env_seeds < len(env_seeds):
+    env_seeds = env_seeds[:n_env_seeds]
+if n_policy_seeds < len(policy_seeds):
+    policy_seeds = policy_seeds[:n_policy_seeds]
+
 commands = []
 for config in cfg.grid:
     for e_seed_idx, e_seed in enumerate(env_seeds):
@@ -62,8 +68,12 @@ for config in cfg.grid:
             for arg_name in config:
                 arg_value = config[arg_name]
                 if isinstance(arg_value, bool):
-                    if (arg_value and arg_name != 'freeze_rep') or \
-                            (arg_name == 'freeze_rep' and not arg_value):
+                    # if (arg_value and arg_name != 'freeze_rep') or \
+                    #        (arg_name == 'freeze_rep' and not arg_value):
+                    #    command += ['--{}'.format(arg_name)]
+                    if arg_name == 'freeze_rep' and arg_value:
+                        command += ['--{}'.format(arg_name)]
+                    elif arg_name == 'use_rnn' and arg_value:
                         command += ['--{}'.format(arg_name)]
                 else:
                     command += ['--{}'.format(arg_name)]

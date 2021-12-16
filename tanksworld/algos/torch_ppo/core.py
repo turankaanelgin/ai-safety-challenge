@@ -13,6 +13,7 @@ from torch.distributions.normal import Normal
 from torch.distributions.categorical import Categorical
 from torch.distributions.beta import Beta
 from torch.distributions.bernoulli import Bernoulli
+from .distributions import StateDependentNoiseDistribution
 
 from algos.torch_ppo import rnn
 
@@ -162,7 +163,7 @@ class MLPSDEActor(Actor):
     def __init__(self, observation_space, act_dim, hidden_sizes, activation, cnn_net=None):
         super().__init__()
         self.cnn_net = cnn_net
-        self.dist = StateDependentNoiseDistribution(act_dim)
+        self.dist = StateDependentNoiseDistribution(act_dim, use_expln=False, squash_output=True)
 
         if cnn_net is not None:
             dummy_img = torch.rand((1,) + observation_space.shape)
@@ -186,7 +187,10 @@ class MLPSDEActor(Actor):
         return self.dist.proba_distribution(mu, self.log_std, feat)
 
     def _log_prob_from_distribution(self, pi, act):
-        return pi.log_prob(act).sum(axis=-1)  # Last axis sum needed for Torch Normal distribution
+        return pi.log_prob(act)
+
+    def reset_noise(self):
+        self.dist.sample_weights(self.log_std, batch_size=1)
 
 
 class MLPGaussianActor(Actor):
@@ -200,7 +204,7 @@ class MLPGaussianActor(Actor):
 
         if rnn_net is not None:
             self.mu_net = nn.Sequential(
-                nn.Linear(1024, act_dim),
+                nn.Linear(512, act_dim),
                 activation()
             )
 
@@ -240,25 +244,22 @@ class MLPGaussianActor(Actor):
                 obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
                                   obs.shape[3], obs.shape[4], obs.shape[5])
 
-        #batch_size, n_agents = obs.shape[0], obs.shape[1]
-        #obs = obs.reshape(batch_size*n_agents, obs.shape[2], obs.shape[3], obs.shape[4])
-
         if self.cnn_net is not None:
 
             batch_size = obs.shape[0]
             seq_size = obs.shape[1]
-            obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
-
+            try:
+                obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
+            except:
+                pdb.set_trace()
             obs = self.cnn_net(obs)
             obs = obs.reshape(batch_size, seq_size, obs.shape[1])
         if self.rnn_net is not None:
             hidden = self.rnn_net.init_hidden(batch_size)
             obs, _ = self.rnn_net(obs, hidden)
         mu = self.mu_net(obs)
-        #mu = mu.reshape(batch_size, n_agents, -1)
         std = torch.exp(self.log_std)
-        if self.rnn_net is not None:
-            mu = mu.reshape(batch_size//5, 5, -1)
+        if self.rnn_net is not None: mu = mu.unsqueeze(0)
         return Normal(mu, std)
 
     def _log_prob_from_distribution(self, pi, act):
@@ -275,7 +276,7 @@ class MLPCritic(nn.Module):
 
         if self.rnn_net is not None:
             self.v_net = nn.Sequential(
-                nn.Linear(1024, 1),
+                nn.Linear(512, 1),
                 activation()
             )
 
@@ -293,6 +294,7 @@ class MLPCritic(nn.Module):
             self.v_net = mlp([obs_dim] + list(hidden_sizes) + [1], activation)
 
     def forward(self, obs):
+
         if len(obs.shape) == 4 and self.rnn_net is None:
             obs = obs.unsqueeze(0)
         elif len(obs.shape) == 6:
@@ -308,15 +310,15 @@ class MLPCritic(nn.Module):
             batch_size = obs.shape[0]
             seq_size = obs.shape[1]
             obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
+
             obs = self.cnn_net(obs)
             obs = obs.reshape(batch_size, seq_size, obs.shape[1])
         if self.rnn_net is not None:
             hidden = self.rnn_net.init_hidden(batch_size)
             obs, _ = self.rnn_net(obs, hidden)
         v_out = self.v_net(obs)
-        if self.rnn_net is not None:
-            v_out = v_out.reshape(batch_size//5, 5, -1)
-        return torch.squeeze(v_out, -1)  # Critical to ensure v has right shape.
+        if self.rnn_net is not None: v_out = v_out.unsqueeze(0)
+        return torch.squeeze(v_out, -1) # Critical to ensure v has right shape.
 
 
 class MLPActorCritic(nn.Module):
@@ -357,7 +359,7 @@ class MLPActorCritic(nn.Module):
             v = self.v(obs)
         if self.use_sde:
             a = a.reshape(a.shape[0]//5, 5, a.shape[1])
-            entropy = entropy.reshape(entropy.shape[0]//5, 5, entropy.shape[1])
+            entropy = entropy.reshape(entropy.shape[0]//5, 5, entropy.shape[1]) if not self.use_sde else entropy
             logp_a = logp_a.reshape(logp_a.shape[0]//5, 5)
         return a, v, logp_a, entropy
 

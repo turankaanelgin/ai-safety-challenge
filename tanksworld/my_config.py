@@ -36,7 +36,7 @@ parser.add_argument('--load_from_checkpoint', action='store_true', default=False
 parser.add_argument('--seed_index', type=int, default=0)
 parser.add_argument('--use_popart', action='store_true', default=False)
 parser.add_argument('--use_rnn', action='store_true', default=False)
-parser.add_argument('--freeze_rep', action='store_false', default=True)
+parser.add_argument('--freeze_rep', action='store_true', default=False)
 
 args = parser.parse_args()
 args_dict = vars(args)

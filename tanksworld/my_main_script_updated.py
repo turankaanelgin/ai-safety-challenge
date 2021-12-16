@@ -9,8 +9,7 @@ from make_env import make_env
 from core.policy_record import PolicyRecord
 from algos.torch_ppo.mappo_gpu_new import PPOPolicy as TorchGPUMAPPOPolicyNew
 from algos.torch_ppo.callbacks import EvalCallback
-
-from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
+from algos.torch_ppo.vec_env import DummyVecEnv, SubprocVecEnv
 
 
 if __name__ == '__main__':
@@ -40,6 +39,8 @@ if __name__ == '__main__':
     parser.add_argument('--save_tag', type=str, default='')
     parser.add_argument('--load_from_checkpoint', action='store_true', default=False)
     parser.add_argument('--seed_index', type=int, default=0)
+    parser.add_argument('--freeze_rep', action='store_true', default=False)
+    parser.add_argument('--use_rnn', action='store_true', default=False)
     args = parser.parse_args()
 
     config = vars(args)
@@ -73,25 +74,6 @@ if __name__ == '__main__':
                  'seed': args.env_seed, 'curriculum_stop': config['curriculum_stop'], 'curriculum_steps': args.num_iter}
     env = DummyVecEnv([lambda : make_env(**env_kwargs)])
 
-
-    eval_env_kwargs = []
-    _MAX_INT = 2147483647
-    for _ in range(20):
-        seed = np.random.randint(_MAX_INT)
-        eval_env_kwargs.append({'exe': args.exe,
-                  'static_tanks': [], 'random_tanks': [5, 6, 7, 8, 9], 'disable_shooting': [],
-                  'friendly_fire': False, 'kill_bonus': False, 'death_penalty': False,
-                  'take_damage_penalty': True, 'tblogs': stats_dir,
-                  'penalty_weight': 1.0, 'reward_weight': 1.0,
-                  'friendly_fire_weight': config['ff_weight'], 'timeout': 500, 'log_statistics': True,
-                  'seed': seed, 'curriculum_stop': -1.0,
-                  'curriculum_steps': args.num_iter})
-    env_functions = []
-    for i in range(2):
-        env_functions.append(lambda : make_env(**eval_env_kwargs[i]))
-    eval_env = SubprocVecEnv(env_functions)
-
-
     policy_record = PolicyRecord(folder_name, './logs/' + args.logdir + '/')
     model_id = '{}---{}-{}-{}'.format(args.logdir.split('/')[-1], folder_name, args.seed_index, args.save_tag)
     model_path = None
@@ -116,9 +98,11 @@ if __name__ == '__main__':
         'n_envs': 1,
         'model_id': model_id,
         'save_dir': os.path.join(policy_record.data_dir, 'checkpoints'),
-        'freeze_rep': True,
+        'freeze_rep': args.freeze_rep,
+        'use_rnn': args.use_rnn,
+        'num_states': 3,
     }
 
-    callback = EvalCallback(env, policy_record, eval_env=eval_env)
+    callback = EvalCallback(env, policy_record, eval_env=None)
     policy = TorchGPUMAPPOPolicyNew(env, callback, False, **policy_kwargs)
     policy.run(num_steps=args.num_iter)

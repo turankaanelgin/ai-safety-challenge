@@ -19,19 +19,27 @@ device = torch.device('cuda')
 
 class RolloutBuffer:
 
-    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95, n_envs=1):
+    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95, n_envs=1, use_sde=False,
+                 use_rnn=False, n_states=3):
 
-        self.obs_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, obs_dim)).to(device)
+        if use_rnn:
+            self.obs_buf = torch.zeros(core.combined_shape_v4(size, n_envs, 5, n_states, obs_dim)).to(device)
+        else:
+            self.obs_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, obs_dim)).to(device)
         self.act_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, act_dim)).to(device)
         self.adv_buf = torch.zeros((size, n_envs, 5)).to(device)
         self.rew_buf = torch.zeros((size, n_envs, 5)).to(device)
         self.ret_buf = torch.zeros((size, n_envs, 5)).to(device)
         self.val_buf = torch.zeros((size, n_envs, 5)).to(device)
         self.logp_buf = torch.zeros((size, n_envs, 5)).to(device)
-        self.entropy_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, act_dim)).to(device)
+        if not use_sde:
+            self.entropy_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, act_dim)).to(device)
+        else:
+            self.entropy_buf = torch.zeros(core.combined_shape_v2(size, n_envs, 5)).to(device)
         self.gamma, self.lam = gamma, lam
         self.ptr, self.path_start_idx, self.max_size = 0, 0, size
         self.n_envs = n_envs
+        self.use_rnn = use_rnn
 
     def store(self, obs, act, rew, val, logp, entropy):
         """
@@ -39,12 +47,12 @@ class RolloutBuffer:
         """
 
         assert self.ptr < self.max_size  # buffer has to have room so you can store
-        self.obs_buf[self.ptr] = obs.squeeze(2)
+        self.obs_buf[self.ptr] = obs.squeeze(2) if not self.use_rnn else obs
         self.act_buf[self.ptr] = act
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
         self.logp_buf[self.ptr] = logp
-        self.entropy_buf[self.ptr] = entropy
+        self.entropy_buf[self.ptr] = entropy if entropy is not None else torch.Tensor([0])
         self.ptr += 1
 
     def finish_path(self, last_val=[0, 0, 0, 0, 0]):
@@ -66,6 +74,8 @@ class RolloutBuffer:
         path_slice = slice(self.path_start_idx, self.ptr)
 
         last_val = last_val.unsqueeze(0)
+        if self.use_rnn and len(last_val.shape) == 2:
+            last_val = last_val.unsqueeze(0)
         rews = torch.cat((self.rew_buf[path_slice], last_val), dim=0)
         vals = torch.cat((self.val_buf[path_slice], last_val), dim=0)
 
@@ -158,11 +168,12 @@ class PPOPolicy():
         assert vf_scheduler != 'cons' and self.scheduler_value or not self.scheduler_value
 
 
-    def load_model(self, model_path, cnn_model_path, freeze_rep):
+    def load_model(self, model_path, cnn_model_path, freeze_rep, steps_per_epoch):
 
         self.start_step = 0
         # Load from previous checkpoint
         if model_path:
+            pdb.set_trace()
             ckpt = torch.load(model_path)
             self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
             self.pi_optimizer.load_state_dict(ckpt['pi_optimizer_state_dict'])
@@ -181,6 +192,7 @@ class PPOPolicy():
 
         # Only load the representation part
         elif cnn_model_path and freeze_rep:
+            pdb.set_trace()
             state_dict = torch.load(cnn_model_path)
 
             temp_state_dict = {}
@@ -226,7 +238,7 @@ class PPOPolicy():
 
         # Useful extra info
         approx_kl = (logp_old - logp).mean().item()
-        ent = pi.entropy().mean().item()
+        ent = pi.entropy().mean().item() if pi.entropy() is not None else 0.0
         clipped = ratio.gt(1 + clip_ratio) | ratio.lt(1 - clip_ratio)
         clipfrac = torch.as_tensor(clipped, dtype=torch.float32).mean().item()
         pi_info = dict(kl=approx_kl, ent=ent, cf=clipfrac)
@@ -270,22 +282,33 @@ class PPOPolicy():
               steps_per_epoch=800, steps_to_run=100000, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
               vf_lr=1e-3, ent_coef=0.0, train_pi_iters=80, train_v_iters=80, lam=0.97,
               target_kl=0.01, tsboard_freq=-1, curriculum_start=-1, curriculum_stop=-1, use_value_norm=False,
-              use_huber_loss=False, use_rnn=False, use_popart=False, pi_scheduler='cons', vf_scheduler='cons',
-              freeze_rep=True, **kargs):
+              use_huber_loss=False, use_rnn=False, use_popart=False, use_sde=False, sde_sample_freq=1,
+              pi_scheduler='cons', vf_scheduler='cons', freeze_rep=True, **kargs):
 
         env = self.env
         self.set_random_seed(seed)
+        ac_kwargs['use_sde'] = use_sde
+        ac_kwargs['use_rnn'] = use_rnn
         self.setup_model(actor_critic, pi_lr, vf_lr, pi_scheduler, vf_scheduler, ac_kwargs)
-        self.load_model(kargs['model_path'], kargs['cnn_model_path'], freeze_rep)
-        if self.callback:
-            self.callback.init_model(self.ac_model)
-            self.callback._on_step()
+        self.load_model(kargs['model_path'], kargs['cnn_model_path'], freeze_rep, steps_per_epoch)
+        #if self.callback:
+        #    self.callback.init_model(self.ac_model)
+        #    self.callback._on_step()
+        num_states = kargs['num_states'] if 'num_states' in kargs else None
+        if use_rnn:
+            assert num_states is not None
+            state_history = [self.obs] * num_states
+            obs = [torch.as_tensor(o, dtype=torch.float32).unsqueeze(2).to(device) for o in state_history]
+            state_history = torch.cat(obs, dim=2)
 
         ep_ret, ep_len = 0, 0
         ep_rb_dmg, ep_br_dmg, ep_rr_dmg = 0, 0, 0
         ep_ret_scheduler, ep_len_scheduler = 0, 0
 
-        buf = RolloutBuffer(self.obs_dim, self.act_dim, steps_per_epoch, gamma, lam, n_envs=kargs['n_envs'])
+        buf = RolloutBuffer(self.obs_dim, self.act_dim, steps_per_epoch, gamma, lam, n_envs=kargs['n_envs'],
+                            use_sde=use_sde, use_rnn=use_rnn, n_states=num_states)
+        self.use_sde = use_sde
+        self.use_rnn = use_rnn
 
         if not os.path.exists(os.path.join(kargs['save_dir'], str(kargs['model_id']))):
             from pathlib import Path
@@ -301,8 +324,15 @@ class PPOPolicy():
             if (step + 1) % 25000 == 0 or step == 0:
                 self.save_model(kargs['save_dir'], kargs['model_id'], step)
 
+            if use_sde and sde_sample_freq > 0 and step % sde_sample_freq == 0:
+                # Sample a new noise matrix
+                self.ac_model.pi.reset_noise()
+
             step += 1
-            obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
+            if use_rnn:
+                obs = torch.as_tensor(state_history, dtype=torch.float32).to(device)
+            else:
+                obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
             a, v, logp, entropy = self.ac_model.step(obs)
             next_obs, r, terminal, info = env.step(a.cpu().numpy())
             if self.callback:
@@ -318,9 +348,16 @@ class PPOPolicy():
             ep_len_scheduler += 1
 
             r = torch.as_tensor(r, dtype=torch.float32).to(device)
-            buf.store(obs, a, r, v, logp, entropy)
 
             self.obs = next_obs
+            self.obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
+
+            if use_rnn:
+                self.obs = self.obs.unsqueeze(2)
+                state_history = torch.cat((state_history[:,:,1:,:,:,:], self.obs), dim=2)
+                buf.store(state_history, a, r, v, logp, entropy)
+            else:
+                buf.store(obs, a, r, v, logp, entropy)
 
             epoch_ended = step > 0 and step % steps_per_epoch == 0
 
@@ -332,12 +369,20 @@ class PPOPolicy():
                 episode_red_blue_damages.append(ep_rb_dmg)
 
                 if epoch_ended:
+                    if use_rnn:
+                        obs = [torch.as_tensor(obs, dtype=torch.float32).to(device) for obs in state_history]
+                        self.obs = torch.cat(obs, dim=2)
                     _, v, _, _ = self.ac_model.step(torch.as_tensor(self.obs, dtype=torch.float32).to(device))
                 else:
                     v = torch.zeros((kargs['n_envs'], 5)).to(device)
                 buf.finish_path(v)
                 if np.all(terminal):
-                    self.obs, ep_ret, ep_len = env.reset(), 0, 0
+                    obs, ep_ret, ep_len = env.reset(), 0, 0
+                    self.obs = torch.as_tensor(obs, dtype=torch.float32).to(device)
+                    if use_rnn:
+                        state_history = [self.obs] * num_states
+                        obs = [torch.as_tensor(o, dtype=torch.float32).unsqueeze(2).to(device) for o in state_history]
+                        state_history = torch.cat(obs, dim=2)
 
                 ep_ret, ep_len, ep_rr_dmg, ep_rb_dmg, ep_br_dmg = 0, 0, 0, 0, 0
 

@@ -124,9 +124,9 @@ class EvalCallback:
             self.last_mean_reward = mean_reward
             self.last_mean_damage_inflicted = mean_damage_inflicted
             self.last_mean_damage_taken = mean_damage_taken
-
+        '''
         if self.n_calls % self.eval_freq == 0 or self.n_calls == 1:
-            '''
+            
             forkserver_available = "forkserver" in mp.get_all_start_methods()
             start_method = "forkserver" if forkserver_available else "spawn"
             ctx = mp.get_context(start_method)
@@ -134,13 +134,14 @@ class EvalCallback:
             process = ctx.Process(target=evaluate_policy, args=(work_remote, remote, self.eval_env, self.model), daemon=True)
             process.start()
             process.join()
-            '''
+            
 
             self.model_state_dict = self.model.state_dict()
             self.model_type
             p = Process(target=self.evaluate_policy, args=())
             p.start()
             p.join()
+        '''
 
     def save_metrics(self, info, episode_returns, episode_lengths, episode_red_blue_damages, episode_red_red_damages,
                      episode_blue_red_damages, eval_mode=False):
