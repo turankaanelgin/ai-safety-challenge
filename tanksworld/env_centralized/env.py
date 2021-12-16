@@ -144,6 +144,10 @@ class TanksWorldEnv(gym.Env):
     def seed(self, val):
         self._seed = int(val)%TanksWorldEnv._MAX_INT #integer seed required, convert
 
+    def process_state(self, ret_states):
+        state = ret_states[0].transpose(2,0,1)
+        return state
+
     def get_state(self):
         state = self._env_info.vector_observations[0]
         state_reformat = []
@@ -163,7 +167,7 @@ class TanksWorldEnv(gym.Env):
         if self.image_scale != 128:
             ret_states = [cv2.resize(s, (self.image_scale, self.image_scale)) for s in ret_states]
 
-        return ret_states[0].transpose(2,0,1)
+        return ret_states
 
     def reset(self,**kwargs):
 
@@ -202,6 +206,7 @@ class TanksWorldEnv(gym.Env):
         self.blue_team_stats = team_stats_dict(self)
 
         state = self.get_state()
+        state = self.process_state(state)
 
         return state
 
@@ -481,10 +486,6 @@ class TanksWorldEnv(gym.Env):
             #for didx, totalidx in enumerate(self.static_tanks):
             #    new_action[totalidx][0] = 0.0
             #    new_action[totalidx][1] = 0.0
-
-            for i, a in enumerate(new_action):
-                a[0] = 1.0
-
             #turn and drive multipliers
             for aidx in range(len(new_action)):
                 if aidx < 5:
@@ -514,8 +515,9 @@ class TanksWorldEnv(gym.Env):
                 break
 
         info = {"red_stats":self.red_team_stats, "blue_stats":self.blue_team_stats}
+        state = self.process_state(self.state)
         reward = self.reward[0]
-        return self.state, reward, self.done or self.is_done(self._env_info.vector_observations[0]), info
+        return state, reward, self.done or self.is_done(self._env_info.vector_observations[0]), info
 
 
     def render(self):

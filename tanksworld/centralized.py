@@ -42,43 +42,59 @@ from tanksworld.env_centralized.minimap_util import displayable_rgb_map
 class CentralizedTraining():
     def __init__(self, **params):
         self.params = params
-        desc = datetime.now().strftime("%y-%m-%d-%H:%M:%S") +'nstep{}-nenv{}'.format(1,2)
+        desc = datetime.now().strftime("%y-%m-%d-%H:%M:%S") \
+                + 'TW-nstep{}-nenv{}-neg-{}'.format(params['n_steps'], params['n_envs'], params['penalty_weight'])
         if args.debug:
             self.save_path = './testing/'+ desc
         else:
             self.save_path = './results/'+ desc
 
-        self.training_env = self.create_env()
+        self.training_env = self.create_env(self.params['n_envs'])
         #check_env(self.training_env)
-        self.eval_env = self.training_env
+        self.eval_env = self.create_env(1)
         #check_env(self.env)
         self.model = self.create_model()
 
-    def create_env(self):
+    def create_env(self, n_envs):
         def create_env_():
             return TanksWorldEnv(**self.params['env_params'])
+            #return gym.make('CarRacing-v0')
+        if n_envs == 1:
+            return create_env_()
         #print(self.params)
         #return create_env_()
-        env = make_vec_env(create_env_, n_envs=self.params['n_envs'], vec_env_cls=DummyVecEnv)
-        env = CustomMonitor(env, self.params['n_envs'])
+        if self.params['dummy_proc']:
+            env = make_vec_env(create_env_, n_envs=n_envs, vec_env_cls=DummyVecEnv)
+        else:
+            env = make_vec_env(create_env_, n_envs=n_envs, vec_env_cls=SubprocVecEnv)
+        env = CustomMonitor(env, n_envs)
         return env
 
     def create_model(self):
-        if args.save_path is not None:
-            model = PPO.load(args.save_path)
+        if self.params['save_path'] is not None:
+            print('load model {}'.format(self.params['save_path']))
+            model = PPO.load(self.params['save_path'])
         else:
             policy_kwargs = {}
             policy_kwargs = dict(
                 features_extractor_class=CustomCNN,
                 features_extractor_kwargs=dict(features_dim=512),
-                net_arch=[dict(pi=[512], vf=[512])]
+                net_arch=[dict(pi=[64], vf=[64])]
             )
             def linear_schedule(initial_value: float) -> Callable[[float], float]:
                 def func(progress_remaining: float) -> float:
                     return progress_remaining * initial_value
 
                 return func
-            model = PPO("CnnPolicy", self.training_env, policy_kwargs=policy_kwargs, n_steps=self.params['n_steps'], learning_rate=linear_schedule(0.0003), verbose=2, batch_size=32, tensorboard_log=self.save_path)
+
+            if self.params['lr_type']=='linear':
+                lr = linear_shedule(self.params['lr'])
+            elif self.params['lr_type']=='constant':
+                lr = self.params['lr']
+
+            model = PPO("CnnPolicy", self.training_env, policy_kwargs=policy_kwargs, n_steps=self.params['n_steps'], 
+                    learning_rate=lr, verbose=0, batch_size=64, ent_coef=self.params['ent_coef'], n_epochs=self.params['epochs'],
+                    tensorboard_log=self.save_path)
         return model
          
 
@@ -143,19 +159,7 @@ class CentralizedTraining():
         callback_list = [checkpoint_callback, tensorboard_callback]
         self.model.learn(total_timesteps=self.params['timestep'], callback=callback_list)
 
-
-
-if __name__ == '__main__':  
-    args = cfg.args
-    params = vars(args)
-    #env_params = {"exe": args.exe, "training_tanks": [0],"static_tanks":[], "random_tanks":[5,6,7,8,9], "disable_shooting":[1,2,3,4,5,6,7,8,9]}
-    params['env_params'] = {"exe": args.exe, "training_tanks": [0],"static_tanks":[1,2,3,4,5,6,7,8,9], "random_tanks":[], "disable_shooting":[1,2,3,4,5,6,7,8,9]}
-    centralized_training = CentralizedTraining(**params)
-    if args.record:
-        centralized_training.record(args.video_path)
-    elif args.training:
-        centralized_training.train()
-    elif args.eval_mode:
+    def eval(self):
         from  os.path import join as pjoin
         import json
         model_path = pjoin(args.save_path, 'checkpoints', args.checkpoint)
@@ -197,5 +201,23 @@ if __name__ == '__main__':
             json.dump(mean_statistics, f, indent=True)
         with open(pjoin(args.save_path, 'std_statistics.json'), 'w+') as f:
             json.dump(std_statistics, f, indent=True)
+
+
+
+
+if __name__ == '__main__':  
+    args = cfg.args
+    params = vars(args)
+    #env_params = {"exe": args.exe, "training_tanks": [0],"static_tanks":[], "random_tanks":[5,6,7,8,9], "disable_shooting":[1,2,3,4,5,6,7,8,9]}
+    params['env_params'] = {"exe": args.exe, "training_tanks": [0],"static_tanks":[], "random_tanks":[1,2,3,4,5,6,7,8,9], 
+            'friendly_fire':False, 'take_damage_penalty':False, 'kill_bonus':True, 'death_penalty':False,
+            "disable_shooting":[1,2,3,4,5,6,7,8,9], 'penalty_weight': params['penalty_weight']}
+    centralized_training = CentralizedTraining(**params)
+    if args.record:
+        centralized_training.record(args.video_path)
+    elif args.training:
+        centralized_training.train()
+    elif args.eval_mode:
+        centralized_training.eval()
 
     #else:#training
