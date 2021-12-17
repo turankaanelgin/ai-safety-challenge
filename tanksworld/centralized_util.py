@@ -107,6 +107,7 @@ class CustomMonitor(VecEnvWrapper):
                     'dmg_taken_by_ally': infos[i]['red_stats']['damage_taken_by']['ally'],
                     'dmg_taken_by_enemy': infos[i]['red_stats']['damage_taken_by']['enemy'],
                     #'penalty_weight': infos[i]['reward_parameters']['penalty_weight'],
+                    '#shots':infos[i]['red_stats']["number_shots_fired"]["ally"],
                     'reward':self.rewards[i]
                     })
                 self.rewards[i] = 0

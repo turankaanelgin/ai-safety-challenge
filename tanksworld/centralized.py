@@ -43,7 +43,8 @@ class CentralizedTraining():
     def __init__(self, **params):
         self.params = params
         desc = datetime.now().strftime("%y-%m-%d-%H:%M:%S") \
-                + 'TW-nstep{}-nenv{}-neg-{}'.format(params['n_steps'], params['n_envs'], params['penalty_weight'])
+                + 'TW-timestep{}M-nstep{}-nenv{}-neg-{}-lrtype-{}-{}'.format(params['timestep']/1e6, params['n_steps'], 
+                        params['n_envs'], params['penalty_weight'], params['lr_type'], params['config_desc'])
         if args.debug:
             self.save_path = './testing/'+ desc
         else:
@@ -88,7 +89,7 @@ class CentralizedTraining():
                 return func
 
             if self.params['lr_type']=='linear':
-                lr = linear_shedule(self.params['lr'])
+                lr = linear_schedule(self.params['lr'])
             elif self.params['lr_type']=='constant':
                 lr = self.params['lr']
 
@@ -209,9 +210,17 @@ if __name__ == '__main__':
     args = cfg.args
     params = vars(args)
     #env_params = {"exe": args.exe, "training_tanks": [0],"static_tanks":[], "random_tanks":[5,6,7,8,9], "disable_shooting":[1,2,3,4,5,6,7,8,9]}
-    params['env_params'] = {"exe": args.exe, "training_tanks": [0],"static_tanks":[], "random_tanks":[1,2,3,4,5,6,7,8,9], 
-            'friendly_fire':False, 'take_damage_penalty':False, 'kill_bonus':True, 'death_penalty':False,
-            "disable_shooting":[1,2,3,4,5,6,7,8,9], 'penalty_weight': params['penalty_weight']}
+    if params['config'] == 1:
+        params['env_params'] = {"exe": args.exe, "training_tanks": [0],"static_tanks":[1,2,3,4,5,6,7,8,9], "random_tanks":[], 
+                'friendly_fire':True, 'take_damage_penalty':False, 'kill_bonus':True, 'death_penalty':False,
+                "disable_shooting":[1,2,3,4,5,6,7,8,9], 'penalty_weight': params['penalty_weight']}
+        params['config_desc'] = 'froze and disable shooting tank 1->9'
+    elif params['config'] == 2:
+        params['env_params'] = {"exe": args.exe, "training_tanks": [0],"static_tanks":[], "random_tanks":[1,2,3,4,5,6,7,8,9], 
+                'friendly_fire':True, 'take_damage_penalty':False, 'kill_bonus':True, 'death_penalty':False,
+                "disable_shooting":[], 'penalty_weight': params['penalty_weight']}
+        params['config_desc'] = 'random tank 1->9'
+
     centralized_training = CentralizedTraining(**params)
     if args.record:
         centralized_training.record(args.video_path)

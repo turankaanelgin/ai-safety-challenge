@@ -47,11 +47,6 @@ train_stacked(){
         --ent-coef $1 --desc $2 --n-steps $3 --penalty-weight $4 --timestep $5 --n-env $6 --save-freq $7 \
         #--save-path $7
 }
-train(){
-    python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
-        --save-freq 5000   --n-steps $1 --n-envs $2 --timestep $3 --penalty-weight $4 --ent-coef $5 --training 
-        #--save-path $7
-}
 debug_gym(){
     xvfb-run -s "-screen 0 1280x1024x24" python test_env.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
         --save-freq 20000   --n-steps $1 --n-envs $2 --timestep $3 --penalty-weight $4 --training --debug
@@ -59,21 +54,31 @@ debug_gym(){
 }
 debug(){
     python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
-        --save-freq 5000   --n-steps $1 --n-envs $2 --timestep $3 --penalty-weight $4 --ent-coef $5 --training --debug
+        --save-freq 5000   --n-steps $1 --n-envs $2 --timestep $3 --penalty-weight $4 --ent-coef $5 --config $6 --lr-type constant --training \
+        --debug
         #--save-path $7
+}
+train(){
+    python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
+        --save-freq 5000   --n-steps $1 --n-envs $2 --timestep $3 --penalty-weight $4 --ent-coef $5 --config $6 --lr-type constant --training 
 }
 if [[ $1 == test ]]; then
     test
+elif [[ $1 == train ]]; then
+    train 64 20 700000 0.0 0.00 1 
+    train 64 20 700000 0.4 0.00 1
+    train 64 20 700000 0.8 0.00 1
+    train 64 20 700000 0.0 0.00 2 
+    train 64 20 700000 0.4 0.00 2
+    train 64 20 700000 0.8 0.00 2
 elif [[ $1 == debug ]]; then
-    debug 512 10 1000000  0.6 0.00
+    debug 64 10 700 0.0 0.00 1 
+    debug 64 10 700 0.0 0.00 2 
 elif [[ $1 == debug-dummy ]]; then
     python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
-        --save-freq 20000   --n-steps 32 --n-envs 2 --timestep 1000000 --penalty-weight 0.6 --training --debug --dummy-proc 
+        --save-freq 20000   --n-steps 32 --n-envs 2 --timestep 1000000 --penalty-weight 0.6 --training --debug --dummy-proc  --lr-type linear
 elif [[ $1 == debug-gym ]]; then
     debug_gym 128 5 50000000  0.3
-elif [[ $1 == train ]]; then
-    train 512 10 1000000  0.6 0.00
-    train 512 10 1000000  0.8 0.00
 elif [[ $1 == record ]]; then
     python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
         --n-env 1 --penalty-weight 0.2 --timestep 4000000 \

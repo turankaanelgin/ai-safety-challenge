@@ -6,16 +6,14 @@ import os
 import argparse
 
 parser = argparse.ArgumentParser(description='AI Safety TanksWorld')
-#parser.add_argument('--logdir',help='the location of saved policys and logs')
 parser.add_argument('--exe', help='the absolute path of the tanksworld executable')
-#parser.add_argument('--teamname1', help='the name for team 1')
-#parser.add_argument('--teamname2', help='the name for team 2')
 parser.add_argument('--record', action='store_true', default=False)
 parser.add_argument('--debug', action='store_true', default=False)
 parser.add_argument('--training', action='store_true', default=False)
 parser.add_argument('--dummy-proc', action='store_true', default=False)
 parser.add_argument('--n-steps', type=int, default=1024)
 parser.add_argument('--epochs', type=int, default=4)
+parser.add_argument('--config', type=int, default=1)
 parser.add_argument('--timestep', type=int, default=1000000)
 parser.add_argument('--save-freq', type=int, default=10000)
 parser.add_argument('--n-episode', type=int, default=5)
