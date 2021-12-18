@@ -18,23 +18,24 @@ debug(){
 }
 train(){
     python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
-        --save-freq 5000   --n-steps $1 --n-envs $2 --timestep $3 --penalty-weight $4 --ent-coef $5 --config $6 --lr-type constant --training 
+        --save-freq 5000 --n-steps $1 --n-envs $2 --timestep $3 --penalty-weight $4 --ent-coef $5 --config $6 --env-timeout $7\
+        --lr 0.0001 --lr-type constant --training 
 }
 if [[ $1 == test ]]; then
     test
 elif [[ $1 == train ]]; then
-    train 64 20 700000 0.0 0.00 1 
-    train 64 20 700000 0.4 0.00 1
-    train 64 20 700000 0.8 0.00 1
-    train 64 20 700000 0.0 0.00 2 
-    train 64 20 700000 0.4 0.00 2
-    train 64 20 700000 0.8 0.00 2
+    train 64 20 7000000 0.4 0.00 2 500 
+    #train 64 20 700000 0.4 0.00 1
+    #train 64 20 700000 0.8 0.00 1
+    #train 64 20 700000 0.0 0.00 2 
+    #train 64 20 700000 0.4 0.00 2
+    #train 64 20 700000 0.8 0.00 2
 elif [[ $1 == debug ]]; then
     debug 64 10 700 0.0 0.00 1 
     debug 64 10 700 0.0 0.00 2 
 elif [[ $1 == debug-dummy ]]; then
     python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
-        --save-freq 20000   --n-steps 32 --n-envs 2 --timestep 1000000 --penalty-weight 0.6 --training --debug --dummy-proc  --lr-type linear
+        --save-freq 20000   --n-steps 32 --n-envs 2 --timestep 1000000 --penalty-weight 0.6 --config 3 --training --debug --dummy-proc  --lr-type linear
 elif [[ $1 == debug-gym ]]; then
     debug_gym 128 5 50000000  0.3
 elif [[ $1 == record ]]; then
@@ -42,7 +43,7 @@ elif [[ $1 == record ]]; then
         --n-env 1 --penalty-weight 0.2 --timestep 4000000 \
         --video-path tmp/tank_test.avi --n-episode 10 --record
 elif [[ $1 == record-full-step ]]; then
-    SETTING=21-12-16-17:54:41TW-nstep512-nenv10-neg-0.6
+    SETTING=21-12-17-10:19:42TW-timestep7.0M-nstep64-nenv20-timeout-250-neg-0.4-lrtype-constant-froze,no-shooting-tank-1->9
     EXPMNT=results/$SETTING
     DIRNAME=/home/ado8/ai-safety-challenge/tanksworld/$EXPMNT/checkpoints
     SAVEDIR=tmp/tank_vid/$SETTING
@@ -54,14 +55,19 @@ elif [[ $1 == record-full-step ]]; then
             --video-path $SAVEDIR/$STEP.avi --n-episode 10 --record
     done
 elif [[ $1 == record-full ]]; then
-    EXPMNT=results/21-12-16-17:54:41TW-nstep512-nenv10-neg-0.6
-    DIR_NAME=/home/ado8/ai-safety-challenge/tanksworld/$EXPMNT/checkpoints
-    for FILE in $(ls $DIR_NAME)
+    SETTING=21-12-17-10:19:42TW-timestep7.0M-nstep64-nenv20-timeout-250-neg-0.4-lrtype-constant-froze,no-shooting-tank-1-9
+    EXPMNT=results/$SETTING
+    DIRNAME=/home/ado8/ai-safety-challenge/tanksworld/$EXPMNT/checkpoints
+    SAVEDIR=tmp/tank_vid/$SETTING
+    mkdir -p $SAVEDIR
+    for FILE in $(ls $DIRNAME)
     do
+        echo $FILE
+        echo $SAVEDIR/$FILE.avi
         python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
-            --save-path $DIR_NAME/$FILE \
+            --save-path $DIRNAME/$FILE \
             --n-env 1 --penalty-weight 0.2 --timestep 4000000 \
-            --video-path tmp/tank_vid/$FILE.avi --n-episode 3 --record
+            --video-path $SAVEDIR/$FILE.avi --n-episode 10 --record
     done
 elif [[ $1 == process ]]; then
     ps aux | grep ai-safety-challenge

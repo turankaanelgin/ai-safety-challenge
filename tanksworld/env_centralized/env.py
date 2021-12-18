@@ -145,7 +145,8 @@ class TanksWorldEnv(gym.Env):
         self._seed = int(val)%TanksWorldEnv._MAX_INT #integer seed required, convert
 
     def process_state(self, ret_states):
-        state = ret_states[0].transpose(2,0,1)
+        state = [np.expand_dims(ret_states[tank_idx].transpose((2, 0, 1)), 0) for tank_idx in self.training_tanks]
+        state = np.concatenate(state, axis=1).squeeze()
         return state
 
     def get_state(self):
@@ -514,9 +515,9 @@ class TanksWorldEnv(gym.Env):
             if self.done:
                 break
 
-        info = {"red_stats":self.red_team_stats, "blue_stats":self.blue_team_stats}
+        info = {"red_stats":self.red_team_stats, "blue_stats":self.blue_team_stats, 'episode_step': self.episode_steps}
         state = self.process_state(self.state)
-        reward = self.reward[0]
+        reward = sum([self.reward[i] for i in self.training_tanks])
         return state, reward, self.done or self.is_done(self._env_info.vector_observations[0]), info
 
 

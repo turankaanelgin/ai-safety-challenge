@@ -8,7 +8,7 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.env_util import make_vec_env
 import torch as th
 import torch.nn as nn
-from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecFrameStack
 from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvObs, VecEnvStepReturn, VecEnvWrapper
 from stable_baselines3.common.callbacks import CheckpointCallback, BaseCallback
 import torch
@@ -39,16 +39,16 @@ from stable_baselines3.common.vec_env import (
     SubprocVecEnv,
     VecEnv,
 )
-from tanksworld.centralized_util import CustomCNN, TensorboardCallback, CustomMonitor
+#from tanksworld.centralized_util import CustomCNN, TensorboardCallback, CustomMonitor
 from tanksworld.env_centralized.minimap_util import displayable_rgb_map
 
 class CentralizedTraining():
     def __init__(self, **params):
         self.params = params
         desc = datetime.now().strftime("%y-%m-%d-%H:%M:%S") \
-                + 'TW-timestep{}M-nstep{}-nenv{}-neg-{}-lrtype-{}-{}'.format(params['timestep']/1e6, params['n_steps'], 
-                        params['n_envs'], params['penalty_weight'], params['lr_type'], params['config_desc'])
-        if args.debug:
+                + 'TW-timestep{}M-nstep{}-nenv{}-timeout-{}-neg-{}-lrtype-{}-{}'.format(params['timestep']/1e6, params['n_steps'], 
+                        params['n_envs'], params['env_params']['timeout'], params['penalty_weight'], params['lr_type'], params['config_desc'])
+        if params['debug']:
             self.save_path = './testing/'+ desc
         else:
             self.save_path = './results/'+ desc
@@ -71,6 +71,8 @@ class CentralizedTraining():
             env = make_vec_env(create_env_, n_envs=n_envs, vec_env_cls=DummyVecEnv)
         else:
             env = make_vec_env(create_env_, n_envs=n_envs, vec_env_cls=SubprocVecEnv)
+
+        env = VecFrameStack(env, 4)
         env = CustomMonitor(env, n_envs)
         return env
 
@@ -106,7 +108,7 @@ class CentralizedTraining():
         observation = self.eval_env.reset()
         game = 0
         observation_list = []
-        while game < args.n_episode:
+        while game < self.params['n_episode']:
             action, _ = self.model.predict(observation)
             #action[0]=1#forward
             #action[1]=0#left right 
@@ -136,8 +138,8 @@ class CentralizedTraining():
 
     def train(self): 
         os.mkdir(self.save_path)
-        with open(self.save_path+'/config.yaml', 'w') as file:
-            yaml.dump(args.__dict__,file)
+        with open(self.save_path+'/config.yaml', 'w') as f:
+            yaml.dump(self.params, f)
 
         
         if self.params['save_path'] is not None:
@@ -282,8 +284,11 @@ class CustomMonitor(VecEnvWrapper):
                     'dmg_inflict_on_ally': infos[i]['red_stats']['damage_inflicted_on']['ally'],
                     'dmg_taken_by_ally': infos[i]['red_stats']['damage_taken_by']['ally'],
                     'dmg_taken_by_enemy': infos[i]['red_stats']['damage_taken_by']['enemy'],
-                    #'penalty_weight': infos[i]['reward_parameters']['penalty_weight'],
+                    'alive_ally':infos[i]['red_stats']["tanks_alive"]["ally"],
+                    'alive_enemy':infos[i]['red_stats']["tanks_alive"]["enemy"],
+                    'alive_neutral':infos[i]['red_stats']["tanks_alive"]["neutral"],
                     '#shots':infos[i]['red_stats']["number_shots_fired"]["ally"],
+                    'step_per_episode':infos[i]['episode_step'],
                     'reward':self.rewards[i]
                     })
                 self.rewards[i] = 0
