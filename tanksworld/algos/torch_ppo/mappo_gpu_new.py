@@ -119,7 +119,75 @@ class PPOPolicy():
 
     def run(self, num_steps):
         self.kargs.update({'steps_to_run': num_steps})
-        self.learn(**self.kargs)
+        if self.eval_mode:
+            self.evaluate(steps_to_run=num_steps, model_path=self.kargs['model_path'])
+        else:
+            self.learn(**self.kargs)
+
+
+
+    def evaluate(self, steps_to_run, model_path, actor_critic=core.MLPActorCritic, ac_kwargs=dict()):
+
+        steps = 0
+        observation = self.env.reset()
+
+        self.ac_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
+        ckpt = torch.load(model_path)
+        self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
+        self.ac_model.eval()
+        num_envs = 10
+
+        eplen = [0]*num_envs
+        epret = [0]*num_envs
+        ep_rr_damage = [0]*num_envs
+        ep_rb_damage = [0]*num_envs
+        ep_br_damage = [0]*num_envs
+        curr_done = [False] * num_envs
+        episode_returns, episode_lengths = [], []
+        episode_red_blue_damages, episode_blue_red_damages = [], []
+        episode_red_red_damages = []
+
+        while steps < steps_to_run:
+
+            with torch.no_grad():
+                action, v, logp, _ = self.ac_model.step(torch.as_tensor(observation, dtype=torch.float32).to(device))
+            observation, reward, done, info = self.env.step(action.cpu().numpy())
+            curr_done = [done[idx] or curr_done[idx] for idx in range(num_envs)]
+
+            for env_idx, terminal in enumerate(curr_done):
+                if not terminal:
+                    ep_rr_damage[env_idx] += info[env_idx]['current']['red_ally_damage']
+                    ep_rb_damage[env_idx] += info[env_idx]['current']['red_enemy_damage']
+                    ep_br_damage[env_idx] += info[env_idx]['current']['blue_enemy_damage']
+                    eplen[env_idx] += 1
+                    epret[env_idx] += reward[env_idx]
+
+            if np.all(curr_done):
+                episode_returns.append(epret)
+                episode_lengths.append(eplen)
+                episode_red_red_damages.append(ep_rr_damage)
+                episode_blue_red_damages.append(ep_br_damage)
+                episode_red_blue_damages.append(ep_rb_damage)
+                eplen = [0] * num_envs
+                epret = [0] * num_envs
+                ep_rr_damage = [0] * num_envs
+                ep_rb_damage = [0] * num_envs
+                ep_br_damage = [0] * num_envs
+                curr_done = [False] * num_envs
+                steps += 1
+                self.env.reset()
+
+                if steps % 5 == 0 and steps > 0:
+                    avg_red_red_damages = np.mean(episode_red_red_damages)
+                    avg_red_blue_damages = np.mean(episode_red_blue_damages)
+                    avg_blue_red_damages = np.mean(episode_blue_red_damages)
+
+                    with open(os.path.join(self.callback.policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
+                        json.dump({'Number of games': steps,
+                                   'Red-Red-Damage': avg_red_red_damages,
+                                   'Red-Blue Damage': avg_red_blue_damages,
+                                   'Blue-Red Damage': avg_blue_red_damages}, f, indent=4)
+
 
 
     def set_random_seed(self, seed):
@@ -173,7 +241,6 @@ class PPOPolicy():
         self.start_step = 0
         # Load from previous checkpoint
         if model_path:
-            pdb.set_trace()
             ckpt = torch.load(model_path)
             self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
             self.pi_optimizer.load_state_dict(ckpt['pi_optimizer_state_dict'])
@@ -192,7 +259,6 @@ class PPOPolicy():
 
         # Only load the representation part
         elif cnn_model_path and freeze_rep:
-            pdb.set_trace()
             state_dict = torch.load(cnn_model_path)
 
             temp_state_dict = {}

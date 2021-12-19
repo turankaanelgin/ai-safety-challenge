@@ -30,7 +30,7 @@ parser.add_argument('--n_policy_seeds', type=int, default=1)
 parser.add_argument('--num_iter', type=int, default=1000)
 parser.add_argument('--env_seed', nargs='+', type=int, default=-1)
 parser.add_argument('--policy_seed', type=int, default=-1)
-parser.add_argument('--eval_checkpoint', type=str, default='')
+parser.add_argument('--eval_checkpoint', type=int, default=999999)
 parser.add_argument('--save_tag', type=str, default='')
 parser.add_argument('--load_from_checkpoint', action='store_true', default=False)
 parser.add_argument('--seed_index', type=int, default=0)
@@ -70,7 +70,9 @@ grid = [{'reward_weight': x[0],
          'use_rnn': args_dict['use_rnn'],
          'use_popart': args_dict['use_popart'],
          'freeze_rep': args_dict['freeze_rep'],
-         'save_tag': args_dict['save_tag']} for x in grid]
+         'save_tag': args_dict['save_tag'],
+         'eval_mode': args_dict['eval_mode'],
+         'eval_checkpoint': args_dict['eval_checkpoint']} for x in grid]
 
 # Tell the arena where it can put log files that describe the results of
 # specific policies.  This is also used to pass results between root processes.
