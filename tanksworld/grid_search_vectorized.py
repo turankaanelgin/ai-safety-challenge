@@ -75,6 +75,8 @@ for config in cfg.grid:
                         command += ['--{}'.format(arg_name)]
                     elif arg_name == 'use_rnn' and arg_value:
                         command += ['--{}'.format(arg_name)]
+                    elif arg_name == 'eval_mode' and arg_value:
+                        command += ['--{}'.format(arg_name)]
                 else:
                     command += ['--{}'.format(arg_name)]
                     command += ['{}'.format(arg_value)]
