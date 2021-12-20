@@ -26,6 +26,8 @@ parser.add_argument('--ent-coef', type=float, default=0.00)
 parser.add_argument('--lr-type', default='constant', help='constant or linear')
 parser.add_argument('--video-path', help='the absolute path of the tanksworld executable')
 parser.add_argument('--save-path', help='the absolute path of the tanksworld executable')
+parser.add_argument('--load-type', default='full', help='full or cnn')
+parser.add_argument('--freeze-cnn', action='store_true', default=False)
 args = parser.parse_args()
 
 # Tell the arena where it can put log files that describe the results of

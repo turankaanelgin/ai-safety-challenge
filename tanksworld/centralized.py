@@ -14,9 +14,9 @@ if __name__ == '__main__':
         params['config_desc'] = 'static,no-shoot'
     elif params['config'] == 2:
         params['env_params'] = {"exe": args.exe, "training_tanks": [0],"static_tanks":[1,2,3,4,6,7,8,9], "random_tanks":[5], 
-                'friendly_fire':False, 'take_damage_penalty':True, 'kill_bonus':True, 'death_penalty':False,
+                'friendly_fire':True, 'take_damage_penalty':False, 'kill_bonus':True, 'death_penalty':False,
                 "disable_shooting":[1,2,3,4,6,7,8,9], 'penalty_weight': params['penalty_weight'], 'timeout': params['env_timeout']}
-        params['config_desc'] = 'random-tank-5'
+        params['config_desc'] = '1vs1-random-tank'
     elif params['config'] == 3:
         params['env_params'] = {"exe": args.exe, "training_tanks": [0, 1],"static_tanks":[2,3,4,6,7,8,9], "random_tanks":[5], 
                 'friendly_fire':True, 'take_damage_penalty':True, 'kill_bonus':True, 'death_penalty':False,

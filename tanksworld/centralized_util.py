@@ -77,9 +77,9 @@ class CentralizedTraining():
         return env
 
     def create_model(self):
-        if self.params['save_path'] is not None:
+        if self.params['save_path'] is not None and self.params['load_type'] == 'full':
             print('load model {}'.format(self.params['save_path']))
-            model = PPO.load(self.params['save_path'])
+            model = PPO.load(self.params['save_path'], env=self.training_env)
         else:
             policy_kwargs = {}
             policy_kwargs = dict(
@@ -101,6 +101,12 @@ class CentralizedTraining():
             model = PPO("CnnPolicy", self.training_env, policy_kwargs=policy_kwargs, n_steps=self.params['n_steps'], 
                     learning_rate=lr, verbose=0, batch_size=64, ent_coef=self.params['ent_coef'], n_epochs=self.params['epochs'],
                     tensorboard_log=self.save_path)
+            if self.params['save_path'] is not None and  self.params['load_type'] == 'cnn':
+                loaded_model = PPO.load(self.params['save_path'])
+                model.policy.features_extractor.load_state_dict(loaded_model.policy.features_extractor.state_dict())
+            if self.params['freeze_cnn']:
+                for param in model.policy.features_extractor.parameters():
+                    param.requires_grad = False
         return model
          
 
@@ -140,18 +146,6 @@ class CentralizedTraining():
         os.mkdir(self.save_path)
         with open(self.save_path+'/config.yaml', 'w') as f:
             yaml.dump(self.params, f)
-
-        
-        if self.params['save_path'] is not None:
-            model = PPO.load(self.params['save_path'], env=env)
-        else:
-            policy_kwargs = dict(
-                features_extractor_class=CustomCNN,
-                features_extractor_kwargs=dict(features_dim=512),
-                net_arch=[dict(pi=[512], vf=[512])]
-            )
-
-
 
 
         checkpoint_callback = CheckpointCallback(save_freq=self.params['save_freq'], save_path=self.save_path + '/checkpoints', name_prefix='rl_model')
@@ -256,9 +250,9 @@ class TensorboardCallback(BaseCallback):
                 s[key] = []
             for stats in self.training_env.stats:
                 for key in s.keys():
-                    s[key].append(stats[key])
+                    s[key].append(stats[key]['value'])
             for key in s.keys():
-                self.logger.record('tanksworld stats/{}'.format(key), np.mean(s[key]))
+                self.logger.record('{}/{}'.format(self.training_env.stats[0][key]['group'], key), np.mean(s[key]))
 
 class CustomMonitor(VecEnvWrapper):
 #class TensorboardCallback():
@@ -279,17 +273,17 @@ class CustomMonitor(VecEnvWrapper):
         for i, done in enumerate(dones):
             if done:
                 self.stats.append({
-                    'dmg_inflict_on_enemy': infos[i]['red_stats']['damage_inflicted_on']['enemy'],
-                    'dmg_inflict_on_neutral': infos[i]['red_stats']['damage_inflicted_on']['neutral'],
-                    'dmg_inflict_on_ally': infos[i]['red_stats']['damage_inflicted_on']['ally'],
-                    'dmg_taken_by_ally': infos[i]['red_stats']['damage_taken_by']['ally'],
-                    'dmg_taken_by_enemy': infos[i]['red_stats']['damage_taken_by']['enemy'],
-                    'alive_ally':infos[i]['red_stats']["tanks_alive"]["ally"],
-                    'alive_enemy':infos[i]['red_stats']["tanks_alive"]["enemy"],
-                    'alive_neutral':infos[i]['red_stats']["tanks_alive"]["neutral"],
-                    '#shots':infos[i]['red_stats']["number_shots_fired"]["ally"],
-                    'step_per_episode':infos[i]['episode_step'],
-                    'reward':self.rewards[i]
+                    'dmg_inflict_on_enemy': {'value': infos[i]['red_stats']['damage_inflicted_on']['enemy'], 'group': '1_damage'},
+                    'dmg_inflict_on_neutral': {'value':infos[i]['red_stats']['damage_inflicted_on']['neutral'],'group': '1_damage'}, 
+                    'dmg_inflict_on_ally': {'value':infos[i]['red_stats']['damage_inflicted_on']['ally'],'group': '1_damage'},
+                    'dmg_taken_by_ally': {'value':infos[i]['red_stats']['damage_taken_by']['ally'],'group': '1_damage'},
+                    'dmg_taken_by_enemy': {'value':infos[i]['red_stats']['damage_taken_by']['enemy'],'group': '1_damage'},
+                    '#shots':{'value':infos[i]['red_stats']["number_shots_fired"]["ally"],'group': '1_damage'},
+                    'alive_ally':{'value':infos[i]['red_stats']["tanks_alive"]["ally"],'group': '2_lives'},
+                    'alive_enemy':{'value':infos[i]['red_stats']["tanks_alive"]["enemy"],'group': '2_lives'},
+                    'alive_neutral':{'value':infos[i]['red_stats']["tanks_alive"]["neutral"],'group': '2_lives'},
+                    'step_per_episode':{'value':infos[i]['episode_step'],'group': '0_general_stats'},
+                    'reward':{'value':self.rewards[i], 'group': '0_general_stats'},
                     })
                 self.rewards[i] = 0
              
