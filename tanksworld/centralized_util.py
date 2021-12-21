@@ -72,7 +72,7 @@ class CentralizedTraining():
         else:
             env = make_vec_env(create_env_, n_envs=n_envs, vec_env_cls=SubprocVecEnv)
 
-        env = VecFrameStack(env, 4)
+        #env = VecFrameStack(env, 4)
         env = CustomMonitor(env, n_envs)
         return env
 
