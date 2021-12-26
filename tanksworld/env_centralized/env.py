@@ -87,15 +87,24 @@ class TanksWorldEnv(gym.Env):
 
     #DO this in reset to allow seed to be set
     def __init__(self, exe, action_repeat=6, image_scale=128, timeout=500, friendly_fire=True, take_damage_penalty=True, kill_bonus=True, death_penalty=True,
-        training_tanks=[], static_tanks=[], random_tanks=[], disable_shooting=[], penalty_weight=1.0, reward_weight=1.0, will_render=False,
+        training_tanks=[], static_tanks=[], random_tanks=[], disable_shooting=[], enable_input_tanks=[],
+        penalty_weight=1.0, reward_weight=1.0, will_render=False, input_type='stacked',
         speed_red=1.0, speed_blue=1.0, tblogs='runs/stats'):
 
+        if input_type == 'stacked':
+            pass
+        elif input_type == 'dict':
+            pass
+        else: 
+            raise Exception('Wrong input type')
         # call reset() to begin playing
         self._workerid = np.random.randint(6500)
         self._filename =  exe#'/home/rivercg1/projects/aisafety/build/aisafetytanks_0.1.2/TanksWorld.x86_64'
         self.observation_space = None
         self.n_train_tanks = len(training_tanks)
-        self.observation_space = gym.spaces.Box(0,255,(self.n_train_tanks * 4, 128,128))
+        self.n_enable_inputs = len(enable_input_tanks)
+        self.enable_input_tanks = enable_input_tanks
+        self.observation_space = gym.spaces.Box(0,255,(self.n_enable_inputs * 4, 128,128))
         self.action_space = gym.spaces.Box(-1,1,(3 * self.n_train_tanks,))
         self._seed = None
 
@@ -145,7 +154,7 @@ class TanksWorldEnv(gym.Env):
         self._seed = int(val)%TanksWorldEnv._MAX_INT #integer seed required, convert
 
     def process_state(self, ret_states):
-        state = [np.expand_dims(ret_states[tank_idx].transpose((2, 0, 1)), 0) for tank_idx in self.training_tanks]
+        state = [np.expand_dims(state.transpose((2, 0, 1)), 0) for state in ret_states]
         state = np.concatenate(state, axis=1).squeeze()
         return state
 
@@ -160,7 +169,7 @@ class TanksWorldEnv(gym.Env):
 
         barriers = self.barrier_img/255.0  #np.array(self._env_info.visual_observations[1][0])
 
-        ret_states = [minimap_for_player(state_reformat,i,barriers) for i in self.training_tanks]
+        ret_states = [minimap_for_player(state_reformat,i,barriers) for i in self.enable_input_tanks]
 
         if self.will_render:
             self.disp_states = [displayable_rgb_map(s) for s in ret_states]
