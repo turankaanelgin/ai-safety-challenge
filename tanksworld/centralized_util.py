@@ -46,7 +46,7 @@ class CentralizedTraining():
     def __init__(self, **params):
         self.params = params
         desc = datetime.now().strftime("%y-%m-%d-%H:%M:%S") \
-                + 'TW-timestep{}M-nstep{}-nenv{}-timeout-{}-neg-{}-lrtype-{}-config-{}-'.format(params['timestep']/1e6, params['n_steps'], 
+                + 'TW-timestep{}M-nstep{}-nenv{}-timeout-{}-neg-{}-lrtype-{}-config-{}-{}'.format(params['timestep']/1e6, params['n_steps'], 
                         params['n_envs'], params['env_params']['timeout'], params['penalty_weight'], params['lr_type'], 
                         params['config'], params['config_desc'])
         if params['debug']:
