@@ -87,24 +87,30 @@ class TanksWorldEnv(gym.Env):
 
     #DO this in reset to allow seed to be set
     def __init__(self, exe, action_repeat=6, image_scale=128, timeout=500, friendly_fire=True, take_damage_penalty=True, kill_bonus=True, death_penalty=True,
-        training_tanks=[], static_tanks=[], random_tanks=[], disable_shooting=[], enable_input_tanks=[],
+        training_tanks=[], static_tanks=[], random_tanks=[], disable_shooting=[], enable_input_tanks=[], enable_output_tanks=[],
         penalty_weight=1.0, reward_weight=1.0, will_render=False, input_type='stacked',
         speed_red=1.0, speed_blue=1.0, tblogs='runs/stats'):
 
-        if input_type == 'stacked':
-            pass
-        elif input_type == 'dict':
-            pass
-        else: 
-            raise Exception('Wrong input type')
         # call reset() to begin playing
         self._workerid = np.random.randint(6500)
         self._filename =  exe#'/home/rivercg1/projects/aisafety/build/aisafetytanks_0.1.2/TanksWorld.x86_64'
         self.observation_space = None
         self.n_train_tanks = len(training_tanks)
         self.n_enable_inputs = len(enable_input_tanks)
+        self.n_enable_outputs = len(enable_output_tanks) 
         self.enable_input_tanks = enable_input_tanks
-        self.observation_space = gym.spaces.Box(0,255,(self.n_enable_inputs * 4, 128,128))
+        self.enable_output_tanks = enable_output_tanks 
+        self.training_tanks = training_tanks
+
+        if input_type == 'stacked':
+            self.observation_space = gym.spaces.Box(0,255,(self.n_enable_inputs * 4, 128,128))
+        elif input_type == 'dict':
+            self.observation_space = gym.spaces.Dict({
+                str(tank_idx): gym.spaces.Box(0,255,(4, 128,128)) for tank_idx in self.enable_input_tanks 
+                })
+        else: 
+            raise Exception('Wrong input type')
+        self.input_type = input_type
         self.action_space = gym.spaces.Box(-1,1,(3 * self.n_train_tanks,))
         self._seed = None
 
@@ -133,7 +139,6 @@ class TanksWorldEnv(gym.Env):
         for s in static_tanks:
             assert s not in random_tanks
 
-        self.training_tanks = training_tanks
         #self.training_tanks = []
         #for i in range(10):
         #    if i not in self.static_tanks and i not in self.random_tanks:
@@ -154,9 +159,12 @@ class TanksWorldEnv(gym.Env):
         self._seed = int(val)%TanksWorldEnv._MAX_INT #integer seed required, convert
 
     def process_state(self, ret_states):
-        state = [np.expand_dims(state.transpose((2, 0, 1)), 0) for state in ret_states]
-        state = np.concatenate(state, axis=1).squeeze()
-        return state
+        states = [np.expand_dims(state.transpose((2, 0, 1)), 0) for state in ret_states]
+        if self.input_type == 'stacked': 
+            states = np.concatenate(states, axis=1).squeeze()
+        elif self.input_type == 'dict':
+            states = {str(i): state for i, state in enumerate(states)}
+        return states
 
     def get_state(self):
         state = self._env_info.vector_observations[0]
@@ -463,7 +471,7 @@ class TanksWorldEnv(gym.Env):
     def step(self, action):
         action = action.reshape(-1,3).tolist()
         action2 = [[0,0,0]] * 5
-        for i in range(self.n_train_tanks):
+        for i in self.training_tanks:
             action2[i] = action[i]
         action = action2[:]
 

@@ -33,6 +33,14 @@ if __name__ == '__main__':
                 'enable_input_tanks': [0,1], 
                 "disable_shooting":[1,2,3,4,6,7,8,9], 'penalty_weight': params['penalty_weight'], 'timeout': params['env_timeout']}
         params['config_desc'] = 'train2-tanks,static,no-shoot-random-[5]'
+    elif params['config'] == 6:
+        params['env_params'] = {"exe": args.exe, 
+                'friendly_fire':True, 'take_damage_penalty':True, 'kill_bonus':True, 'death_penalty':False, 
+                "training_tanks": [0],"static_tanks":[2,3,4,6,7,8,9], "random_tanks":[5], "disable_shooting":[1,2,3,4,6,7,8,9],
+                'enable_input_tanks': [0], 'enable_output_tanks': [0],
+                'input_type': params['input_type'], 
+                'penalty_weight': params['penalty_weight'], 'timeout': params['env_timeout']}
+        params['config_desc'] = '1vs1,input-dict'
 
     centralized_training = CentralizedTraining(**params)
     if args.record:

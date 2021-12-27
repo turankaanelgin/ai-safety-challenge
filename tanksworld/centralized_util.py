@@ -46,8 +46,9 @@ class CentralizedTraining():
     def __init__(self, **params):
         self.params = params
         desc = datetime.now().strftime("%y-%m-%d-%H:%M:%S") \
-                + 'TW-timestep{}M-nstep{}-nenv{}-timeout-{}-neg-{}-lrtype-{}-{}'.format(params['timestep']/1e6, params['n_steps'], 
-                        params['n_envs'], params['env_params']['timeout'], params['penalty_weight'], params['lr_type'], params['config_desc'])
+                + 'TW-timestep{}M-nstep{}-nenv{}-timeout-{}-neg-{}-lrtype-{}-config-{}-'.format(params['timestep']/1e6, params['n_steps'], 
+                        params['n_envs'], params['env_params']['timeout'], params['penalty_weight'], params['lr_type'], 
+                        params['config'], params['config_desc'])
         if params['debug']:
             self.save_path = './testing/'+ desc
         else:
@@ -82,9 +83,18 @@ class CentralizedTraining():
             model = PPO.load(self.params['save_path'], env=self.training_env)
         else:
             policy_kwargs = {}
+
+            policy_type = None
+            if self.params['input_type'] == 'stacked': 
+                policy_type = 'CnnPolicy'
+                features_extractor_class = CustomCNN
+            elif self.params['input_type'] == 'dict': 
+                policy_type = 'MultiInputPolicy'
+                features_extractor_class = CustomDictExtractor
+
             policy_kwargs = dict(
-                features_extractor_class=CustomCNN,
-                features_extractor_kwargs=dict(features_dim=512),
+                features_extractor_class=features_extractor_class,
+                #features_extractor_kwargs=dict(features_dim=512),
                 net_arch=[dict(pi=[64], vf=[64])]
             )
             def linear_schedule(initial_value: float) -> Callable[[float], float]:
@@ -98,7 +108,11 @@ class CentralizedTraining():
             elif self.params['lr_type']=='constant':
                 lr = self.params['lr']
 
-            model = PPO("CnnPolicy", self.training_env, policy_kwargs=policy_kwargs, n_steps=self.params['n_steps'], 
+            if self.params['input_type'] == 'stacked': 
+                policy_type = 'CnnPolicy'
+            elif self.params['input_type'] == 'dict': 
+                policy_type = 'MultiInputPolicy'
+            model = PPO(policy_type, self.training_env, policy_kwargs=policy_kwargs, n_steps=self.params['n_steps'], 
                     learning_rate=lr, verbose=0, batch_size=64, ent_coef=self.params['ent_coef'], n_epochs=self.params['epochs'],
                     tensorboard_log=self.save_path)
             if self.params['save_path'] is not None and  self.params['load_type'] == 'cnn':
@@ -204,7 +218,7 @@ class CustomCNN(BaseFeaturesExtractor):
         This corresponds to the number of unit for the last layer.
     """
 
-    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256):
+    def __init__(self, observation_space, features_dim: int = 256, input_type='stacked'):
         super(CustomCNN, self).__init__(observation_space, features_dim)
         # We assume CxHxW images (channels first)
         # Re-ordering will be done by pre-preprocessing or wrapper
@@ -234,6 +248,54 @@ class CustomCNN(BaseFeaturesExtractor):
     def forward(self, observations: th.Tensor) -> th.Tensor:
         return self.linear(self.cnn(observations))
 
+class CustomDictExtractor(BaseFeaturesExtractor):
+    """
+    :param observation_space: (gym.Space)
+    :param features_dim: (int) Number of features extracted.
+        This corresponds to the number of unit for the last layer.
+    """
+
+    def __init__(self, observation_space, features_dim: int = 256):
+        super(CustomDictExtractor, self).__init__(observation_space, 1)
+        features_dim = 128
+        # We assume CxHxW images (channels first)
+        # Re-ordering will be done by pre-preprocessing or wrapper
+        n_input_channels = observation_space.spaces['0'].shape[0]
+  
+        self.cnn = nn.Sequential(
+            nn.Conv2d(n_input_channels, 32, kernel_size=8, stride=4, padding=0),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=0),
+            nn.ReLU(),
+            nn.Flatten(),
+        )
+
+        # Compute shape by doing one forward pass
+        with th.no_grad():
+            n_flatten = self.cnn(
+                th.as_tensor(observation_space.spaces['0'].sample()[None]).float()
+            ).shape[1]
+
+        self.linear = nn.Sequential(nn.Linear(n_flatten, features_dim), nn.ReLU())
+        extractors = {}
+        self.extract_module = nn.Sequential(*(list(self.cnn)+ list(self.linear))) 
+        for key, subspace in observation_space.spaces.items():
+            extractors[key] = self.extract_module
+        self.extractors = nn.ModuleDict(extractors) 
+        self._features_dim = features_dim  * len(observation_space.spaces.items())
+
+
+    def forward(self, observations: th.Tensor) -> th.Tensor:
+        encoded_tensor_list = []
+        # self.extractors contain nn.Modules that do all the processing.
+        for key, extractor in self.extractors.items():
+            encoded_tensor_list.append(extractor(observations[key]))
+        # Return a (B, self._features_dim) PyTorch tensor, where B is batch dimension.
+        return th.cat(encoded_tensor_list, dim=1)
+
+        return self.linear(self.cnn(observations))
 class TensorboardCallback(BaseCallback):
     def __init__(self, verbose=0):
         super(TensorboardCallback, self).__init__(verbose)
