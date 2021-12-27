@@ -163,7 +163,7 @@ class TanksWorldEnv(gym.Env):
         if self.input_type == 'stacked': 
             states = np.concatenate(states, axis=1).squeeze()
         elif self.input_type == 'dict':
-            states = {str(i): state for i, state in enumerate(states)}
+            states = {str(tank_idx): states[i] for i, tank_idx in enumerate(self.enable_input_tanks)}
         return states
 
     def get_state(self):
