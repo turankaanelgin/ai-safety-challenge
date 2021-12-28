@@ -45,8 +45,9 @@ from tanksworld.env_centralized.minimap_util import displayable_rgb_map
 class CentralizedTraining():
     def __init__(self, **params):
         self.params = params
+        preload_str = 'preloaded' if params['save_path'] is not None else ''
         desc = datetime.now().strftime("%y-%m-%d-%H:%M:%S") \
-                + 'TW-timestep{}M-nstep{}-nenv{}-timeout-{}-neg-{}-lrtype-{}-intype-{}-config-{}-{}'.format(params['timestep']/1e6, params['n_steps'], 
+                + 'TW{}-timestep{}M-nstep{}-nenv{}-timeout-{}-neg-{}-lrtype-{}-intype-{}-config-{}-{}'.format(preload_str, params['timestep']/1e6, params['n_steps'], 
                         params['n_envs'], params['env_params']['timeout'], params['penalty_weight'], params['lr_type'], params['input_type'],
                         params['config'], params['config_desc'])
         if params['debug']:
@@ -63,11 +64,6 @@ class CentralizedTraining():
     def create_env(self, n_envs):
         def create_env_():
             return TanksWorldEnv(**self.params['env_params'])
-            #return gym.make('CarRacing-v0')
-        #if n_envs == 1:
-        #    return create_env_()
-        #print(self.params)
-        #return create_env_()
         if self.params['dummy_proc']:
             env = make_vec_env(create_env_, n_envs=n_envs, vec_env_cls=DummyVecEnv)
         else:
@@ -99,6 +95,7 @@ class CentralizedTraining():
             def linear_schedule(initial_value: float) -> Callable[[float], float]:
                 def func(progress_remaining: float) -> float:
                     return progress_remaining * initial_value
+                float
                 return func
 
             if self.params['lr_type']=='linear':
@@ -111,11 +108,12 @@ class CentralizedTraining():
                     tensorboard_log=self.save_path)
             if self.params['save_path'] is not None and  self.params['load_type'] == 'cnn':
                 loaded_model = PPO.load(self.params['save_path'])
-                if self.params['input_type'] == 'stacked': 
-                    model.policy.features_extractor.load_state_dict(loaded_model.policy.features_extractor.state_dict())
-                elif self.params['input_type'] == 'dict': 
-                    # TODO: 
-                    model.policy.features_extractor.extract_module.load_state_dict(loaded_model.policy.features_extractor.extract_module.state_dict())
+                model.policy.features_extractor.load_state_dict(loaded_model.policy.features_extractor.state_dict())
+                #if self.params['input_type'] == 'stacked':
+                #    model.policy.features_extractor.load_state_dict(loaded_model.policy.features_extractor.state_dict())
+                #elif self.params['input_type'] == 'dict': 
+                #    # TODO: 
+                #    model.policy.features_extractor.extract_module.load_state_dict(loaded_model.policy.features_extractor.extract_module.state_dict())
 
             if self.params['freeze_cnn']:
                 for param in model.policy.features_extractor.parameters():
