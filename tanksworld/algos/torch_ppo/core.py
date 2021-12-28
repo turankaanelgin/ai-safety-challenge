@@ -245,13 +245,9 @@ class MLPGaussianActor(Actor):
                                   obs.shape[3], obs.shape[4], obs.shape[5])
 
         if self.cnn_net is not None:
-
             batch_size = obs.shape[0]
             seq_size = obs.shape[1]
-            try:
-                obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
-            except:
-                pdb.set_trace()
+            obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
             obs = self.cnn_net(obs)
             obs = obs.reshape(batch_size, seq_size, obs.shape[1])
         if self.rnn_net is not None:
@@ -365,6 +361,57 @@ class MLPActorCritic(nn.Module):
 
     def act(self, obs):
         return self.step(obs)[0]
+
+
+class ICM(nn.Module):
+
+    def __init__(self, observation_space, action_space):
+        super().__init__()
+
+        self.cnn_net = cnn(observation_space)
+        self.forward_fc = nn.Linear(9216+action_space.shape[0], 9216)
+        self.inverse_fc = nn.Linear(9216*2, action_space.shape[0])
+        self.relu = nn.ReLU()
+
+    def forward(self, obs, action, next_obs):
+
+        if len(obs.shape) == 4:
+            obs = obs.unsqueeze(0)
+        elif len(obs.shape) == 6:
+            if obs.shape[1] == 1:
+                obs = obs.squeeze(1)
+            elif obs.shape[2] == 1:
+                obs = obs.squeeze(2)
+            else:
+                obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
+                                  obs.shape[3], obs.shape[4], obs.shape[5])
+
+        if len(next_obs.shape) == 4:
+            next_obs = next_obs.unsqueeze(0)
+        elif len(next_obs.shape) == 6:
+            if next_obs.shape[1] == 1:
+                next_obs = next_obs.squeeze(1)
+            elif next_obs.shape[2] == 1:
+                next_obs = next_obs.squeeze(2)
+            else:
+                next_obs = next_obs.reshape(next_obs.shape[0] * next_obs.shape[1], next_obs.shape[2],
+                                            next_obs.shape[3], next_obs.shape[4], next_obs.shape[5])
+
+        batch_size = obs.shape[0]
+        seq_size = obs.shape[1]
+        obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
+        next_obs = next_obs.reshape(next_obs.shape[0] * next_obs.shape[1], next_obs.shape[2],
+                                    next_obs.shape[3], next_obs.shape[4])
+        obs = self.cnn_net(obs)
+        obs = obs.reshape(batch_size, seq_size, obs.shape[1])
+        next_obs = self.cnn_net(next_obs)
+        next_obs = next_obs.reshape(batch_size, seq_size, next_obs.shape[1])
+        if len(obs.shape) == 3 and len(action.shape) == 2:
+            action = action.unsqueeze(0)
+        forward_pred = self.relu(self.forward_fc(torch.cat((obs, action), dim=2)))
+        inverse_pred = self.relu(self.inverse_fc(torch.cat((obs, next_obs), dim=2)))
+        return next_obs, forward_pred, inverse_pred
+
 
 
 class PopArt(nn.Module):
