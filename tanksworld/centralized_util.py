@@ -46,8 +46,8 @@ class CentralizedTraining():
     def __init__(self, **params):
         self.params = params
         desc = datetime.now().strftime("%y-%m-%d-%H:%M:%S") \
-                + 'TW-timestep{}M-nstep{}-nenv{}-timeout-{}-neg-{}-lrtype-{}-config-{}-{}'.format(params['timestep']/1e6, params['n_steps'], 
-                        params['n_envs'], params['env_params']['timeout'], params['penalty_weight'], params['lr_type'], 
+                + 'TW-timestep{}M-nstep{}-nenv{}-timeout-{}-neg-{}-lrtype-{}-intype-{}-config-{}-{}'.format(params['timestep']/1e6, params['n_steps'], 
+                        params['n_envs'], params['env_params']['timeout'], params['penalty_weight'], params['lr_type'], params['input_type'],
                         params['config'], params['config_desc'])
         if params['debug']:
             self.save_path = './testing/'+ desc
@@ -56,7 +56,7 @@ class CentralizedTraining():
 
         self.training_env = self.create_env(self.params['n_envs'])
         #check_env(self.training_env)
-        self.eval_env = self.create_env(1)
+        #self.eval_env = self.create_env(1)
         #check_env(self.env)
         self.model = self.create_model()
 
@@ -64,15 +64,14 @@ class CentralizedTraining():
         def create_env_():
             return TanksWorldEnv(**self.params['env_params'])
             #return gym.make('CarRacing-v0')
-        if n_envs == 1:
-            return create_env_()
+        #if n_envs == 1:
+        #    return create_env_()
         #print(self.params)
         #return create_env_()
         if self.params['dummy_proc']:
             env = make_vec_env(create_env_, n_envs=n_envs, vec_env_cls=DummyVecEnv)
         else:
             env = make_vec_env(create_env_, n_envs=n_envs, vec_env_cls=SubprocVecEnv)
-
         #env = VecFrameStack(env, 4)
         env = CustomMonitor(env, n_envs)
         return env
@@ -100,7 +99,6 @@ class CentralizedTraining():
             def linear_schedule(initial_value: float) -> Callable[[float], float]:
                 def func(progress_remaining: float) -> float:
                     return progress_remaining * initial_value
-
                 return func
 
             if self.params['lr_type']=='linear':
@@ -108,16 +106,17 @@ class CentralizedTraining():
             elif self.params['lr_type']=='constant':
                 lr = self.params['lr']
 
-            if self.params['input_type'] == 'stacked': 
-                policy_type = 'CnnPolicy'
-            elif self.params['input_type'] == 'dict': 
-                policy_type = 'MultiInputPolicy'
             model = PPO(policy_type, self.training_env, policy_kwargs=policy_kwargs, n_steps=self.params['n_steps'], 
                     learning_rate=lr, verbose=0, batch_size=64, ent_coef=self.params['ent_coef'], n_epochs=self.params['epochs'],
                     tensorboard_log=self.save_path)
             if self.params['save_path'] is not None and  self.params['load_type'] == 'cnn':
                 loaded_model = PPO.load(self.params['save_path'])
-                model.policy.features_extractor.load_state_dict(loaded_model.policy.features_extractor.state_dict())
+                if self.params['input_type'] == 'stacked': 
+                    model.policy.features_extractor.load_state_dict(loaded_model.policy.features_extractor.state_dict())
+                elif self.params['input_type'] == 'dict': 
+                    # TODO: 
+                    model.policy.features_extractor.extract_module.load_state_dict(loaded_model.policy.features_extractor.extract_module.state_dict())
+
             if self.params['freeze_cnn']:
                 for param in model.policy.features_extractor.parameters():
                     param.requires_grad = False
@@ -262,7 +261,7 @@ class CustomDictExtractor(BaseFeaturesExtractor):
         # Re-ordering will be done by pre-preprocessing or wrapper
         n_input_channels = observation_space.spaces['0'].shape[0]
   
-        self.cnn = nn.Sequential(
+        cnn_sequence = nn.Sequential(
             nn.Conv2d(n_input_channels, 32, kernel_size=8, stride=4, padding=0),
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
@@ -274,26 +273,22 @@ class CustomDictExtractor(BaseFeaturesExtractor):
 
         # Compute shape by doing one forward pass
         with th.no_grad():
-            n_flatten = self.cnn(
+            n_flatten = cnn_sequence(
                 th.as_tensor(observation_space.spaces['0'].sample()[None]).float()
             ).shape[1]
 
-        self.linear = nn.Sequential(nn.Linear(n_flatten, features_dim), nn.ReLU())
+        linear_sequence = nn.Sequential(nn.Linear(n_flatten, features_dim), nn.ReLU())
         extractors = {}
-        self.extract_module = nn.Sequential(*(list(self.cnn)+ list(self.linear))) 
-        for key, subspace in observation_space.spaces.items():
-            extractors[key] = self.extract_module
-        self.extractors = nn.ModuleDict(extractors) 
+        self.extract_module = nn.Sequential(*(list(cnn_sequence)+ list(linear_sequence))) 
         self._features_dim = features_dim  * len(observation_space.spaces.items())
 
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
         encoded_tensor_list = []
-        # self.extractors contain nn.Modules that do all the processing.
-        for key, extractor in self.extractors.items():
-            encoded_tensor_list.append(extractor(observations[key]))
-        # Return a (B, self._features_dim) PyTorch tensor, where B is batch dimension.
-        return th.cat(encoded_tensor_list, dim=1)
+        for key, tensor in observations.items():
+            encoded_tensor_list.append(self.extract_module(tensor))
+        out_ =  th.cat(encoded_tensor_list, dim=1)
+        return out_
 
         return self.linear(self.cnn(observations))
 class TensorboardCallback(BaseCallback):

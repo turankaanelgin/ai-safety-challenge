@@ -34,13 +34,6 @@ debug(){
         --debug
         #--save-path $7
 }
-train_preload(){
-    python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
-        --save-freq 5000 --n-steps $1 --n-envs $2 --timestep $3 --penalty-weight $4 --ent-coef $5 --config $6 --env-timeout $7\
-        --save-path results/21-12-20-11:56:29TW-timestep7.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-1vs1-random-tank/checkpoints/rl_model_2600000_steps.zip \
-        --freeze-cnn --load-type cnn\
-        --lr 0.0001 --lr-type constant --training 
-}
 record(){
     SETTING=$1
     EXPMNT=results/$SETTING
@@ -57,9 +50,18 @@ record(){
             --video-path $SAVEDIR/$FILE.avi --n-episode $2 --record
     done
 }
+train_preload(){
+    python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
+        --input-type dict \
+        --save-freq 5000 --n-steps $1 --n-envs $2 --timestep $3 --penalty-weight $4 --ent-coef $5 --config $6 --env-timeout $7\
+        --lr 0.0001 --lr-type constant --training \
+        --save-path results/21-12-28-08:29:53TW-timestep7.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-intype-dict-config-6-1vs1,input-dict/checkpoints/rl_model_1400000_steps.zip \
+        --freeze-cnn --load-type cnn
+}
 
 train(){
     python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
+        --input-type dict \
         --save-freq 5000 --n-steps $1 --n-envs $2 --timestep $3 --penalty-weight $4 --ent-coef $5 --config $6 --env-timeout $7\
         --lr 0.0001 --lr-type constant --training 
 }
@@ -67,13 +69,19 @@ if [[ $1 == test ]]; then
     test
 elif [[ $1 == train ]]; then
     train 64 20 7000000 0.4 0.00 6 500 
+elif [[ $1 == train-preload ]]; then
+    train 64 20 7000000 0.4 0.00 6 500 
 elif [[ $1 == debug ]]; then
     debug 64 10 700 0.0 0.00 1 
     debug 64 10 700 0.0 0.00 2 
 elif [[ $1 == debug-dummy ]]; then
     python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
         --input-type dict \
-        --save-freq 20000 --n-steps 32 --n-envs 2 --timestep 1000000 --penalty-weight 0.6 --config 6 --training --debug --dummy-proc  --lr-type linear 
+        --save-freq 20000 --n-steps 32 --n-envs 5 --timestep 1000000 --penalty-weight 0.6 --config 6 --training --debug   --lr-type linear \
+        --lr 0.0001 --lr-type constant --training \
+        #--dummy-proc
+        #--save-path results/21-12-28-08:29:53TW-timestep7.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-intype-dict-config-6-1vs1,input-dict/checkpoints/rl_model_1400000_steps.zip \
+        #--freeze-cnn --load-type cnn\
 elif [[ $1 == debug-gym ]]; then
     debug_gym 128 5 50000000  0.3
 elif [[ $1 == record ]]; then
