@@ -46,10 +46,11 @@ class CentralizedTraining():
     def __init__(self, **params):
         self.params = params
         preload_str = 'preloaded' if params['save_path'] is not None else ''
+        freeze_cnn_str = 'freeze-cnn' if params['freeze_cnn'] else ''
         desc = datetime.now().strftime("%y-%m-%d-%H:%M:%S") \
-                + 'TW{}-timestep{}M-nstep{}-nenv{}-timeout-{}-neg-{}-lrtype-{}-intype-{}-config-{}-{}'.format(preload_str, params['timestep']/1e6, params['n_steps'], 
-                        params['n_envs'], params['env_params']['timeout'], params['penalty_weight'], params['lr_type'], params['input_type'],
-                        params['config'], params['config_desc'])
+                + 'TW{}-{}-timestep{}M-nstep{}-nenv{}-timeout-{}-neg-{}-lrtype-{}-intype-{}-config-{}-{}'.format(preload_str, freeze_cnn_str,
+                        params['timestep']/1e6, params['n_steps'], params['n_envs'], params['env_params']['timeout'], params['penalty_weight'],
+                        params['lr_type'], params['input_type'], params['config'], params['config_desc'])
         if params['debug']:
             self.save_path = './testing/'+ desc
         else:
@@ -95,12 +96,11 @@ class CentralizedTraining():
             def linear_schedule(initial_value: float) -> Callable[[float], float]:
                 def func(progress_remaining: float) -> float:
                     return progress_remaining * initial_value
-                float
                 return func
 
-            if self.params['lr_type']=='linear':
+            if self.params['lr_type'] == 'linear':
                 lr = linear_schedule(self.params['lr'])
-            elif self.params['lr_type']=='constant':
+            elif self.params['lr_type'] == 'constant':
                 lr = self.params['lr']
 
             model = PPO(policy_type, self.training_env, policy_kwargs=policy_kwargs, n_steps=self.params['n_steps'], 
