@@ -69,8 +69,8 @@ debug(){
         #--save-path $7
 }
 if [[ $1 == jobs ]]; then
-    train 64 20 4000000 0.4 0.00 8 500 stacked
-    train_preload 64 20 4000000  0.4 0.00 8 500 dict
+    train 64 20 5000000 0.4 0.00 9 500 dict
+    train_preload 64 20 5000000  0.4 0.00 9 500 dict
     #train 8 20 100 0.4 0.00 8 500 stacked
     #train_preload 8 20 700 0.4 0.00 8 500 dict
 elif [[ $1 == train ]]; then

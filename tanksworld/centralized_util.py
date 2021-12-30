@@ -50,7 +50,7 @@ class CentralizedTraining():
         preload_str = 'preloaded' if params['save_path'] is not None else ''
         freeze_cnn_str = 'freeze-cnn' if params['freeze_cnn'] else ''
         desc = datetime.now().strftime("%y-%m-%d-%H:%M:%S") \
-                + 'TW{}-{}-timestep{}M-nstep{}-nenv{}-timeout-{}-neg-{}-lrtype-{}-intype-{}-config-{}-{}'.format(preload_str, freeze_cnn_str,
+                + 'TW{}-{}-timestep{}M-nstep{}-nenv{}-timeout-{}-neg-{}-lrtype-{}-input-type-{}-config-{}-{}'.format(preload_str, freeze_cnn_str,
                         params['timestep']/1e6, params['n_steps'], params['n_envs'], params['env_params']['timeout'], params['penalty_weight'],
                         params['lr_type'], params['input_type'], params['config'], params['config_desc'])
         if params['debug']:
@@ -179,7 +179,7 @@ class CentralizedTraining():
         callback_list = []
         #callback_list = [checkpoint_callback]
         callback_list = [checkpoint_callback, tensorboard_callback]
-        self.model.learn(total_timesteps=self.params['timestep'], callback=callback_list, reset_num_timesteps=self.paramas['continue_training'])
+        self.model.learn(total_timesteps=self.params['timestep'], callback=callback_list, reset_num_timesteps=self.params['continue_training'])
 
     def eval(self):
         model_path = pjoin(args.save_path, 'checkpoints', args.checkpoint)
