@@ -1,4 +1,6 @@
 from collections import deque
+from  os.path import join as pjoin
+import json
 from typing import Callable
 import numpy as np
 from stable_baselines3 import PPO
@@ -55,6 +57,8 @@ class CentralizedTraining():
             self.save_path = './testing/'+ desc
         else:
             self.save_path = './results/'+ desc
+            if params['continue_training']:
+                self.save_path = params['save_path']
 
         self.training_env = self.create_env(self.params['n_envs'])
         #check_env(self.training_env)
@@ -74,9 +78,13 @@ class CentralizedTraining():
         return env
 
     def create_model(self):
-        if self.params['save_path'] is not None and self.params['load_type'] == 'full':
-            print('load model {}'.format(self.params['save_path']))
-            model = PPO.load(self.params['save_path'], env=self.training_env)
+        model_path = None
+        if self.params['save_path'] is not None and self.params['model_num'] > 0:
+            model_path = pjoin(self.params['save_path'], 'checkpoints', 'rl_model_{}_steps.zip'.format(self.params['model_num'])) 
+        if self.params['continue_training']: 
+            print('load model {}'.format(model_path))
+            assert model_path is not None
+            model = PPO.load(model_path, env=self.training_env)
         else:
             policy_kwargs = {}
 
@@ -106,14 +114,21 @@ class CentralizedTraining():
             model = PPO(policy_type, self.training_env, policy_kwargs=policy_kwargs, n_steps=self.params['n_steps'], 
                     learning_rate=lr, verbose=0, batch_size=64, ent_coef=self.params['ent_coef'], n_epochs=self.params['epochs'],
                     tensorboard_log=self.save_path)
-            if self.params['save_path'] is not None and  self.params['load_type'] == 'cnn':
-                loaded_model = PPO.load(self.params['save_path'])
+            if self.params['load_type'] == 'cnn':
+                print('load model {}'.format(model_path))
+                assert model_path is not None
+                loaded_model = PPO.load(model_path)
                 model.policy.features_extractor.load_state_dict(loaded_model.policy.features_extractor.state_dict())
                 #if self.params['input_type'] == 'stacked':
                 #    model.policy.features_extractor.load_state_dict(loaded_model.policy.features_extractor.state_dict())
                 #elif self.params['input_type'] == 'dict': 
                 #    # TODO: 
                 #    model.policy.features_extractor.extract_module.load_state_dict(loaded_model.policy.features_extractor.extract_module.state_dict())
+            elif self.params['load_type'] == 'full':
+                print('load model {}'.format(model_path))
+                assert model_path is not None
+                loaded_model = PPO.load(model_path)
+                model.policy.load_state_dict(loaded_model.policy.state_dict())
 
             if self.params['freeze_cnn']:
                 for param in model.policy.features_extractor.parameters():
@@ -161,14 +176,12 @@ class CentralizedTraining():
 
         checkpoint_callback = CheckpointCallback(save_freq=self.params['save_freq'], save_path=self.save_path + '/checkpoints', name_prefix='rl_model')
         tensorboard_callback = TensorboardCallback()
-        callback_list=[]
+        callback_list = []
         #callback_list = [checkpoint_callback]
         callback_list = [checkpoint_callback, tensorboard_callback]
-        self.model.learn(total_timesteps=self.params['timestep'], callback=callback_list)
+        self.model.learn(total_timesteps=self.params['timestep'], callback=callback_list, reset_num_timesteps=self.paramas['continue_training'])
 
     def eval(self):
-        from  os.path import join as pjoin
-        import json
         model_path = pjoin(args.save_path, 'checkpoints', args.checkpoint)
         print(model_path)
         model = PPO.load(model_path)

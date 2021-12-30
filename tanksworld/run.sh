@@ -28,12 +28,6 @@ debug_gym(){
         --save-freq 20000   --n-steps $1 --n-envs $2 --timestep $3 --penalty-weight $4 --training --debug
         #--save-path $7
 }
-debug(){
-    python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
-        --save-freq 5000   --n-steps $1 --n-envs $2 --timestep $3 --penalty-weight $4 --ent-coef $5 --config $6 --lr-type constant --training \
-        --debug
-        #--save-path $7
-}
 record(){
     SETTING=$1
     EXPMNT=results/$SETTING
@@ -52,37 +46,50 @@ record(){
 }
 train_preload(){
     python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
-        --input-type dict \
         --save-freq 5000 --n-steps $1 --n-envs $2 --timestep $3 --penalty-weight $4 --ent-coef $5 --config $6 --env-timeout $7\
+        --input-type $8 \
         --lr 0.0001 --lr-type constant --training \
-        --save-path results/21-12-28-18:12:28TWpreloaded--timestep7.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-intype-dict-config-7-2vs1/checkpoints/rl_model_700000_steps.zip \
-        --load-type cnn #--freeze-cnn 
-
+        --save-path results/21-12-28-20:35:59TWpreloaded--timestep7.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-intype-dict-config-8-5vs1 \
+        --model-num 5000000\
+        --load-type full #--freeze-cnn 
 }
 
 train(){
     python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
-        --input-type dict \
         --save-freq 5000 --n-steps $1 --n-envs $2 --timestep $3 --penalty-weight $4 --ent-coef $5 --config $6 --env-timeout $7\
+        --input-type $8 \
         --lr 0.0001 --lr-type constant --training 
 }
-if [[ $1 == test ]]; then
-    test
+debug(){
+    python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
+        --save-freq 5000 --n-steps $1 --n-envs $2 --timestep $3 --penalty-weight $4 --ent-coef $5 --config $6 --env-timeout $7\
+        --input-type $8 \
+        --lr 0.0001 --lr-type constant --training 
+        --debug
+        #--save-path $7
+}
+if [[ $1 == jobs ]]; then
+    train 64 20 4000000 0.4 0.00 8 500 stacked
+    train_preload 64 20 4000000  0.4 0.00 8 500 dict
+    #train 8 20 100 0.4 0.00 8 500 stacked
+    #train_preload 8 20 700 0.4 0.00 8 500 dict
 elif [[ $1 == train ]]; then
     train 64 20 7000000 0.4 0.00 6 500 
 elif [[ $1 == train-preload ]]; then
     train_preload 64 20 7000000 0.4 0.00 8 500 
 elif [[ $1 == debug ]]; then
-    debug 64 10 700 0.0 0.00 1 
-    debug 64 10 700 0.0 0.00 2 
+    debug 64 20 7000000 0.4 0.00 6 500 stacked
 elif [[ $1 == debug-dummy ]]; then
     python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
         --input-type dict \
-        --save-freq 20000 --n-steps 32 --n-envs 5 --timestep 1000000 --penalty-weight 0.6 --config 6 --training --debug   --lr-type linear \
+        --save-freq 20000 --n-steps 32 --n-envs 5 --timestep 1000000 --penalty-weight 0.6 --config 8 --training --debug   --lr-type linear \
         --lr 0.0001 --lr-type constant --training \
-        --save-path results/21-12-28-12:19:10TW-timestep7.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-intype-dict-config-6-1vs1,input-dict/checkpoints/rl_model_1200000_steps.zip \
-        --freeze-cnn --load-type cnn
-        ##--dummy-proc\
+        --save-path results/21-12-28-20:35:59TWpreloaded--timestep7.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-intype-dict-config-8-5vs1 \
+        --model-num 5000000\
+        --load-type full
+        --dummy-proc
+        #--save-path results/21-12-28-12:19:10TW-timestep7.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-intype-dict-config-6-1vs1,input-dict/checkpoints/rl_model_1200000_steps.zip \
+        #--freeze-cnn --load-type cnn
 elif [[ $1 == debug-gym ]]; then
     debug_gym 128 5 50000000  0.3
 elif [[ $1 == record ]]; then
