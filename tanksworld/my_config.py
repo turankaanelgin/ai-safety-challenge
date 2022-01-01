@@ -10,7 +10,7 @@ parser.add_argument('--exe', help='the absolute path of the tanksworld executabl
 parser.add_argument('--record', action='store_true', default=False)
 parser.add_argument('--debug', action='store_true', default=False)
 parser.add_argument('--training', action='store_true', default=False)
-parser.add_argument('--continue-training', action='store_true', default=False, help='continute training')
+parser.add_argument('--continue-training', action='store_true', help='continute training')
 parser.add_argument('--dummy-proc', action='store_true', default=False)
 parser.add_argument('--n-steps', type=int, default=1024)
 parser.add_argument('--epochs', type=int, default=4)

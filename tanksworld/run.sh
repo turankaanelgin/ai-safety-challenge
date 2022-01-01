@@ -24,7 +24,7 @@ garage(){
 }
 
 debug_gym(){
-    xvfb-run -s "-screen 0 1280x1024x24" python test_env.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
+   xvfb-run -s "-screen 0 1280x1024x24" python test_env.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
         --save-freq 20000   --n-steps $1 --n-envs $2 --timestep $3 --penalty-weight $4 --training --debug
         #--save-path $7
 }
@@ -48,10 +48,9 @@ train_preload(){
     python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
         --save-freq 5000 --n-steps $1 --n-envs $2 --timestep $3 --penalty-weight $4 --ent-coef $5 --config $6 --env-timeout $7\
         --input-type $8 \
-        --lr 0.0001 --lr-type constant --training \
-        --save-path results/21-12-28-20:35:59TWpreloaded--timestep7.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-intype-dict-config-8-5vs1 \
-        --model-num 5000000\
-        --load-type full #--freeze-cnn 
+        --lr 0.0001 --lr-type constant --training\
+        --save-path results/$9 --model-num ${10} \
+        --load-type full --continue-training #--freeze-cnn 
 }
 
 train(){
@@ -65,12 +64,12 @@ debug(){
         --save-freq 5000 --n-steps $1 --n-envs $2 --timestep $3 --penalty-weight $4 --ent-coef $5 --config $6 --env-timeout $7\
         --input-type $8 \
         --lr 0.0001 --lr-type constant --training 
-        --debug
+        --debug 
         #--save-path $7
 }
 if [[ $1 == jobs ]]; then
-    train 64 20 5000000 0.4 0.00 9 500 dict
-    train_preload 64 20 5000000  0.4 0.00 9 500 dict
+    #train 64 20 5000000 0.4 0.00 9 500 dict
+    train_preload 64 20 10000000  0.4 0.00 9 500 dict 21-12-31-08:13:08TWpreloaded--timestep5.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-input-type-dict-config-9-5vs5 4400000
     #train 8 20 100 0.4 0.00 8 500 stacked
     #train_preload 8 20 700 0.4 0.00 8 500 dict
 elif [[ $1 == train ]]; then
@@ -95,6 +94,8 @@ elif [[ $1 == debug-gym ]]; then
 elif [[ $1 == record ]]; then
     python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
         --n-env 1 --penalty-weight 0.2 --timestep 4000000 \
+        --save-path results/21-12-30-11:32:04TWpreloaded--timestep5.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-input-type-dict-config-9-5vs5 \
+        --config 9 --input-type dict --model-num 1400000\
         --video-path tmp/tank_test.avi --n-episode 10 --record
 elif [[ $1 == record-full-step ]]; then
     SETTING=21-12-17-10:19:42TW-timestep7.0M-nstep64-nenv20-timeout-250-neg-0.4-lrtype-constant-froze,no-shooting-tank-1->9

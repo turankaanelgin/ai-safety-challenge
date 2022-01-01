@@ -60,11 +60,18 @@ class CentralizedTraining():
             if params['continue_training']:
                 self.save_path = params['save_path']
 
-        self.training_env = self.create_env(self.params['n_envs'])
-        #check_env(self.training_env)
-        #self.eval_env = self.create_env(1)
-        #check_env(self.env)
-        self.model = self.create_model()
+        self.model_path = None
+        if self.params['save_path'] is not None and self.params['model_num'] > 0:
+            self.model_path = pjoin(self.params['save_path'], 'checkpoints', 'rl_model_{}_steps.zip'.format(self.params['model_num'])) 
+
+        if self.params['training']: 
+            self.training_env = self.create_env(self.params['n_envs'])
+            self.training_model = self.create_model()
+        elif self.params['record']:
+            #check_env(self.training_env)
+            self.eval_env = TanksWorldEnv(**self.params['env_params'])
+            self.eval_model = PPO.load(self.model_path, env=self.eval_env)
+            #check_env(self.env)
 
     def create_env(self, n_envs):
         def create_env_():
@@ -78,9 +85,7 @@ class CentralizedTraining():
         return env
 
     def create_model(self):
-        model_path = None
-        if self.params['save_path'] is not None and self.params['model_num'] > 0:
-            model_path = pjoin(self.params['save_path'], 'checkpoints', 'rl_model_{}_steps.zip'.format(self.params['model_num'])) 
+        model_path = self.model_path
         if self.params['continue_training']: 
             print('load model {}'.format(model_path))
             assert model_path is not None
@@ -119,11 +124,6 @@ class CentralizedTraining():
                 assert model_path is not None
                 loaded_model = PPO.load(model_path)
                 model.policy.features_extractor.load_state_dict(loaded_model.policy.features_extractor.state_dict())
-                #if self.params['input_type'] == 'stacked':
-                #    model.policy.features_extractor.load_state_dict(loaded_model.policy.features_extractor.state_dict())
-                #elif self.params['input_type'] == 'dict': 
-                #    # TODO: 
-                #    model.policy.features_extractor.extract_module.load_state_dict(loaded_model.policy.features_extractor.extract_module.state_dict())
             elif self.params['load_type'] == 'full':
                 print('load model {}'.format(model_path))
                 assert model_path is not None
@@ -138,29 +138,26 @@ class CentralizedTraining():
 
     def record(self, save_video_path):
         observation = self.eval_env.reset()
-        game = 0
+        episode = 0
         observation_list = []
-        while game < self.params['n_episode']:
-            action, _ = self.model.predict(observation)
-            #action[0]=1#forward
-            #action[1]=0#left right 
-            #action[2]=0#shoot
+        while episode < self.params['n_episode']:
+            action, _ = self.eval_model.predict(observation)
             observation, reward, done, info = self.eval_env.step(action)
-            observation0 = observation.transpose(1,2,0)
-            tanks_img = displayable_rgb_map(observation0)
-            #img = env.overview_map()
-            fig, axes = plt.subplots(1, 1)
-            #axes[0].imshow(tanks_img)
-            #axes[1].imshow(img)
-            #axes[0].imshow(tanks_img)
-            plt.imshow(tanks_img)
-            fig.canvas.draw()
-            data = np.fromstring(fig.canvas.tostring_rgb(), dtype = np.uint8, sep = '')
-            data = data.reshape(fig.canvas.get_width_height()[::-1] + (3, ))
-            plt.close()
-            observation_list.append(data)
+            if self.params['input_type'] == 'stacked':
+                observation0 = observation.transpose(1,2,0)
+                tanks_img = displayable_rgb_map(observation0)
+                fig, axes = plt.subplots(1, 1)
+                plt.imshow(tanks_img)
+                fig.canvas.draw()
+                data = np.fromstring(fig.canvas.tostring_rgb(), dtype = np.uint8, sep = '')
+                data = data.reshape(fig.canvas.get_width_height()[::-1] + (3, ))
+                plt.close()
+                observation_list.append(data)
+            elif self.params['input_type'] == 'dict':
+                import pdb; pdb.set_trace();
+                pass
             if done:
-                game += 1
+                episode += 1
                 observation = self.eval_env.reset()
         out = cv2.VideoWriter(save_video_path, cv2.VideoWriter_fourcc(*"MJPG"), 5, (640, 480), True)
         for img in observation_list:
@@ -169,9 +166,10 @@ class CentralizedTraining():
         out.release()
 
     def train(self): 
-        os.mkdir(self.save_path)
-        with open(self.save_path+'/config.yaml', 'w') as f:
-            yaml.dump(self.params, f)
+        if not os.path.exists(self.save_path): 
+            os.mkdir(self.save_path)
+            with open(self.save_path+'/config.yaml', 'w') as f:
+                yaml.dump(self.params, f)
 
 
         checkpoint_callback = CheckpointCallback(save_freq=self.params['save_freq'], save_path=self.save_path + '/checkpoints', name_prefix='rl_model')
@@ -179,7 +177,7 @@ class CentralizedTraining():
         callback_list = []
         #callback_list = [checkpoint_callback]
         callback_list = [checkpoint_callback, tensorboard_callback]
-        self.model.learn(total_timesteps=self.params['timestep'], callback=callback_list, reset_num_timesteps=self.params['continue_training'])
+        self.training_model.learn(total_timesteps=self.params['timestep'], callback=callback_list, reset_num_timesteps=not self.params['continue_training'])
 
     def eval(self):
         model_path = pjoin(args.save_path, 'checkpoints', args.checkpoint)
