@@ -169,19 +169,26 @@ class CentralizedTraining():
                 remove_frame(axes[0])
                 remove_frame(axes[1])
                 ally_dmg_inflict = info['red_stats']['damage_inflicted_on']
-                enemy_dmg_inflict = info['red_stats']['damage_inflicted_on']
-                desc = 'dmg to enemies: {}\ndmg to allies: {}\nwining: {}\nlose: {}'.format(
-                        ally_dmg_inflict['enemy'], ally_dmg_inflict['ally'], win, lose
+                enemy_dmg_inflict = info['blue_stats']['damage_inflicted_on']
+                desc = ('Ally:\ndmg to enemies: {}\ndmg to allies: {}\n'
+                + '---------------------------------\n' 
+                +'Enemy:\ndmg to enemies: {}\ndmg to allies: {}\n'
+                +'---------------------------------\n'
+                +'Win: {}\nLose: {}').format(
+                        round(ally_dmg_inflict['enemy'],2), round(ally_dmg_inflict['ally'],2),
+                        round(enemy_dmg_inflict['enemy'],2), round(enemy_dmg_inflict['ally'],2),
+                        win, lose
                         )
                 axes[0].imshow(self.eval_env.overviewmap)
-                axes[1].text(0,0.5, desc)
+                axes[1].text(0,0, desc)
                 fig.canvas.draw()
                 data = np.fromstring(fig.canvas.tostring_rgb(), dtype = np.uint8, sep = '')
                 data = data.reshape(fig.canvas.get_width_height()[::-1] + (3, ))
                 plt.close()
                 observation_list.append(data)
             if done:
-                if ally_dmg_inflict['ally'] - ally_dmg_inflict['enemy'] > enemy_dmg_inflict['ally'] - ally_dmg_inflict['enemy']:
+                if ally_dmg_inflict['enemy'] - ally_dmg_inflict['ally'] > \
+                        enemy_dmg_inflict['enemy'] - enemy_dmg_inflict['ally']:
                     win +=1
                 else:
                     lose +=1
