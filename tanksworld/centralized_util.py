@@ -154,6 +154,8 @@ class CentralizedTraining():
                 plt.close()
                 observation_list.append(data)
             elif self.params['input_type'] == 'dict':
+                print('hello')
+                sys.exit()
                 import pdb; pdb.set_trace();
                 pass
             if done:

@@ -6,6 +6,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from tanksworld.env_centralized.minimap_util import minimap_for_player, displayable_rgb_map, display_cvimage
+from tanksworld.env_centralized.overviewmap_util import overviewmap_for_player
 import cv2
 import pathlib
 from tensorboardX import SummaryWriter
@@ -180,7 +181,8 @@ class TanksWorldEnv(gym.Env):
         ret_states = [minimap_for_player(state_reformat,i,barriers) for i in self.enable_input_tanks]
 
         if self.will_render:
-            self.disp_states = [displayable_rgb_map(s) for s in ret_states]
+            #self.disp_states = [displayable_rgb_map(s) for s in ret_states]
+            self.overviewmap = overviewmap_util(state_reformat, barriers) 
 
         if self.image_scale != 128:
             ret_states = [cv2.resize(s, (self.image_scale, self.image_scale)) for s in ret_states]
