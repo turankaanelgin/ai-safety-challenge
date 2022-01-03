@@ -56,7 +56,7 @@ def draw_bullet(image, x, y):
     cv2.circle(image, (int(x),int(y)), 2, 255.0, thickness=1)
     return image
 
-def draw_tanks_in_channel(tank_data, reference_tank):
+def draw_tanks_in_channel(tank_data):
 
     img = np.zeros((IMG_SZ, IMG_SZ, 1), np.uint8)
 
@@ -66,7 +66,6 @@ def draw_tanks_in_channel(tank_data, reference_tank):
         if td[3] <= 0.0:
             continue
 
-        #rel_x, rel_y = point_relative_point_heading([td[0],td[1]], reference_tank[0:2], reference_tank[2])
         rel_x,rel_y = td[0], td[1]
 
         x = (rel_x/UNITY_SZ) * SCALE + float(IMG_SZ)*0.5
@@ -74,9 +73,7 @@ def draw_tanks_in_channel(tank_data, reference_tank):
         heading = td[2]
         health = td[3]
 
-        rel_heading = heading - reference_tank[2]
-
-        img = draw_arrow(img, x, y, rel_heading, health)
+        img = draw_arrow(img, x, y, heading, health)
 
         # draw bullet if present
         if len(td) > 4:
@@ -84,9 +81,8 @@ def draw_tanks_in_channel(tank_data, reference_tank):
             by = td[5]
 
             if bx < 900:
-                rel_x, rel_y = point_relative_point_heading([bx, by], reference_tank[0:2], reference_tank[2])
-                x = (rel_x/UNITY_SZ) * SCALE + float(IMG_SZ)*0.5
-                y = (rel_y/UNITY_SZ) * SCALE + float(IMG_SZ)*0.5
+                x = (bx/UNITY_SZ) * SCALE + float(IMG_SZ)*0.5
+                y = (by/UNITY_SZ) * SCALE + float(IMG_SZ)*0.5
                 img = draw_bullet(img, x, y)
 
     return img
@@ -166,21 +162,17 @@ def overviewmap_for_player(tank_data_original, barriers):
     for td in tank_data_original:
         tank_data.append([td[0], -td[1], td[2], td[3], td[4], -td[5]])
 
-    my_data = tank_data[tank_idx]
-
-    if my_data[3] <= 0.0:
-        #display_cvimage("tank"+str(tank_idx), np.zeros((IMG_SZ, IMG_SZ, 3)))
-        return np.zeros((IMG_SZ,IMG_SZ,4), dtype=np.float32)
-
     ally = tank_data[:5]
     enemy = tank_data[5:10]
     neutral = tank_data[10:]
 
-    ally_channel = draw_tanks_in_channel(ally, barriers)
-    enemy_channel = draw_tanks_in_channel(enemy, barriers)
-    neutral_channel = draw_tanks_in_channel(neutral, barriers)
+    ally_channel = draw_tanks_in_channel(ally)
+    enemy_channel = draw_tanks_in_channel(enemy)
+    neutral_channel = draw_tanks_in_channel(neutral)
     img = np.concatenate([ally_channel, neutral_channel, enemy_channel], axis=2)
-    img = np.maximum(img, barriers)
+    barriers_pad = np.zeros((IMG_SZ, IMG_SZ, 3))
+    barriers_pad[1:, ...] = barriers
+    img = np.maximum(img, barriers_pad)
     return img
 
 def display_cvimage(window_name, img):

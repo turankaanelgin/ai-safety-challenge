@@ -69,7 +69,7 @@ class CentralizedTraining():
             self.training_model = self.create_model()
         elif self.params['record']:
             #check_env(self.training_env)
-            self.eval_env = TanksWorldEnv(**self.params['env_params'])
+            self.eval_env = TanksWorldEnv(**self.params['env_params'], will_render=True)
             self.eval_model = PPO.load(self.model_path, env=self.eval_env)
             #check_env(self.env)
 
@@ -137,9 +137,18 @@ class CentralizedTraining():
          
 
     def record(self, save_video_path):
+        def remove_frame(ax):
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['bottom'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            ax.get_xaxis().set_ticks([])
+            ax.get_yaxis().set_ticks([])
+
         observation = self.eval_env.reset()
         episode = 0
         observation_list = []
+        win, lose = 0, 0
         while episode < self.params['n_episode']:
             action, _ = self.eval_model.predict(observation)
             observation, reward, done, info = self.eval_env.step(action)
@@ -154,16 +163,33 @@ class CentralizedTraining():
                 plt.close()
                 observation_list.append(data)
             elif self.params['input_type'] == 'dict':
-                print('hello')
-                sys.exit()
-                import pdb; pdb.set_trace();
-                pass
+                observation, reward, done, info = self.eval_env.step(action)
+                #use matplotlib to draw image
+                fig, axes = plt.subplots(1, 2)
+                remove_frame(axes[0])
+                remove_frame(axes[1])
+                ally_dmg_inflict = info['red_stats']['damage_inflicted_on']
+                enemy_dmg_inflict = info['red_stats']['damage_inflicted_on']
+                desc = 'dmg to enemies: {}\ndmg to allies: {}\nwining: {}\nlose: {}'.format(
+                        ally_dmg_inflict['enemy'], ally_dmg_inflict['ally'], win, lose
+                        )
+                axes[0].imshow(self.eval_env.overviewmap)
+                axes[1].text(0,0.5, desc)
+                fig.canvas.draw()
+                data = np.fromstring(fig.canvas.tostring_rgb(), dtype = np.uint8, sep = '')
+                data = data.reshape(fig.canvas.get_width_height()[::-1] + (3, ))
+                plt.close()
+                observation_list.append(data)
             if done:
+                if ally_dmg_inflict['ally'] - ally_dmg_inflict['enemy'] > enemy_dmg_inflict['ally'] - ally_dmg_inflict['enemy']:
+                    win +=1
+                else:
+                    lose +=1
                 episode += 1
                 observation = self.eval_env.reset()
         out = cv2.VideoWriter(save_video_path, cv2.VideoWriter_fourcc(*"MJPG"), 5, (640, 480), True)
         for img in observation_list:
-            #img = cv2.cvtColor(img)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             out.write(img)
         out.release()
 

@@ -87,10 +87,11 @@ class TanksWorldEnv(gym.Env):
         TanksWorldEnv._env_params = []
 
     #DO this in reset to allow seed to be set
-    def __init__(self, exe, action_repeat=6, image_scale=128, timeout=500, friendly_fire=True, take_damage_penalty=True, kill_bonus=True, death_penalty=True,
-        training_tanks=[], static_tanks=[], random_tanks=[], disable_shooting=[], enable_input_tanks=[], enable_output_tanks=[],
-        penalty_weight=1.0, reward_weight=1.0, will_render=False, input_type='stacked',
-        speed_red=1.0, speed_blue=1.0, tblogs='runs/stats'):
+    def __init__(self, exe, action_repeat=6, image_scale=128, timeout=500, friendly_fire=True,
+            take_damage_penalty=True, kill_bonus=True, death_penalty=True, training_tanks=[],
+            static_tanks=[], random_tanks=[], disable_shooting=[], enable_input_tanks=[],
+            enable_output_tanks=[], penalty_weight=1.0, reward_weight=1.0, will_render=False,
+            input_type='stacked', speed_red=1.0, speed_blue=1.0, tblogs='runs/stats'):
 
         # call reset() to begin playing
         self._workerid = np.random.randint(6500)
@@ -182,7 +183,7 @@ class TanksWorldEnv(gym.Env):
 
         if self.will_render:
             #self.disp_states = [displayable_rgb_map(s) for s in ret_states]
-            self.overviewmap = overviewmap_util(state_reformat, barriers) 
+            self.overviewmap = overviewmap_for_player(state_reformat, barriers) 
 
         if self.image_scale != 128:
             ret_states = [cv2.resize(s, (self.image_scale, self.image_scale)) for s in ret_states]

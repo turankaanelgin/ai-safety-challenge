@@ -94,9 +94,9 @@ elif [[ $1 == debug-gym ]]; then
 elif [[ $1 == record ]]; then
     python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
         --n-env 1 --penalty-weight 0.2 --timestep 4000000 \
-        --save-path results/21-12-30-11:32:04TWpreloaded--timestep5.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-input-type-dict-config-9-5vs5 \
-        --config 9 --input-type dict --model-num 1400000\
-        --video-path tmp/tank_test.avi --n-episode 10 --record --input-type dict
+        --save-path results/21-12-28-20:35:59TWpreloaded--timestep7.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-intype-dict-config-8-5vs1 \
+        --config 8 --input-type dict --model-num 1500000\
+        --video-path tmp/tank_test.avi --n-episode 15 --record --input-type dict
 elif [[ $1 == record-full-step ]]; then
     SETTING=21-12-17-10:19:42TW-timestep7.0M-nstep64-nenv20-timeout-250-neg-0.4-lrtype-constant-froze,no-shooting-tank-1->9
     EXPMNT=results/$SETTING
