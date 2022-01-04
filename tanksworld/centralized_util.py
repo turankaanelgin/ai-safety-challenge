@@ -146,10 +146,10 @@ class CentralizedTraining():
             ax.get_yaxis().set_ticks([])
 
         observation = self.eval_env.reset()
-        episode = 0
+        episode = 1
         observation_list = []
         win, lose = 0, 0
-        while episode < self.params['n_episode']:
+        while episode <= self.params['n_episode']:
             action, _ = self.eval_model.predict(observation)
             observation, reward, done, info = self.eval_env.step(action)
             if self.params['input_type'] == 'stacked':
@@ -170,23 +170,27 @@ class CentralizedTraining():
                 remove_frame(axes[1])
                 ally_dmg_inflict = info['red_stats']['damage_inflicted_on']
                 enemy_dmg_inflict = info['blue_stats']['damage_inflicted_on']
-                desc = ('Ally:\ndmg to enemies: {}\ndmg to allies: {}\n'
+                desc = ('Episode: {}\nAlly:\ndmg to enemies: {}\ndmg to allies: {}\n'
                 + '---------------------------------\n' 
                 +'Enemy:\ndmg to enemies: {}\ndmg to allies: {}\n'
                 +'---------------------------------\n'
                 +'Win: {}\nLose: {}').format(
+                        episode,
                         round(ally_dmg_inflict['enemy'],2), round(ally_dmg_inflict['ally'],2),
                         round(enemy_dmg_inflict['enemy'],2), round(enemy_dmg_inflict['ally'],2),
                         win, lose
                         )
                 axes[0].imshow(self.eval_env.overviewmap)
-                axes[1].text(0,0, desc)
+                axes[1].text(0,0.5, desc)
                 fig.canvas.draw()
                 data = np.fromstring(fig.canvas.tostring_rgb(), dtype = np.uint8, sep = '')
                 data = data.reshape(fig.canvas.get_width_height()[::-1] + (3, ))
                 plt.close()
                 observation_list.append(data)
             if done:
+                #add delay before moving in the next episode
+                for _ in range(4):
+                    observation_list.append(data)
                 if ally_dmg_inflict['enemy'] - ally_dmg_inflict['ally'] > \
                         enemy_dmg_inflict['enemy'] - enemy_dmg_inflict['ally']:
                     win +=1
@@ -194,7 +198,7 @@ class CentralizedTraining():
                     lose +=1
                 episode += 1
                 observation = self.eval_env.reset()
-        out = cv2.VideoWriter(save_video_path, cv2.VideoWriter_fourcc(*"MJPG"), 5, (640, 480), True)
+        out = cv2.VideoWriter(save_video_path, cv2.VideoWriter_fourcc(*"MJPG"), 3, (640, 480), True)
         for img in observation_list:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             out.write(img)

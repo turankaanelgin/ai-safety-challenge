@@ -11,7 +11,8 @@ bk_checkpoint(){
     #echo ${ARR]}|sort -r
     IFS=$'\n'
     cp -r results/$1 results_backup
-    LAST_CHECKPOINT=$(echo "${ARR[*]}"|sort -r|head -n1)
+    LAST_CHECKPOINT=$(echo "${ARR[*]}"|sort -nr|head -n1)
+
     for NUM in ${ARR[@]}
     do
         if [[ $NUM != ${LAST_CHECKPOINT} ]]; then
@@ -57,7 +58,7 @@ train(){
     python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
         --save-freq 5000 --n-steps $1 --n-envs $2 --timestep $3 --penalty-weight $4 --ent-coef $5 --config $6 --env-timeout $7\
         --input-type $8 \
-        --lr 0.0001 --lr-type constant --training 
+        --lr 0.0001 --lr-type linear --training 
 }
 debug(){
     python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
@@ -68,8 +69,8 @@ debug(){
         #--save-path $7
 }
 if [[ $1 == jobs ]]; then
-    #train 64 20 5000000 0.4 0.00 9 500 dict
-    train_preload 64 20 10000000  0.4 0.00 9 500 dict 21-12-31-08:13:08TWpreloaded--timestep5.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-input-type-dict-config-9-5vs5 4400000
+    train 64 20 10000000 0.6 0.00 8 500 dict
+    #train_preload 64 20 10000000  0.4 0.00 9 500 dict 21-12-31-08:13:08TWpreloaded--timestep5.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-input-type-dict-config-9-5vs5 4400000
     #train 8 20 100 0.4 0.00 8 500 stacked
     #train_preload 8 20 700 0.4 0.00 8 500 dict
 elif [[ $1 == train ]]; then
@@ -95,7 +96,7 @@ elif [[ $1 == record ]]; then
     python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
         --n-env 1 --penalty-weight 0.2 --timestep 4000000 \
         --save-path results/21-12-28-20:35:59TWpreloaded--timestep7.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-intype-dict-config-8-5vs1 \
-        --config 8 --input-type dict --model-num 1500000\
+        --config 8 --input-type dict --model-num 5300000\
         --video-path tmp/tank_test.avi --n-episode 13 --record --input-type dict
 elif [[ $1 == record-full-step ]]; then
     SETTING=21-12-17-10:19:42TW-timestep7.0M-nstep64-nenv20-timeout-250-neg-0.4-lrtype-constant-froze,no-shooting-tank-1->9
@@ -123,8 +124,7 @@ elif [[ $1 == pkill ]]; then
 elif [[ $1 == pkill1 ]]; then
     pkill -u ado8 -f "tensorboard"
 elif [[ $1 == gentag ]]; then
-    ctags -R --languages=python --python-kinds=-i .  /home/ado8/rgb-env /home/ado8/ai-arena/arena5/  /home/ado8/rl-baselines3-zoo /home/ado8/stable-baselines3 
-#/home/ado8/garage/src/ /home/ado8/ray
+    ctags -R --languages=python --python-kinds=-i . /Users/anh/Documents/stable-baselines3
 elif [[ $1 == lab ]]; then
     xvfb-run -s "-screen 0 1280x1024x24" jupyter lab
 else
