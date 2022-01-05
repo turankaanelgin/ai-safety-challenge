@@ -48,9 +48,10 @@ class CentralizedTraining():
     def __init__(self, **params):
         self.params = params
         preload_str = 'preloaded' if params['save_path'] is not None else ''
+        load_type_str = params['load_type'] if params['save_path'] is not None else ''
         freeze_cnn_str = 'freeze-cnn' if params['freeze_cnn'] else ''
         desc = datetime.now().strftime("%y-%m-%d-%H:%M:%S") \
-                + 'TW{}-{}-timestep{}M-nstep{}-nenv{}-timeout-{}-neg-{}-lrtype-{}-input-type-{}-config-{}-{}'.format(preload_str, freeze_cnn_str,
+                + 'TW{}-{}-{}-timestep{}M-nstep{}-nenv{}-timeout-{}-neg-{}-lrtype-{}-input-type-{}-config-{}-{}'.format(preload_str, load_type_str, freeze_cnn_str,
                         params['timestep']/1e6, params['n_steps'], params['n_envs'], params['env_params']['timeout'], params['penalty_weight'],
                         params['lr_type'], params['input_type'], params['config'], params['config_desc'])
         if params['debug']:

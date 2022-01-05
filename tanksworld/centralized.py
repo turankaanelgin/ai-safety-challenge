@@ -46,7 +46,13 @@ if __name__ == '__main__':
                 'enable_input_tanks': [0, 1, 2, 3, 4], 'enable_output_tanks': [0, 1, 2, 3, 4], 'input_type': params['input_type'], 
                 'penalty_weight': params['penalty_weight'], 'timeout': params['env_timeout']}
         params['config_desc'] = '5vs5'
-
+    elif params['config'] == 10:
+        params['env_params'] = {"exe": args.exe, 
+                'friendly_fire':True, 'take_damage_penalty':True, 'kill_bonus':False, 'death_penalty':False, 
+                "training_tanks": [0, 1,], "static_tanks":[], "random_tanks":[5,6,7,8,9], "disable_shooting":[],
+                'enable_input_tanks': [0, 1, 2, 3, 4], 'enable_output_tanks': [0, 1, 2, 3, 4], 'input_type': params['input_type'], 
+                'penalty_weight': params['penalty_weight'], 'timeout': params['env_timeout']}
+        params['config_desc'] = 'train5-2vs1'
     centralized_training = CentralizedTraining(**params)
     if args.record:
         centralized_training.record(args.video_path)
