@@ -6,11 +6,13 @@ from torch import nn
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau, ExponentialLR, CyclicLR
 from torch.optim.lr_scheduler import _LRScheduler
+from torch.utils.tensorboard import SummaryWriter
 
 from . import core
 import os
 import json
 from matplotlib import pyplot as plt
+from copy import deepcopy
 
 
 device = torch.device('cuda')
@@ -119,9 +121,30 @@ class PPOPolicy():
     def run(self, num_steps):
         self.kargs.update({'steps_to_run': num_steps})
         if self.eval_mode:
-            self.evaluate(steps_to_run=num_steps, model_path=self.kargs['model_path'])
+            self.evaluate_multiplayer(steps_to_run=num_steps, model_path=self.kargs['model_path'])
         else:
             self.learn(**self.kargs)
+
+
+    def evaluate_multiplayer(self, steps_to_run, model_path, actor_critic=core.MLPActorCritic, ac_kwargs=dict()):
+
+        steps = 0
+        observation = self.env.reset()
+
+        self.ac_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
+        self.enemy_model = deepcopy(self.ac_model)
+        ckpt = torch.load(model_path)
+        self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
+        self.ac_model.eval()
+        self.enemy_model.load_state_dict(ckpt['enemy_state_dict'], strict=True)
+        self.enemy_model.eval()
+
+        while steps < steps_to_run:
+
+            with torch.no_grad():
+                pdb.set_trace()
+                action, v, logp, _ = self.ac_model.step(torch.as_tensor(observation, dtype=torch.float32).to(device))
+
 
 
 
@@ -187,16 +210,6 @@ class PPOPolicy():
                                    'Red-Blue Damage': avg_red_blue_damages,
                                    'Blue-Red Damage': avg_blue_red_damages}, f, indent=4)
 
-                    avg_red_red_damages_per_env = np.mean(episode_red_red_damages, axis=0)
-                    avg_red_blue_damages_per_env = np.mean(episode_red_blue_damages, axis=0)
-                    avg_blue_red_damages_per_env = np.mean(episode_blue_red_damages, axis=0)
-
-                    with open(os.path.join(self.callback.policy_record.data_dir, 'all_statistics.json'), 'w+') as f:
-                        json.dump({'Number of games': steps,
-                                   'All-Red-Red-Damage': avg_red_red_damages_per_env,
-                                   'All-Red-Blue Damage': avg_red_blue_damages_per_env,
-                                   'All-Blue-Red Damage': avg_blue_red_damages_per_env}, f, indent=4)
-
 
 
     def set_random_seed(self, seed):
@@ -220,6 +233,9 @@ class PPOPolicy():
         self.obs = self.env.reset()
 
         self.ac_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
+        self.enemy_model = deepcopy(self.ac_model)
+        for p in self.enemy_model.parameters():
+            p.requires_grad = False
         self.pi_optimizer = Adam(self.ac_model.pi.parameters(), lr=pi_lr)
         self.vf_optimizer = Adam(self.ac_model.v.parameters(), lr=vf_lr)
 
@@ -230,7 +246,7 @@ class PPOPolicy():
             self.scheduler_policy = LinearLR(self.pi_optimizer, start_factor=0.5, end_factor=1.0, total_iters=5000)
         elif pi_scheduler == 'cyclic':
             self.scheduler_policy = CyclicLR(self.pi_optimizer, base_lr=pi_lr, max_lr=3e-4, mode='triangular2',
-                                        cycle_momentum=False)
+                                             cycle_momentum=False)
 
         self.scheduler_value = None
         if vf_scheduler == 'smart':
@@ -239,7 +255,7 @@ class PPOPolicy():
             self.scheduler_value = LinearLR(self.vf_optimizer, start_factor=0.5, end_factor=1.0, total_iters=5000)
         elif vf_scheduler == 'cyclic':
             self.scheduler_value = CyclicLR(self.vf_optimizer, base_lr=vf_lr, max_lr=1e-3, mode='triangular2',
-                                       cycle_momentum=False)
+                                            cycle_momentum=False)
 
         assert pi_scheduler != 'cons' and self.scheduler_policy or not self.scheduler_policy
         assert vf_scheduler != 'cons' and self.scheduler_value or not self.scheduler_value
@@ -252,6 +268,7 @@ class PPOPolicy():
         if model_path:
             ckpt = torch.load(model_path)
             self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
+            self.enemy_model.load_state_dict(ckpt['enemy_state_dict'], strict=True)
             self.pi_optimizer.load_state_dict(ckpt['pi_optimizer_state_dict'])
             self.vf_optimizer.load_state_dict(ckpt['vf_optimizer_state_dict'])
             if self.scheduler_policy:
@@ -265,6 +282,9 @@ class PPOPolicy():
                 for name, param in self.ac_model.named_parameters():
                     if 'cnn_net' in name:
                         param.requires_grad = False
+
+            for p in self.enemy_model.parameters():
+                p.requires_grad = False
 
         # Only load the representation part
         elif cnn_model_path and freeze_rep:
@@ -287,6 +307,7 @@ class PPOPolicy():
         model_path = os.path.join(save_dir, model_id, str(step) + '.pth')
         ckpt_dict = {'step': step,
                      'model_state_dict': self.ac_model.state_dict(),
+                     'enemy_state_dict': self.enemy_model.state_dict(),
                      'pi_optimizer_state_dict': self.pi_optimizer.state_dict(),
                      'vf_optimizer_state_dict': self.vf_optimizer.state_dict()}
         if self.scheduler_policy:
@@ -294,6 +315,17 @@ class PPOPolicy():
         if self.scheduler_value:
             ckpt_dict['vf_scheduler_state_dict'] = self.scheduler_value.state_dict()
         torch.save(ckpt_dict, model_path)
+
+
+    def load_random_ckpt(self, save_dir, model_id):
+
+        model_ckpt_folder = os.path.join(save_dir, model_id)
+        ckpt_files = os.listdir(model_ckpt_folder)
+        if len(ckpt_files) == 0: return
+        random_idx = np.random.randint(len(ckpt_files))
+        random_ckpt = os.path.join(model_ckpt_folder, ckpt_files[random_idx])
+        self.enemy_model.load_state_dict(torch.load(random_ckpt)['model_state_dict'])
+
 
     # Set up function for computing PPO policy loss
     def compute_loss_pi(self, data, clip_ratio):
@@ -398,8 +430,11 @@ class PPOPolicy():
 
         while step < steps_to_run:
 
-            if (step + 1) % 50000 == 0:
+            if (step + 1) % 25000 == 0:
                 self.save_model(kargs['save_dir'], kargs['model_id'], step)
+
+            if (step + 1) % 10000 == 0:
+                self.load_random_ckpt(kargs['save_dir'], kargs['model_id'])
 
             if use_sde and sde_sample_freq > 0 and step % sde_sample_freq == 0:
                 # Sample a new noise matrix
@@ -410,8 +445,13 @@ class PPOPolicy():
                 obs = torch.as_tensor(state_history, dtype=torch.float32).to(device)
             else:
                 obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
-            a, v, logp, entropy = self.ac_model.step(obs)
+            ally_obs = obs[:, :5, :, :, :]
+            enemy_obs = obs[:, 5:, :, :, :]
+            ally_a, ally_v, ally_logp, ally_entropy = self.ac_model.step(ally_obs)
+            enemy_a, enemy_v, enemy_logp, enemy_entropy = self.enemy_model.step(enemy_obs)
+            a = torch.cat((ally_a, enemy_a), dim=1)
             next_obs, r, terminal, info = env.step(a.cpu().numpy())
+            ally_r = r[:,:5]
             if self.callback:
                 self.callback._on_step()
 
@@ -419,12 +459,13 @@ class PPOPolicy():
             ep_rr_dmg += stats['red_ally_damage']
             ep_rb_dmg += stats['red_enemy_damage']
             ep_br_dmg += stats['blue_enemy_damage']
-            ep_ret += np.sum(r)
-            ep_ret_scheduler += np.sum(r)
+            ep_ret += np.sum(ally_r)
+            ep_ret_scheduler += np.sum(ally_r)
             ep_len += 1
             ep_len_scheduler += 1
 
             r = torch.as_tensor(r, dtype=torch.float32).to(device)
+            ally_r = r[:,:5]
 
             self.obs = next_obs
             self.obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
@@ -434,7 +475,7 @@ class PPOPolicy():
                 state_history = torch.cat((state_history[:,:,1:,:,:,:], self.obs), dim=2)
                 buf.store(state_history, a, r, v, logp, entropy)
             else:
-                buf.store(obs, a, r, v, logp, entropy)
+                buf.store(ally_obs, ally_a, ally_r, ally_v, ally_logp, ally_entropy)
 
             epoch_ended = step > 0 and step % steps_per_epoch == 0
 
@@ -449,10 +490,10 @@ class PPOPolicy():
                     if use_rnn:
                         obs = [torch.as_tensor(obs, dtype=torch.float32).to(device) for obs in state_history]
                         self.obs = torch.cat(obs, dim=2)
-                    _, v, _, _ = self.ac_model.step(torch.as_tensor(self.obs, dtype=torch.float32).to(device))
+                    _, ally_v, _, _ = self.ac_model.step(torch.as_tensor(ally_obs, dtype=torch.float32).to(device))
                 else:
-                    v = torch.zeros((kargs['n_envs'], 5)).to(device)
-                buf.finish_path(v)
+                    ally_v = torch.zeros((kargs['n_envs'], 5)).to(device)
+                buf.finish_path(ally_v)
                 if np.all(terminal):
                     obs, ep_ret, ep_len = env.reset(), 0, 0
                     self.obs = torch.as_tensor(obs, dtype=torch.float32).to(device)

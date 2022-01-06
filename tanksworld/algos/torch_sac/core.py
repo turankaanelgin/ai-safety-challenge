@@ -1,3 +1,5 @@
+import pdb
+
 import numpy as np
 import scipy.signal
 
@@ -11,6 +13,11 @@ def combined_shape(length, shape=None):
     if shape is None:
         return (length,)
     return (length, shape) if np.isscalar(shape) else (length, *shape)
+
+def combined_shape_v3(length, batch_len, seq_len, shape=None):
+    if shape is None:
+        return (length, batch_len, seq_len,)
+    return (length, batch_len, seq_len, shape) if np.isscalar(shape) else (length, batch_len, seq_len, *shape)
 
 def mlp(sizes, activation, output_activation=nn.Identity):
     layers = []
@@ -56,8 +63,22 @@ class SquashedGaussianMLPActor(nn.Module):
             )
 
     def forward(self, obs, deterministic=False, with_logprob=True):
+        if len(obs.shape) == 6:
+            if obs.shape[1] == 1:
+                obs = obs.squeeze(1)
+            else:
+                obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
+                                  obs.shape[3], obs.shape[4], obs.shape[5])
+        elif len(obs.shape) == 4:
+            obs = obs.unsqueeze(0)
+
         if self.cnn_net is not None:
+            batch_size = obs.shape[0]
+            seq_size = obs.shape[1]
+            obs = obs.reshape(batch_size * seq_size, obs.shape[2], obs.shape[3],
+                              obs.shape[4])
             net_out = self.cnn_net(obs)
+            net_out = net_out.reshape(batch_size, seq_size, net_out.shape[1])
         mu = self.mu_net(net_out)
         log_std = self.log_std_net(net_out)
         log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
@@ -72,7 +93,7 @@ class SquashedGaussianMLPActor(nn.Module):
 
         if with_logprob:
             logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1)
-            logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(axis=1)
+            logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(axis=-1)
         else:
             logp_pi = None
 
@@ -94,15 +115,31 @@ class MLPQFunction(nn.Module):
             )
 
     def forward(self, obs, act):
-        obs = self.cnn_net(obs)
-        q = self.q_net(torch.cat([obs, act], dim=-1))
+        if len(obs.shape) == 6:
+            if obs.shape[1] == 1:
+                obs = obs.squeeze(1)
+            else:
+                obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
+                                  obs.shape[3], obs.shape[4], obs.shape[5])
+        elif len(obs.shape) == 4:
+            obs = obs.unsqueeze(0)
+
+        batch_size = obs.shape[0]
+        seq_size = obs.shape[1]
+        obs = obs.reshape(batch_size * seq_size, obs.shape[2], obs.shape[3],
+                          obs.shape[4])
+        net_out = self.cnn_net(obs)
+
+        if len(act.shape) == 3:
+            act = act.reshape(act.shape[0]*act.shape[1], act.shape[2])
+        q = self.q_net(torch.cat([net_out, act], dim=-1))
         return torch.squeeze(q, -1)
 
 
 class MLPActorCritic(nn.Module):
 
     def __init__(self, observation_space, action_space, hidden_sizes=(256,256),
-                 activation=nn.ReLU, cnn_net=None):
+                 activation=nn.ReLU):
         super().__init__()
 
         act_dim = action_space.shape[0]
@@ -116,4 +153,4 @@ class MLPActorCritic(nn.Module):
     def act(self, obs, deterministic=False):
         with torch.no_grad():
             a, _ = self.pi(obs, deterministic, False)
-            return a.numpy()
+            return a.cpu().numpy()

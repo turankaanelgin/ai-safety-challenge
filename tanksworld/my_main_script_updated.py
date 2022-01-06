@@ -10,6 +10,9 @@ import numpy as np
 from make_env import make_env
 from core.policy_record import PolicyRecord
 from algos.torch_ppo.mappo_gpu_new import PPOPolicy as TorchGPUMAPPOPolicyNew
+from algos.torch_ppo.mappo_gpu_multiplayer import PPOPolicy as MAPPOMultiPlayer
+from algos.torch_ppo.mappo_gpu_curiosity import PPOPolicy as MAPPOCuriosity
+from algos.torch_sac.sac_new import SACPolicy
 from algos.torch_ppo.callbacks import EvalCallback
 from algos.torch_ppo.vec_env import DummyVecEnv, SubprocVecEnv
 
@@ -43,6 +46,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed_index', type=int, default=0)
     parser.add_argument('--freeze_rep', action='store_true', default=False)
     parser.add_argument('--use_rnn', action='store_true', default=False)
+    parser.add_argument('--eval_logdir', type=str, default='')
     args = parser.parse_args()
 
     config = vars(args)
@@ -85,7 +89,7 @@ if __name__ == '__main__':
         env_kwargs = []
         for idx in range(10):
             env_kwargs.append({'exe': args.exe,
-                               'static_tanks': [], 'random_tanks': [5, 6, 7, 8, 9], 'disable_shooting': [],
+                               'static_tanks': [], 'random_tanks': [5,6,7,8,9], 'disable_shooting': [],
                                'friendly_fire': True, 'kill_bonus': False, 'death_penalty': False,
                                'take_damage_penalty': True, 'tblogs': stats_dir,
                                'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
@@ -99,7 +103,7 @@ if __name__ == '__main__':
 
     else:
         env_kwargs = {'exe': args.exe,
-                     'static_tanks': [], 'random_tanks': [5, 6, 7, 8, 9], 'disable_shooting': [],
+                     'static_tanks': [], 'random_tanks': [5,6,7,8,9], 'disable_shooting': [],
                      'friendly_fire': True, 'kill_bonus': False, 'death_penalty': False,
                      'take_damage_penalty': True, 'tblogs': stats_dir,
                      'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
@@ -119,7 +123,7 @@ if __name__ == '__main__':
         checkpoint_files.sort(key=lambda f: int(f.split('.')[0]))
         model_path = os.path.join(model_path, checkpoint_files[-1])
     elif args.eval_mode:
-        model_path = os.path.join('./logs/final-baseline-v2', folder_name, 'checkpoints', model_id)
+        model_path = os.path.join('./logs', args.eval_logdir, folder_name, 'checkpoints', model_id)
         model_path = os.path.join(model_path, '{}.pth'.format(args.eval_checkpoint))
 
     policy_kwargs = {
@@ -139,9 +143,28 @@ if __name__ == '__main__':
         'save_dir': os.path.join(policy_record.data_dir, 'checkpoints'),
         'freeze_rep': args.freeze_rep,
         'use_rnn': args.use_rnn,
-        'num_states': 3,
+        'num_states': 5,
     }
 
     callback = EvalCallback(env, policy_record, eval_env=None)
     policy = TorchGPUMAPPOPolicyNew(env, callback, args.eval_mode, **policy_kwargs)
+    #policy = MAPPOMultiPlayer(env, callback, True, **policy_kwargs)
     policy.run(num_steps=args.num_iter)
+
+    '''
+    policy_kwargs = {
+        'steps_per_epoch': config['batch_size'],
+        'seed': args.policy_seed,
+        'model_path': None,
+        'cnn_model_path': './models/frozen-cnn-0.8/4000000.pth',
+        'freeze_rep': args.freeze_rep,
+        'save_dir': os.path.join(policy_record.data_dir, 'checkpoints'),
+        'model_id': model_id,
+        'n_envs': 1,
+    }
+    
+    callback = EvalCallback(env, policy_record, eval_env=None)
+    #policy = SACPolicy(env, callback, args.eval_mode, **policy_kwargs)
+    policy = MAPPOCuriosity(env, callback, args.eval_mode, **policy_kwargs)
+    policy.run(num_steps=args.num_iter)
+    '''
