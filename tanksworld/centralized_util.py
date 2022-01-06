@@ -214,9 +214,10 @@ class CentralizedTraining():
 
         checkpoint_callback = CheckpointCallback(save_freq=self.params['save_freq'], save_path=self.save_path + '/checkpoints', name_prefix='rl_model')
         tensorboard_callback = TensorboardCallback()
+        early_stop_callback = EarlyStopCallback()
         callback_list = []
         #callback_list = [checkpoint_callback]
-        callback_list = [checkpoint_callback, tensorboard_callback]
+        callback_list = [checkpoint_callback, tensorboard_callback, early_stop_callback]
         self.training_model.learn(total_timesteps=self.params['timestep'], callback=callback_list, reset_num_timesteps=not self.params['continue_training'])
 
     def eval(self):
@@ -340,6 +341,43 @@ class CustomDictExtractor(BaseFeaturesExtractor):
         return out_
 
         return self.linear(self.cnn(observations))
+class TensorboardCallback(BaseCallback):
+    def __init__(self, verbose=0):
+        super(TensorboardCallback, self).__init__(verbose)
+        
+    def _on_step(self) -> bool:
+        return True
+
+    #def _on_training_end(self) -> None:
+    def _on_rollout_end(self) -> None:
+        s = {}
+        print('roll out end')
+        if len(self.training_env.stats) > 0:
+            for key in self.training_env.stats[0].keys():
+                s[key] = []
+            for stats in self.training_env.stats:
+                for key in s.keys():
+                    s[key].append(stats[key]['value'])
+            for key in s.keys():
+                self.logger.record('{}/{}'.format(self.training_env.stats[0][key]['group'], key), np.mean(s[key]))
+
+class EarlyStopCallback(BaseCallback):
+    def __init__(self, check_step=1000000, threshold=0.1, verbose=0):
+        super(EarlyStopCallback, self).__init__(verbose)
+        self.check_step = check_step
+        self.threshold = threshold 
+
+    def _on_step(self) -> bool:
+        if self.num_timesteps > self.check_step:
+            if self.num_timesteps % 1000 == 0:
+                reward_list = [e['reward']['value'] for e in self.training_env.stats]
+                if np.mean(reward_list) < self.threshold:
+                    print('Early stop call')
+                    return False
+        return True
+
+
+
 class TensorboardCallback(BaseCallback):
     def __init__(self, verbose=0):
         super(TensorboardCallback, self).__init__(verbose)

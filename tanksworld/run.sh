@@ -69,10 +69,14 @@ debug(){
         #--save-path $7
 }
 if [[ $1 == jobs ]]; then
-    #train 64 20 10000000 0.4 0.00 8 500 dict
-    train_preload 64 20 10000000  0.4 0.00 8 500 dict 21-12-28-20:35:59TWpreloaded--timestep7.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-intype-dict-config-8-5vs1 5300000
-    #train 8 20 100 0.4 0.00 8 500 stacked
-    #train_preload 8 20 700 0.4 0.00 8 500 dict
+#    train 64 20 10000000 0.0 0.00 8 500 dict
+    train_preload 64 20 10000000  0.4 0.00 8 500 dict 22-01-05-11:28:11TW---timestep10.0M-nstep64-nenv20-timeout-500-neg-0.0-lrtype-constant-input-type-dict-config-8-5vs1 700000
+#    train 8 20 100 0.4 0.00 8 500 stacked
+#    train_preload 8 20 700 0.4 0.00 8 500 dict
+elif [[ $1 == job1 ]]; then
+    train 64 20 4000000 0.4 0.00 2 500 dict
+elif [[ $1 == job2 ]]; then
+    train 64 15 4000000 0.4 0.00 1 500 dict
 elif [[ $1 == train ]]; then
     train 64 20 7000000 0.4 0.00 6 500 
 elif [[ $1 == train-preload ]]; then
@@ -95,9 +99,9 @@ elif [[ $1 == debug-gym ]]; then
 elif [[ $1 == record ]]; then
     python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
         --n-env 1 --penalty-weight 0.2 --timestep 4000000 \
-        --save-path results/21-12-28-20:35:59TWpreloaded--timestep7.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-intype-dict-config-8-5vs1 \
-        --config 8 --input-type dict --model-num 5300000\
-        --video-path tmp/tank_test.avi --n-episode 13 --record --input-type dict
+        --save-path results/22-01-05-11:28:11TW---timestep10.0M-nstep64-nenv20-timeout-500-neg-0.0-lrtype-constant-input-type-dict-config-8-5vs1 \
+        --config 8 --input-type dict --model-num 600000 \
+        --video-path tmp/$2.avi --n-episode 3 --record --input-type dict
 elif [[ $1 == record-full-step ]]; then
     SETTING=21-12-17-10:19:42TW-timestep7.0M-nstep64-nenv20-timeout-250-neg-0.4-lrtype-constant-froze,no-shooting-tank-1->9
     EXPMNT=results/$SETTING
@@ -110,7 +114,7 @@ elif [[ $1 == record-full-step ]]; then
             --save-path $DIRNAME/rl_model_${STEP}_steps.zip \
             --video-path $SAVEDIR/$STEP.avi --n-episode 10 --record
     done
-elif [[ $1 == list-ckpts ]]; then
+elif [[ $1 == lckpt ]]; then
     ls results/$2/checkpoints
 elif [[ $1 == record-full ]]; then
     record

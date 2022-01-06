@@ -504,9 +504,6 @@ class TanksWorldEnv(gym.Env):
             for didx, totalidx in enumerate(self.disable_shooting):
                 new_action[totalidx][-1] = -1.0
 
-            #for didx, totalidx in enumerate(self.static_tanks):
-            #    new_action[totalidx][0] = 0.0
-            #    new_action[totalidx][1] = 0.0
             #turn and drive multipliers
             for aidx in range(len(new_action)):
                 if aidx < 5:
