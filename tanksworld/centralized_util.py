@@ -370,13 +370,12 @@ class EarlyStopCallback(BaseCallback):
     def _on_step(self) -> bool:
         if self.num_timesteps > self.check_step:
             if self.num_timesteps % 1000 == 0:
-                reward_list = [e['reward']['value'] for e in self.training_env.stats]
-                if np.mean(reward_list) < self.threshold:
+#                reward_list = [e['reward']['value'] for e in self.training_env.stats]
+#                if np.mean(reward_list) < self.threshold:
+                if np.mean(self.training_env.total_reward_queue) < self.threshold:
                     print('Early stop call')
                     return False
         return True
-
-
 
 class TensorboardCallback(BaseCallback):
     def __init__(self, verbose=0):
@@ -405,6 +404,7 @@ class CustomMonitor(VecEnvWrapper):
         VecEnvWrapper.__init__(self, venv)
         self.stats = deque(maxlen=10)
         self.rewards = np.zeros(n_env)
+        self.total_reward_queue = deque(maxlen=1000)
 
     def reset(self) -> VecEnvObs:
         obs = self.venv.reset()
@@ -429,6 +429,7 @@ class CustomMonitor(VecEnvWrapper):
                     'step_per_episode':{'value':infos[i]['episode_step'],'group': '0_general_stats'},
                     'reward':{'value':self.rewards[i], 'group': '0_general_stats'},
                     })
+                self.total_reward_queue.append(self.rewards[i])
                 self.rewards[i] = 0
              
         return obs, rewards, dones, infos

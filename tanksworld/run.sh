@@ -51,7 +51,7 @@ train_preload(){
         --input-type $8 \
         --lr 0.0001 --lr-type constant --training\
         --save-path results/$9 --model-num ${10} \
-        --load-type cnn #--freeze-cnn --continue-training 
+        --load-type cnn #--debug --freeze-cnn --continue-training 
 }
 
 train(){
@@ -69,14 +69,17 @@ debug(){
         #--save-path $7
 }
 if [[ $1 == jobs ]]; then
-#    train 64 20 10000000 0.0 0.00 8 500 dict
-    train_preload 64 20 10000000  0.4 0.00 8 500 dict 22-01-05-11:28:11TW---timestep10.0M-nstep64-nenv20-timeout-500-neg-0.0-lrtype-constant-input-type-dict-config-8-5vs1 700000
-#    train 8 20 100 0.4 0.00 8 500 stacked
-#    train_preload 8 20 700 0.4 0.00 8 500 dict
+    train_preload 64 20 4000000  0.4 0.00 3 500 dict 22-01-06-14:56:42TW---timestep4.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-input-type-dict-config-2-1vs1-1input-1output 1000000
 elif [[ $1 == job1 ]]; then
     train 64 20 4000000 0.4 0.00 2 500 dict
 elif [[ $1 == job2 ]]; then
-    train 64 15 4000000 0.4 0.00 1 500 dict
+    train 64 20 4000000 0.4 0.00 3 500 dict
+    train 64 20 4000000 0.4 0.00 4 500 dict
+    train 64 20 4000000 0.4 0.00 5 500 dict
+elif [[ $1 == job3 ]]; then
+    train_preload 64 20 4000000  0.4 0.00 3 500 dict 22-01-06-14:56:42TW---timestep4.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-input-type-dict-config-2-1vs1-1input-1output 1000000
+    train_preload 64 20 4000000  0.4 0.00 4 500 dict 22-01-06-14:56:42TW---timestep4.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-input-type-dict-config-2-1vs1-1input-1output 1000000
+    train_preload 64 20 4000000  0.4 0.00 5 500 dict 22-01-06-14:56:42TW---timestep4.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-input-type-dict-config-2-1vs1-1input-1output 1000000
 elif [[ $1 == train ]]; then
     train 64 20 7000000 0.4 0.00 6 500 
 elif [[ $1 == train-preload ]]; then
