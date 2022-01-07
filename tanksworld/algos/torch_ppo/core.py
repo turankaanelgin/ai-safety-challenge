@@ -46,7 +46,7 @@ def mlp(sizes, activation, output_activation=nn.Identity):
         layers += [nn.Linear(sizes[j], sizes[j + 1]), act()]
     return nn.Sequential(*layers)
 
-
+'''
 def cnn(observation_space):
     model = nn.Sequential(
         nn.Conv2d(observation_space.shape[0], 32, 8, 4),
@@ -55,7 +55,18 @@ def cnn(observation_space):
         nn.ReLU(),
         nn.Conv2d(64, 64, 3, 1),
         nn.ReLU(),
-        #nn.AvgPool2d(2),
+        nn.Flatten()
+    )
+    return model
+'''
+
+def cnn(observation_space):
+    model = nn.Sequential(
+        nn.Conv2d(observation_space.shape[0], 32, 8, 4),
+        nn.ReLU(),
+        nn.Conv2d(32, 64, 4, 2),
+        nn.ReLU(),
+        nn.AvgPool2d(4),
         nn.Flatten()
     )
     return model

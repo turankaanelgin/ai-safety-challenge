@@ -125,7 +125,7 @@ if __name__ == '__main__':
     elif args.eval_mode:
         model_path = os.path.join('./logs', args.eval_logdir, folder_name, 'checkpoints', model_id)
         model_path = os.path.join(model_path, '{}.pth'.format(args.eval_checkpoint))
-
+    '''
     policy_kwargs = {
         'steps_per_epoch': config['batch_size'],
         'train_pi_iters': 4,
@@ -150,8 +150,8 @@ if __name__ == '__main__':
     policy = TorchGPUMAPPOPolicyNew(env, callback, args.eval_mode, **policy_kwargs)
     #policy = MAPPOMultiPlayer(env, callback, True, **policy_kwargs)
     policy.run(num_steps=args.num_iter)
-
     '''
+
     policy_kwargs = {
         'steps_per_epoch': config['batch_size'],
         'seed': args.policy_seed,
@@ -164,7 +164,6 @@ if __name__ == '__main__':
     }
     
     callback = EvalCallback(env, policy_record, eval_env=None)
-    #policy = SACPolicy(env, callback, args.eval_mode, **policy_kwargs)
-    policy = MAPPOCuriosity(env, callback, args.eval_mode, **policy_kwargs)
+    policy = SACPolicy(env, callback, args.eval_mode, **policy_kwargs)
+    #policy = MAPPOCuriosity(env, callback, args.eval_mode, **policy_kwargs)
     policy.run(num_steps=args.num_iter)
-    '''
