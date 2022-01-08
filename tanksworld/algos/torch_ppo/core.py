@@ -46,7 +46,7 @@ def mlp(sizes, activation, output_activation=nn.Identity):
         layers += [nn.Linear(sizes[j], sizes[j + 1]), act()]
     return nn.Sequential(*layers)
 
-'''
+
 def cnn(observation_space):
     model = nn.Sequential(
         nn.Conv2d(observation_space.shape[0], 32, 8, 4),
@@ -58,8 +58,8 @@ def cnn(observation_space):
         nn.Flatten()
     )
     return model
-'''
 
+'''
 def cnn(observation_space):
     model = nn.Sequential(
         nn.Conv2d(observation_space.shape[0], 32, 8, 4),
@@ -70,7 +70,7 @@ def cnn(observation_space):
         nn.Flatten()
     )
     return model
-
+'''
 def count_vars(module):
     return sum([np.prod(p.shape) for p in module.parameters()])
 
@@ -381,8 +381,10 @@ class ICM(nn.Module):
         super().__init__()
 
         self.cnn_net = cnn(observation_space)
-        self.forward_fc = nn.Linear(9216+action_space.shape[0], 9216)
-        self.inverse_fc = nn.Linear(9216*2, action_space.shape[0])
+        dummy_img = torch.rand((1,) + observation_space.shape)
+        feature_dim = self.cnn_net(dummy_img).shape[1]
+        self.forward_fc = nn.Linear(feature_dim+action_space.shape[0], feature_dim)
+        self.inverse_fc = nn.Linear(feature_dim*2, action_space.shape[0])
         self.relu = nn.ReLU()
 
     def forward(self, obs, action, next_obs):
@@ -420,8 +422,8 @@ class ICM(nn.Module):
         next_obs = next_obs.reshape(batch_size, seq_size, next_obs.shape[1])
         if len(obs.shape) == 3 and len(action.shape) == 2:
             action = action.unsqueeze(0)
-        forward_pred = self.relu(self.forward_fc(torch.cat((obs, action), dim=2)))
-        inverse_pred = self.relu(self.inverse_fc(torch.cat((obs, next_obs), dim=2)))
+        forward_pred = self.forward_fc(torch.cat((obs, action), dim=2))
+        inverse_pred = self.inverse_fc(torch.cat((obs, next_obs), dim=2))
         return next_obs, forward_pred, inverse_pred
 
 
