@@ -261,7 +261,7 @@ class PPOPolicy():
         assert vf_scheduler != 'cons' and self.scheduler_value or not self.scheduler_value
 
 
-    def load_model(self, model_path, cnn_model_path, freeze_rep, steps_per_epoch):
+    def load_model(self, model_path, cnn_model_path, enemy_model_path, freeze_rep, steps_per_epoch):
 
         self.start_step = 0
         # Load from previous checkpoint
@@ -300,6 +300,12 @@ class PPOPolicy():
             for name, param in self.ac_model.named_parameters():
                 if 'cnn_net' in name:
                     param.requires_grad = False
+
+        if enemy_model_path:
+            ckpt = torch.load(enemy_model_path)
+            self.enemy_model.load_state_dict(ckpt['model_state_dict'], strict=True)
+            for p in self.enemy_model.parameters():
+                p.requires_grad = False
 
 
     def save_model(self, save_dir, model_id, step):
@@ -399,7 +405,7 @@ class PPOPolicy():
         ac_kwargs['use_sde'] = use_sde
         ac_kwargs['use_rnn'] = use_rnn
         self.setup_model(actor_critic, pi_lr, vf_lr, pi_scheduler, vf_scheduler, ac_kwargs)
-        self.load_model(kargs['model_path'], kargs['cnn_model_path'], freeze_rep, steps_per_epoch)
+        self.load_model(kargs['model_path'], kargs['cnn_model_path'], kargs['enemy_model_path'], freeze_rep, steps_per_epoch)
         #if self.callback:
         #    self.callback.init_model(self.ac_model)
         #    self.callback._on_step()
@@ -433,8 +439,8 @@ class PPOPolicy():
             if (step + 1) % 25000 == 0:
                 self.save_model(kargs['save_dir'], kargs['model_id'], step)
 
-            if (step + 1) % 10000 == 0:
-                self.load_random_ckpt(kargs['save_dir'], kargs['model_id'])
+            #if (step + 1) % 10000 == 0:
+            #    self.load_random_ckpt(kargs['save_dir'], kargs['model_id'])
 
             if use_sde and sde_sample_freq > 0 and step % sde_sample_freq == 0:
                 # Sample a new noise matrix

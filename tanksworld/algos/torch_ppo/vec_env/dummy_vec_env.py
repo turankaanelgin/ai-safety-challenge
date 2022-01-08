@@ -22,13 +22,13 @@ class DummyVecEnv(VecEnv):
         that return environments to vectorize
     """
 
-    def __init__(self, env_fns: List[Callable[[], gym.Env]]):
+    def __init__(self, env_fns: List[Callable[[], gym.Env]], num_agents=5):
         self.envs = [fn() for fn in env_fns]
         env = self.envs[0]
         VecEnv.__init__(self, len(env_fns), env.observation_space, env.action_space)
         obs_space = env.observation_space
         self.keys, shapes, dtypes = obs_space_info(obs_space)
-        n_agents = 5
+        n_agents = num_agents
         shapes[None] = [n_agents] + list(shapes[None])
 
         self.buf_obs = OrderedDict([(k, np.zeros((self.num_envs,) + tuple(shapes[k]), dtype=dtypes[k])) for k in self.keys])

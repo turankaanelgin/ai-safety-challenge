@@ -68,10 +68,9 @@ for config in cfg.grid:
             for arg_name in config:
                 arg_value = config[arg_name]
                 if isinstance(arg_value, bool):
-                    # if (arg_value and arg_name != 'freeze_rep') or \
-                    #        (arg_name == 'freeze_rep' and not arg_value):
-                    #    command += ['--{}'.format(arg_name)]
-                    if arg_name == 'freeze_rep' and arg_value:
+                    if arg_name == 'multiplayer' and arg_value:
+                        command += ['--{}'.format(arg_name)]
+                    elif arg_name == 'freeze_rep' and arg_value:
                         command += ['--{}'.format(arg_name)]
                     elif arg_name == 'use_rnn' and arg_value:
                         command += ['--{}'.format(arg_name)]
