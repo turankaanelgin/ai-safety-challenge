@@ -167,8 +167,8 @@ if __name__ == '__main__':
     }
 
     callback = EvalCallback(env, policy_record, eval_env=None)
-    #policy = TorchGPUMAPPOPolicyNew(env, callback, args.eval_mode, **policy_kwargs)
-    policy = MAPPOMultiPlayer(env, callback, args.eval_mode, **policy_kwargs)
+    policy = TorchGPUMAPPOPolicyNew(env, callback, args.eval_mode, **policy_kwargs)
+    #policy = MAPPOMultiPlayer(env, callback, args.eval_mode, **policy_kwargs)
     policy.run(num_steps=args.num_iter)
 
     '''
