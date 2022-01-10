@@ -68,7 +68,7 @@ debug(){
         #--save-path $7
 }
 if [[ $1 == jobs ]]; then
-    debug 64 20 4000000 0.4 0.00 10 500 dict
+    debug 8 5 4000000 0.4 0.00 10 500 dict
 elif [[ $1 == job1 ]]; then
     train 64 20 4000000 0.4 0.00 10 500 dict
 elif [[ $1 == job2 ]]; then

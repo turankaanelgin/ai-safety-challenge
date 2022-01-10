@@ -1,5 +1,6 @@
 from collections import deque
 from  os.path import join as pjoin
+import pickle
 import json
 from typing import Callable
 import numpy as np
@@ -41,6 +42,7 @@ from stable_baselines3.common.vec_env import (
     SubprocVecEnv,
     VecEnv,
 )
+from tensorboardX import SummaryWriter
 #from tanksworld.centralized_util import CustomCNN, TensorboardCallback, CustomMonitor
 from tanksworld.env_centralized.minimap_util import displayable_rgb_map
 
@@ -82,7 +84,8 @@ class CentralizedTraining():
         else:
             env = make_vec_env(create_env_, n_envs=n_envs, vec_env_cls=SubprocVecEnv)
         #env = VecFrameStack(env, 4)
-        env = CustomMonitor(env, n_envs)
+        # wrap env into a Monitor
+        env = CustomMonitor(env, n_envs, self.save_path)
         return env
 
     def create_model(self):
@@ -118,8 +121,8 @@ class CentralizedTraining():
                 lr = self.params['lr']
 
             model = PPO(policy_type, self.training_env, policy_kwargs=policy_kwargs, n_steps=self.params['n_steps'], 
-                    learning_rate=lr, verbose=0, batch_size=64, ent_coef=self.params['ent_coef'], n_epochs=self.params['epochs'])
-#            , tensorboard_log=self.save_path)
+                    learning_rate=lr, verbose=0, batch_size=64, ent_coef=self.params['ent_coef'], n_epochs=self.params['epochs'],
+                    tensorboard_log=self.save_path)
             if self.params['load_type'] == 'cnn':
                 print('load model {}'.format(model_path))
                 assert model_path is not None
@@ -218,7 +221,7 @@ class CentralizedTraining():
 #        callback_list = []
         callback_list = [checkpoint_callback, tensorboard_callback, early_stop_callback]
         self.training_model.learn(total_timesteps=self.params['timestep'], callback=callback_list, 
-                log_interval=None, reset_num_timesteps=not self.params['continue_training'])
+                reset_num_timesteps=not self.params['continue_training'])
 
     def eval(self):
         model_path = pjoin(args.save_path, 'checkpoints', args.checkpoint)
@@ -355,45 +358,49 @@ class EarlyStopCallback(BaseCallback):
                     return False
             if len(self.training_env.prune_enemy_damage) == self.training_env.prune_enemy_damage.maxlen \
                     and np.mean(self.training_env.prune_enemy_damage) / self.n_training_agent < self.enemy_damage_threshold:
-#                print(len(self.training_env.prune_enemy_damage), np.mean(self.training_env.prune_enemy_damage))
                 print('Early stop call, prune by enemy damage')
                 return False
                 
         return True
 
 class TensorboardCallback(BaseCallback):
-    def __init__(self, save_path, verbose=0):
+    def __init__(self, verbose=0):
         super(TensorboardCallback, self).__init__(verbose)
-        from tensorboardX import SummaryWriter
-        self.writer = SummaryWriter(save_path)
-
-
+        self.step = 0
             
+    def _on_training_start(self) -> None:
+        self.stats = self.training_env.stats
+
+    def _on_training_end(self) -> None:
+        self.training_env.save_stats()
+
     def _on_step(self) -> bool:
         return True
 
-    #def _on_training_end(self) -> None:
     def _on_rollout_end(self) -> None:
         s = {}
-        print('roll out end')
-        if len(self.training_env.stats) > 0:
-            for key in self.training_env.stats[0].keys():
-                s[key] = []
-            for stats in self.training_env.stats:
-                for key in s.keys():
-                    s[key].append(stats[key]['value'])
-            for key in s.keys():
-                self.logger.record('{}/{}'.format(self.training_env.stats[0][key]['group'], key), np.mean(s[key]))
+        while len(self.stats) > 0:
+            stats_dict = self.stats.pop()
+            for key in stats_dict:
+                self.logger.record_mean(key, stats_dict[key])
+
+
 
 class CustomMonitor(VecEnvWrapper):
-#class TensorboardCallback():
-    def __init__( self, venv: VecEnv, n_env):
+    def __init__( self, venv: VecEnv, n_env, save_path):
         #super(CustomMonitor, self).__init__(venv)
         VecEnvWrapper.__init__(self, venv)
-        self.stats = deque(maxlen=10)
+        self.save_path = pjoin(save_path, 'stats.pickle') 
+        self.stats = deque(maxlen=1000)
         self.rewards = np.zeros(n_env)
-        self.prune_total_reward_queue = deque(maxlen=1000)
-        self.prune_enemy_damage = deque(maxlen=100)
+        self.prune_total_reward_queue = deque(maxlen=200)
+        self.prune_enemy_damage = deque(maxlen=200)
+        self.saved_stats_list = []
+#        self.logger = logger
+
+    def save_stats(self):
+        with open(self.save_path, 'wb') as handle:
+            pickle.dump(self.saved_stats_list, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     def reset(self) -> VecEnvObs:
         obs = self.venv.reset()
@@ -405,21 +412,28 @@ class CustomMonitor(VecEnvWrapper):
         self.rewards += rewards
         for i, done in enumerate(dones):
             if done:
-                print(infos)
-                import pdb; pdb.set_trace();
-                self.stats.append({
-                    'dmg_inflict_on_enemy': {'value': infos[i]['red_stats']['damage_inflicted_on']['enemy'], 'group': '1_damage'},
-                    'dmg_inflict_on_neutral': {'value':infos[i]['red_stats']['damage_inflicted_on']['neutral'],'group': '1_damage'}, 
-                    'dmg_inflict_on_ally': {'value':infos[i]['red_stats']['damage_inflicted_on']['ally'],'group': '1_damage'},
-                    'dmg_taken_by_ally': {'value':infos[i]['red_stats']['damage_taken_by']['ally'],'group': '1_damage'},
-                    'dmg_taken_by_enemy': {'value':infos[i]['red_stats']['damage_taken_by']['enemy'],'group': '1_damage'},
-                    '#shots':{'value':infos[i]['red_stats']["number_shots_fired"]["ally"],'group': '1_damage'},
-                    'alive_ally':{'value':infos[i]['red_stats']["tanks_alive"]["ally"],'group': '2_lives'},
-                    'alive_enemy':{'value':infos[i]['red_stats']["tanks_alive"]["enemy"],'group': '2_lives'},
-                    'alive_neutral':{'value':infos[i]['red_stats']["tanks_alive"]["neutral"],'group': '2_lives'},
-                    'step_per_episode':{'value':infos[i]['episode_step'],'group': '0_general_stats'},
-                    'reward':{'value':self.rewards[i], 'group': '0_general_stats'},
-                    })
+                self.saved_stats_list.append({
+                    'red_stats':infos[i]['red_stats'], 
+                    'blue_stats': infos[i]['blue_stats'],
+                    'step_per_episode':infos[i]['episode_step'],
+                    'idx': len(self.saved_stats_list)
+                    }) 
+                if len(self.saved_stats_list) % 10000 == 0:
+                    self.save_stats()
+                tsboard_log = {
+                    '1_damge/dmg_inflict_on_enemy':  infos[i]['red_stats']['damage_inflicted_on']['enemy'],
+                    '1_damge/dmg_inflict_on_neutral': infos[i]['red_stats']['damage_inflicted_on']['neutral'], 
+                    '1_damge/dmg_inflict_on_ally': infos[i]['red_stats']['damage_inflicted_on']['ally'],
+                    '1_damge/dmg_taken_by_ally': infos[i]['red_stats']['damage_taken_by']['ally'],
+                    '1_damge/dmg_taken_by_enemy': infos[i]['red_stats']['damage_taken_by']['enemy'],
+                    '1_damge/#shots':infos[i]['red_stats']["number_shots_fired"]["ally"],
+                    '2_lives/alive_ally':infos[i]['red_stats']["tanks_alive"]["ally"],
+                    '2_lives/alive_enemy':infos[i]['red_stats']["tanks_alive"]["enemy"],
+                    '2_lives/alive_neutral':infos[i]['red_stats']["tanks_alive"]["neutral"],
+                    '0_general_stats/step_per_episode':infos[i]['episode_step']
+                }
+                self.stats.append(tsboard_log)
+                
                 self.prune_total_reward_queue.append(self.rewards[i])
                 self.prune_enemy_damage.append(infos[i]['red_stats']['damage_inflicted_on']['enemy'])
                 self.rewards[i] = 0
