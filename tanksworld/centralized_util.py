@@ -118,8 +118,8 @@ class CentralizedTraining():
                 lr = self.params['lr']
 
             model = PPO(policy_type, self.training_env, policy_kwargs=policy_kwargs, n_steps=self.params['n_steps'], 
-                    learning_rate=lr, verbose=0, batch_size=64, ent_coef=self.params['ent_coef'], n_epochs=self.params['epochs'],
-                    tensorboard_log=self.save_path)
+                    learning_rate=lr, verbose=0, batch_size=64, ent_coef=self.params['ent_coef'], n_epochs=self.params['epochs'])
+#            , tensorboard_log=self.save_path)
             if self.params['load_type'] == 'cnn':
                 print('load model {}'.format(model_path))
                 assert model_path is not None
@@ -214,11 +214,11 @@ class CentralizedTraining():
 
         checkpoint_callback = CheckpointCallback(save_freq=self.params['save_freq'], save_path=self.save_path + '/checkpoints', name_prefix='rl_model')
         tensorboard_callback = TensorboardCallback()
-        early_stop_callback = EarlyStopCallback()
-        callback_list = []
-        #callback_list = [checkpoint_callback]
+        early_stop_callback = EarlyStopCallback(n_training_agent=len(self.params['env_params']['training_tanks']))
+#        callback_list = []
         callback_list = [checkpoint_callback, tensorboard_callback, early_stop_callback]
-        self.training_model.learn(total_timesteps=self.params['timestep'], callback=callback_list, reset_num_timesteps=not self.params['continue_training'])
+        self.training_model.learn(total_timesteps=self.params['timestep'], callback=callback_list, 
+                log_interval=None, reset_num_timesteps=not self.params['continue_training'])
 
     def eval(self):
         model_path = pjoin(args.save_path, 'checkpoints', args.checkpoint)
@@ -292,6 +292,7 @@ class CustomCNN(BaseFeaturesExtractor):
                 th.as_tensor(observation_space.sample()[None]).float()
             ).shape[1]
 
+
         self.linear = nn.Sequential(nn.Linear(n_flatten, features_dim), nn.ReLU())
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
@@ -341,46 +342,33 @@ class CustomDictExtractor(BaseFeaturesExtractor):
         return out_
 
         return self.linear(self.cnn(observations))
-class TensorboardCallback(BaseCallback):
-    def __init__(self, verbose=0):
-        super(TensorboardCallback, self).__init__(verbose)
-        
-    def _on_step(self) -> bool:
-        return True
-
-    #def _on_training_end(self) -> None:
-    def _on_rollout_end(self) -> None:
-        s = {}
-        print('roll out end')
-        if len(self.training_env.stats) > 0:
-            for key in self.training_env.stats[0].keys():
-                s[key] = []
-            for stats in self.training_env.stats:
-                for key in s.keys():
-                    s[key].append(stats[key]['value'])
-            for key in s.keys():
-                self.logger.record('{}/{}'.format(self.training_env.stats[0][key]['group'], key), np.mean(s[key]))
 
 class EarlyStopCallback(BaseCallback):
-    def __init__(self, check_step=1000000, threshold=0.1, verbose=0):
+    def __init__(self, check_step=1000000, reward_threshold=0.1, enemy_damage_threshold=4, n_training_agent=1, verbose=0):
         super(EarlyStopCallback, self).__init__(verbose)
         self.check_step = check_step
-        self.threshold = threshold 
+        self.n_training_agent = n_training_agent 
 
     def _on_step(self) -> bool:
-        if self.num_timesteps > self.check_step:
-            if self.num_timesteps % 1000 == 0:
-#                reward_list = [e['reward']['value'] for e in self.training_env.stats]
-#                if np.mean(reward_list) < self.threshold:
-                if np.mean(self.training_env.total_reward_queue) < self.threshold:
-                    print('Early stop call')
+        if self.num_timesteps % 1000 == 0:
+            if self.num_timesteps > self.check_step:
                     return False
+            if len(self.training_env.prune_enemy_damage) == self.training_env.prune_enemy_damage.maxlen \
+                    and np.mean(self.training_env.prune_enemy_damage) / self.n_training_agent < self.enemy_damage_threshold:
+#                print(len(self.training_env.prune_enemy_damage), np.mean(self.training_env.prune_enemy_damage))
+                print('Early stop call, prune by enemy damage')
+                return False
+                
         return True
 
 class TensorboardCallback(BaseCallback):
-    def __init__(self, verbose=0):
+    def __init__(self, save_path, verbose=0):
         super(TensorboardCallback, self).__init__(verbose)
-        
+        from tensorboardX import SummaryWriter
+        self.writer = SummaryWriter(save_path)
+
+
+            
     def _on_step(self) -> bool:
         return True
 
@@ -404,7 +392,8 @@ class CustomMonitor(VecEnvWrapper):
         VecEnvWrapper.__init__(self, venv)
         self.stats = deque(maxlen=10)
         self.rewards = np.zeros(n_env)
-        self.total_reward_queue = deque(maxlen=1000)
+        self.prune_total_reward_queue = deque(maxlen=1000)
+        self.prune_enemy_damage = deque(maxlen=100)
 
     def reset(self) -> VecEnvObs:
         obs = self.venv.reset()
@@ -416,6 +405,8 @@ class CustomMonitor(VecEnvWrapper):
         self.rewards += rewards
         for i, done in enumerate(dones):
             if done:
+                print(infos)
+                import pdb; pdb.set_trace();
                 self.stats.append({
                     'dmg_inflict_on_enemy': {'value': infos[i]['red_stats']['damage_inflicted_on']['enemy'], 'group': '1_damage'},
                     'dmg_inflict_on_neutral': {'value':infos[i]['red_stats']['damage_inflicted_on']['neutral'],'group': '1_damage'}, 
@@ -429,7 +420,8 @@ class CustomMonitor(VecEnvWrapper):
                     'step_per_episode':{'value':infos[i]['episode_step'],'group': '0_general_stats'},
                     'reward':{'value':self.rewards[i], 'group': '0_general_stats'},
                     })
-                self.total_reward_queue.append(self.rewards[i])
+                self.prune_total_reward_queue.append(self.rewards[i])
+                self.prune_enemy_damage.append(infos[i]['red_stats']['damage_inflicted_on']['enemy'])
                 self.rewards[i] = 0
              
         return obs, rewards, dones, infos

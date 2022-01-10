@@ -430,8 +430,8 @@ class TanksWorldEnv(gym.Env):
 
             team_hit = state[6]
 
-            if team_hit != 0:
-                print(i, team_hit)
+#            if team_hit != 0:
+#                print(i, team_hit)
 
             shell_x = state[7]
             new_shot = False

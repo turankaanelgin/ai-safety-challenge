@@ -66,6 +66,30 @@ if __name__ == '__main__':
                 'enable_input_tanks': [0, 1, 2, 3, 4], 'enable_output_tanks': [0, 1, 2, 3, 4], 'input_type': params['input_type'], 
                 'penalty_weight': params['penalty_weight'], 'timeout': params['env_timeout']}
         params['config_desc'] = '5vs5'
+    elif params['config'] == 10:
+        params['env_params'] = {"exe": args.exe, 'friendly_fire':True, 'take_damage_penalty':True, 'kill_bonus':True, 'death_penalty':False,
+                "training_tanks": [0],"static_tanks":[1,2,3,4,6,7,8,9], "random_tanks":[5], 
+                'enable_input_tanks': [0,1,2,3,4], 'enable_output_tanks': [0], 'input_type': params['input_type'], 
+                "disable_shooting":[1,2,3,4,6,7,8,9], 'penalty_weight': params['penalty_weight'], 'timeout': params['env_timeout']}
+        params['config_desc'] = '1vs1-5input-1output'
+    elif params['config'] == 11:
+        params['env_params'] = {"exe": args.exe, 'friendly_fire':True, 'take_damage_penalty':True, 'kill_bonus':True, 'death_penalty':False,
+                "training_tanks": [0],"static_tanks":[2,3,4,6,7,8,9], "random_tanks":[5], 
+                'enable_input_tanks': [0,1], 'enable_output_tanks': [0], 'input_type': params['input_type'], 
+                "disable_shooting":[2,3,4,6,7,8,9], 'penalty_weight': params['penalty_weight'], 'timeout': params['env_timeout']}
+        params['config_desc'] = '1vs1-2input-1output'
+    elif params['config'] == 12:
+        params['env_params'] = {"exe": args.exe, 'friendly_fire':True, 'take_damage_penalty':True, 'kill_bonus':True, 'death_penalty':False,
+                "training_tanks": [0],"static_tanks":[3,4,6,7,8,9], "random_tanks":[5], 
+                'enable_input_tanks': [0,1,2], 'enable_output_tanks': [0], 'input_type': params['input_type'], 
+                "disable_shooting":[3,4,6,7,8,9], 'penalty_weight': params['penalty_weight'], 'timeout': params['env_timeout']}
+        params['config_desc'] = '1vs1-3input-1output'
+    elif params['config'] == 13:
+        params['env_params'] = {"exe": args.exe, 'friendly_fire':True, 'take_damage_penalty':True, 'kill_bonus':True, 'death_penalty':False,
+                "training_tanks": [0],"static_tanks":[4,6,7,8,9], "random_tanks":[5], 
+                'enable_input_tanks': [0,1,2,3], 'enable_output_tanks': [0], 'input_type': params['input_type'], 
+                "disable_shooting":[4,6,7,8,9], 'penalty_weight': params['penalty_weight'], 'timeout': params['env_timeout']}
+        params['config_desc'] = '1vs1-4input-1output'
     centralized_training = CentralizedTraining(**params)
     if args.record:
         centralized_training.record(args.video_path)

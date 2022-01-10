@@ -10,7 +10,7 @@ bk_checkpoint(){
     done
     #echo ${ARR]}|sort -r
     IFS=$'\n'
-    cp -r results/$1 results_backup
+#    cp -r results/$1 results_backup
     LAST_CHECKPOINT=$(echo "${ARR[*]}"|sort -nr|head -n1)
 
     for NUM in ${ARR[@]}
@@ -51,7 +51,7 @@ train_preload(){
         --input-type $8 \
         --lr 0.0001 --lr-type constant --training\
         --save-path results/$9 --model-num ${10} \
-        --load-type cnn #--debug --freeze-cnn --continue-training 
+        --load-type cnn #--freeze-cnn --continue-training 
 }
 
 train(){
@@ -64,22 +64,19 @@ debug(){
     python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
         --save-freq 5000 --n-steps $1 --n-envs $2 --timestep $3 --penalty-weight $4 --ent-coef $5 --config $6 --env-timeout $7\
         --input-type $8 \
-        --lr 0.0001 --lr-type constant --training 
-        --debug 
+        --lr 0.0001 --lr-type constant --training --debug --dummy-proc
         #--save-path $7
 }
 if [[ $1 == jobs ]]; then
-    train_preload 64 20 4000000  0.4 0.00 3 500 dict 22-01-06-14:56:42TW---timestep4.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-input-type-dict-config-2-1vs1-1input-1output 1000000
+    debug 64 20 4000000 0.4 0.00 10 500 dict
 elif [[ $1 == job1 ]]; then
-    train 64 20 4000000 0.4 0.00 2 500 dict
+    train 64 20 4000000 0.4 0.00 10 500 dict
 elif [[ $1 == job2 ]]; then
-    train 64 20 4000000 0.4 0.00 3 500 dict
-    train 64 20 4000000 0.4 0.00 4 500 dict
-    train 64 20 4000000 0.4 0.00 5 500 dict
+    train_preload 64 20 4000000  0.4 0.00 10 500 dict 22-01-06-14:56:42TW---timestep4.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-input-type-dict-config-2-1vs1-1input-1output 1000000
 elif [[ $1 == job3 ]]; then
-    train_preload 64 20 4000000  0.4 0.00 3 500 dict 22-01-06-14:56:42TW---timestep4.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-input-type-dict-config-2-1vs1-1input-1output 1000000
-    train_preload 64 20 4000000  0.4 0.00 4 500 dict 22-01-06-14:56:42TW---timestep4.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-input-type-dict-config-2-1vs1-1input-1output 1000000
-    train_preload 64 20 4000000  0.4 0.00 5 500 dict 22-01-06-14:56:42TW---timestep4.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-input-type-dict-config-2-1vs1-1input-1output 1000000
+    train_preload 64 20 4000000  0.4 0.00 11 500 dict 22-01-06-14:56:42TW---timestep4.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-input-type-dict-config-2-1vs1-1input-1output 1000000
+    train_preload 64 20 4000000  0.4 0.00 12 500 dict 22-01-06-14:56:42TW---timestep4.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-input-type-dict-config-2-1vs1-1input-1output 1000000
+    train_preload 64 20 4000000  0.4 0.00 13 500 dict 22-01-06-14:56:42TW---timestep4.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-input-type-dict-config-2-1vs1-1input-1output 1000000
 elif [[ $1 == train ]]; then
     train 64 20 7000000 0.4 0.00 6 500 
 elif [[ $1 == train-preload ]]; then
