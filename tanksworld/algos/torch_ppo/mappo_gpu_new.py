@@ -6,6 +6,7 @@ from torch import nn
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau, ExponentialLR, CyclicLR
 from torch.optim.lr_scheduler import _LRScheduler
+from torch.utils.tensorboard import SummaryWriter
 
 from . import core
 import os
@@ -330,7 +331,12 @@ class PPOPolicy():
         return ((self.ac_model.v(obs).squeeze(0) - ret) ** 2).mean()
 
 
-    def update(self, buf, train_pi_iters, train_v_iters, target_kl, clip_ratio):
+    def compute_loss_entropy(self, data):
+        logp = data['logp']
+        return -torch.mean(-logp)
+
+
+    def update(self, buf, train_pi_iters, train_v_iters, target_kl, clip_ratio, entropy_coef):
 
         data = buf.get()
 
@@ -342,7 +348,20 @@ class PPOPolicy():
             if kl > 1.5 * target_kl:
                 # logger.log('Early stopping at step %d due to reaching max kl.'%i)
                 break
-            loss_pi.backward()
+            if entropy_coef > 0.0:
+                loss_entropy = self.compute_loss_entropy(data)
+                loss = loss_pi + entropy_coef * loss_entropy
+            else:
+                loss = loss_pi
+            loss.backward()
+            self.loss_p_index += 1
+            self.writer.add_scalar('loss/Policy_Loss', loss_pi, self.loss_p_index)
+            if entropy_coef > 0.0:
+                self.writer.add_scalar('loss/Entropy_Loss', loss_entropy, self.loss_p_index)
+            std = torch.exp(self.ac_model.pi.log_std)
+            self.writer.add_scalar('std_dev/move', std[0].item(), self.loss_p_index)
+            self.writer.add_scalar('std_dev/turn', std[1].item(), self.loss_p_index)
+            self.writer.add_scalar('std_dev/shoot', std[2].item(), self.loss_p_index)
             if self.use_rnn:
                 torch.nn.utils.clip_grad_norm(self.ac_model.parameters(), 0.5)
             self.pi_optimizer.step()
@@ -352,6 +371,8 @@ class PPOPolicy():
             self.vf_optimizer.zero_grad()
             loss_v = self.compute_loss_v(data)
             loss_v.backward()
+            self.loss_v_index += 1
+            self.writer.add_scalar('loss/Value_Loss', loss_v, self.loss_v_index)
             self.vf_optimizer.step()
 
 
@@ -360,17 +381,18 @@ class PPOPolicy():
               vf_lr=1e-3, ent_coef=0.0, train_pi_iters=80, train_v_iters=80, lam=0.97,
               target_kl=0.01, tsboard_freq=-1, curriculum_start=-1, curriculum_stop=-1, use_value_norm=False,
               use_huber_loss=False, use_rnn=False, use_popart=False, use_sde=False, sde_sample_freq=1,
-              pi_scheduler='cons', vf_scheduler='cons', freeze_rep=True, **kargs):
+              pi_scheduler='cons', vf_scheduler='cons', freeze_rep=True, entropy_coef=0.0,
+              tb_writer=None, **kargs):
 
         env = self.env
+        self.writer = tb_writer
+        self.loss_p_index, self.loss_v_index = 0, 0
         self.set_random_seed(seed)
         ac_kwargs['use_sde'] = use_sde
         ac_kwargs['use_rnn'] = use_rnn
         self.setup_model(actor_critic, pi_lr, vf_lr, pi_scheduler, vf_scheduler, ac_kwargs)
         self.load_model(kargs['model_path'], kargs['cnn_model_path'], freeze_rep, steps_per_epoch)
-        #if self.callback:
-        #    self.callback.init_model(self.ac_model)
-        #    self.callback._on_step()
+
         num_states = kargs['num_states'] if 'num_states' in kargs else None
         if use_rnn:
             assert num_states is not None
@@ -400,6 +422,14 @@ class PPOPolicy():
 
             if (step + 1) % 50000 == 0:
                 self.save_model(kargs['save_dir'], kargs['model_id'], step)
+
+            if step % 100 == 0:
+                for name, param in self.ac_model.named_parameters():
+                    if 'cnn_net' in name:
+                        if (step // 100) % 2 == 0:
+                            param.requires_grad = True
+                        else:
+                            param.requires_grad = False
 
             if use_sde and sde_sample_freq > 0 and step % sde_sample_freq == 0:
                 # Sample a new noise matrix
@@ -464,7 +494,7 @@ class PPOPolicy():
                 ep_ret, ep_len, ep_rr_dmg, ep_rb_dmg, ep_br_dmg = 0, 0, 0, 0, 0
 
             if epoch_ended:
-                self.update(buf, train_pi_iters, train_v_iters, target_kl, clip_ratio)
+                self.update(buf, train_pi_iters, train_v_iters, target_kl, clip_ratio, entropy_coef)
 
                 if pi_scheduler == 'smart':
                     self.scheduler_policy.step(ep_ret_scheduler / ep_len_scheduler)

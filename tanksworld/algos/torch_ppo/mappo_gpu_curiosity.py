@@ -358,7 +358,7 @@ class PPOPolicy():
             if kl > 1.5 * target_kl:
                 # logger.log('Early stopping at step %d due to reaching max kl.'%i)
                 break
-            if step < 25000:
+            if step < 100000:
                 loss_icm = self.compute_loss_icm(data)
                 loss_icm.backward()
             loss_pi.backward()
@@ -431,7 +431,7 @@ class PPOPolicy():
                 obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
             a, v, logp, entropy = self.ac_model.step(obs)
             next_obs, r, terminal, info = env.step(a.cpu().numpy())
-            if step < 25000:
+            if step < 100000:
                 next_obs_input = torch.as_tensor(next_obs, dtype=torch.float32).to(device)
                 next_obs_real, next_obs_pred, _ = self.icm(obs, a, next_obs_input)
                 del next_obs_input
