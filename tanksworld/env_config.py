@@ -1,7 +1,8 @@
-def update_config(args, params):
+def update_config(params):
+    exe_path = params['exe']
     if params["config"] == 1:
         params["env_params"] = {
-            "exe": args.exe,
+            "exe": exe_path,
             "friendly_fire": True,
             "take_damage_penalty": True,
             "kill_bonus": True,
@@ -19,7 +20,7 @@ def update_config(args, params):
         params["config_desc"] = "1vs1-freeze-all-5input-5out"
     elif params["config"] == 2:
         params["env_params"] = {
-            "exe": args.exe,
+            "exe": exe_path,
             "friendly_fire": True,
             "take_damage_penalty": True,
             "kill_bonus": True,
@@ -37,7 +38,7 @@ def update_config(args, params):
         params["config_desc"] = "1vs1-1input-1output"
     elif params["config"] == 3:
         params["env_params"] = {
-            "exe": args.exe,
+            "exe": exe_path,
             "friendly_fire": True,
             "take_damage_penalty": True,
             "kill_bonus": True,
@@ -55,7 +56,7 @@ def update_config(args, params):
         params["config_desc"] = "2vs1-2input-2output"
     elif params["config"] == 4:
         params["env_params"] = {
-            "exe": args.exe,
+            "exe": exe_path,
             "friendly_fire": True,
             "take_damage_penalty": True,
             "kill_bonus": True,
@@ -73,7 +74,7 @@ def update_config(args, params):
         params["config_desc"] = "3vs1-3input-3output"
     elif params["config"] == 5:
         params["env_params"] = {
-            "exe": args.exe,
+            "exe": exe_path,
             "friendly_fire": True,
             "take_damage_penalty": True,
             "kill_bonus": True,
@@ -91,7 +92,7 @@ def update_config(args, params):
         params["config_desc"] = "4vs1-4input-4output"
     elif params["config"] == 6:
         params["env_params"] = {
-            "exe": args.exe,
+            "exe": exe_path,
             "friendly_fire": True,
             "take_damage_penalty": True,
             "kill_bonus": False,
@@ -109,7 +110,7 @@ def update_config(args, params):
         params["config_desc"] = "1vs1"
     elif params["config"] == 7:
         params["env_params"] = {
-            "exe": args.exe,
+            "exe": exe_path,
             "friendly_fire": True,
             "take_damage_penalty": True,
             "kill_bonus": False,
@@ -127,7 +128,7 @@ def update_config(args, params):
         params["config_desc"] = "2vs1"
     elif params["config"] == 8:
         params["env_params"] = {
-            "exe": args.exe,
+            "exe": exe_path,
             "friendly_fire": True,
             "take_damage_penalty": True,
             "kill_bonus": True,
@@ -145,7 +146,7 @@ def update_config(args, params):
         params["config_desc"] = "5vs1"
     elif params["config"] == 9:
         params["env_params"] = {
-            "exe": args.exe,
+            "exe": exe_path,
             "friendly_fire": True,
             "take_damage_penalty": True,
             "kill_bonus": False,
@@ -163,7 +164,7 @@ def update_config(args, params):
         params["config_desc"] = "5vs5"
     elif params["config"] == 10:
         params["env_params"] = {
-            "exe": args.exe,
+            "exe": exe_path,
             "friendly_fire": True,
             "take_damage_penalty": True,
             "kill_bonus": True,
@@ -181,7 +182,7 @@ def update_config(args, params):
         params["config_desc"] = "1vs1-5input-1output"
     elif params["config"] == 11:
         params["env_params"] = {
-            "exe": args.exe,
+            "exe": exe_path,
             "friendly_fire": True,
             "take_damage_penalty": True,
             "kill_bonus": True,
@@ -199,7 +200,7 @@ def update_config(args, params):
         params["config_desc"] = "1vs1-2input-1output"
     elif params["config"] == 12:
         params["env_params"] = {
-            "exe": args.exe,
+            "exe": exe_path,
             "friendly_fire": True,
             "take_damage_penalty": True,
             "kill_bonus": True,
@@ -217,7 +218,7 @@ def update_config(args, params):
         params["config_desc"] = "1vs1-3input-1output"
     elif params["config"] == 13:
         params["env_params"] = {
-            "exe": args.exe,
+            "exe": exe_path,
             "friendly_fire": True,
             "take_damage_penalty": True,
             "kill_bonus": True,
