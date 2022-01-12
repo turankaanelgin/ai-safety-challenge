@@ -54,7 +54,6 @@ from stable_baselines3.common.vec_env import (
 )
 from tensorboardX import SummaryWriter
 
-# from tanksworld.centralized_util import CustomCNN, TensorboardCallback, CustomMonitor
 from tanksworld.env_centralized.minimap_util import displayable_rgb_map
 
 
@@ -113,7 +112,7 @@ class CentralizedTraining:
             env = make_vec_env(create_env_, n_envs=n_envs, vec_env_cls=SubprocVecEnv)
         # env = VecFrameStack(env, 4)
         # wrap env into a Monitor
-        env = CustomMonitor(env, n_envs, self.save_path)
+        env = VecEnvTankworldMonitor(env, n_envs, self.save_path)
         return env
 
     def create_model(self):
@@ -267,7 +266,7 @@ class CentralizedTraining:
             save_path=self.save_path + "/checkpoints",
             name_prefix="rl_model",
         )
-        tensorboard_callback = TensorboardCallback()
+        tensorboard_callback = TankworldLoggerCallback()
         early_stop_callback = EarlyStopCallback(
             n_training_agent=len(self.params["env_params"]["training_tanks"])
         )
@@ -436,9 +435,9 @@ class EarlyStopCallback(BaseCallback):
         return True
 
 
-class TensorboardCallback(BaseCallback):
+class TankworldLoggerCallback(BaseCallback):
     def __init__(self, verbose=0):
-        super(TensorboardCallback, self).__init__(verbose)
+        super(TankworldLoggerCallback, self).__init__(verbose)
         self.step = 0
 
     def _on_training_start(self) -> None:
@@ -448,6 +447,8 @@ class TensorboardCallback(BaseCallback):
         self.training_env.save_stats()
 
     def _on_step(self) -> bool:
+        if self.n_calls % 10000 == 0:
+            self.training_env.save_stats()
         return True
 
     def _on_rollout_end(self) -> None:
@@ -458,9 +459,8 @@ class TensorboardCallback(BaseCallback):
                 self.logger.record_mean(key, stats_dict[key])
 
 
-class CustomMonitor(VecEnvWrapper):
+class VecEnvTankworldMonitor(VecEnvWrapper):
     def __init__(self, venv: VecEnv, n_env, save_path):
-        # super(CustomMonitor, self).__init__(venv)
         VecEnvWrapper.__init__(self, venv)
         self.save_path = pjoin(save_path, "stats.pickle")
         self.stats = deque(maxlen=1000)
@@ -486,29 +486,43 @@ class CustomMonitor(VecEnvWrapper):
             if done:
                 red_stats = infos[i]["red_stats"]
                 blue_stats = infos[i]["blue_stats"]
+                individual_stats = infos[i]["individual_stats"]
                 self.saved_stats_list.append(
                     {
                         "red_stats": red_stats,
                         "blue_stats": blue_stats,
                         "step_per_episode": infos[i]["episode_step"],
+                        "individual_stats": individual_stats,
                         "idx": len(self.saved_stats_list),
                     }
                 )
-                if len(self.saved_stats_list) % 10000 == 0:
-                    self.save_stats()
                 red_dmg_inflicted = red_stats["damage_inflicted_on"]
                 tsboard_log = {
-                    "1_damge/dmg_inflict_on_enemy": red_dmg_inflicted["enemy"],
-                    "1_damge/dmg_inflict_on_neutral": red_dmg_inflicted["neutral"],
-                    "1_damge/dmg_inflict_on_ally": red_dmg_inflicted["ally"],
-                    "1_damge/dmg_taken_by_ally": red_stats["damage_taken_by"]["ally"],
-                    "1_damge/dmg_taken_by_enemy": red_stats["damage_taken_by"]["enemy"],
-                    "1_damge/#shots": red_stats["number_shots_fired"]["ally"],
+                    "1_damage/dmg_inflict_on_enemy": red_dmg_inflicted["enemy"],
+                    "1_damage/dmg_inflict_on_neutral": red_dmg_inflicted["neutral"],
+                    "1_damage/dmg_inflict_on_ally": red_dmg_inflicted["ally"],
+                    "1_damage/dmg_taken_by_ally": red_stats["damage_taken_by"]["ally"],
+                    "1_damage/dmg_taken_by_enemy": red_stats["damage_taken_by"][
+                        "enemy"
+                    ],
+                    "1_damage/#shots": red_stats["number_shots_fired"]["ally"],
                     "2_lives/alive_ally": red_stats["tanks_alive"]["ally"],
                     "2_lives/alive_enemy": red_stats["tanks_alive"]["enemy"],
                     "2_lives/alive_neutral": red_stats["tanks_alive"]["neutral"],
                     "0_general_stats/step_per_episode": infos[i]["episode_step"],
                 }
+                # Individual stats
+                for idx, tank_stats in enumerate(individual_stats[:5]):
+                    tank_str = "3_tank_stats/tank_{}".format(idx)
+                    for key, value in tank_stats.items():
+                        tank_field = "{}/{}".format(tank_str, key)
+                        if type(value) is dict:
+                            for key1, value1 in value.items():
+                                tank_field1 = "{}/{}".format(tank_field, key1)
+                                tsboard_log[tank_field1] = value1
+                        else:
+                            tsboard_log[tank_field] = value
+
                 self.stats.append(tsboard_log)
 
                 self.prune_total_reward_queue.append(self.rewards[i])

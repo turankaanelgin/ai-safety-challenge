@@ -64,11 +64,11 @@ debug(){
     python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
         --save-freq 5000 --n-steps $1 --n-envs $2 --timestep $3 --penalty-weight $4 --ent-coef $5 --config $6 --env-timeout $7\
         --input-type $8 \
-        --lr 0.0001 --lr-type constant --training --debug --dummy-proc
+        --lr 0.0001 --lr-type constant --training --debug #--dummy-proc
         #--save-path $7
 }
 if [[ $1 == jobs ]]; then
-    debug 8 5 4000000 0.4 0.00 10 500 dict
+    debug 8 10 4000000 0.4 0.00 10 500 dict
 elif [[ $1 == job1 ]]; then
     train 64 20 4000000 0.4 0.00 10 500 dict
 elif [[ $1 == job2 ]]; then

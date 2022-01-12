@@ -22,6 +22,20 @@ if not (sys.version_info >= (3, 6, 0) and sys.version_info < (3, 7, 0)):
     raise RuntimeError("Python 3.6 required. Current version is " + sys.version)
 
 
+def individual_stats():
+    return [
+        {
+            "number_shots_fired": 0,
+            "number_shots_connected": {"ally": 0, "enemy": 0, "neutral": 0},
+            "target_type": {"ally": 0, "enemy": 0, "neutral": 0},
+            # TODO:
+            "kills_executed_on": {"ally": 0, "enemy": 0, "neutral": 0},
+            "damage_inflicted_on": {"ally": 0.0, "enemy": 0.0, "neutral": 0.0},
+            #            "damage_taken_by": {"ally": 0.0, "enemy": 0.0, "neutral": 0.0},
+        }
+    ] * 10
+
+
 def team_stats_dict(env):
 
     return {
@@ -278,6 +292,7 @@ class TanksWorldEnv(gym.Env):
 
         self.red_team_stats = team_stats_dict(self)
         self.blue_team_stats = team_stats_dict(self)
+        self.individual_stats = individual_stats()
 
         state = self.get_state()
         state = self.process_state(state)
@@ -360,6 +375,9 @@ class TanksWorldEnv(gym.Env):
         self.blue_team_stats["team_health"]["ally"] = blue_health
         self.blue_team_stats["team_health"]["enemy"] = red_health
         self.blue_team_stats["team_health"]["neutral"] = neutral_health
+
+    def update_individual_tank(sefl, i, state, new_shot):
+        damage_dealt = state[5]
 
     # team stats that need to be updated on a tankwise basis
     def update_tank_stats(self, i, state, dhealth, ally_stats, enemy_stats, new_shot):
@@ -498,6 +516,17 @@ class TanksWorldEnv(gym.Env):
                     ] += delta_rew
                     ally_stats["reward_components_cumulative"]["all"] += delta_rew
 
+        # Update for individual tank
+        current_tank = self.individual_stats[i]
+        if new_shot:
+            current_tank["number_shots_fired"] += 1
+        if damage_dealt > 0:
+            current_tank["damage_inflicted_on"][team_hit_type] += damage_dealt
+            current_tank["number_shots_connected"][team_hit_type] += 1
+            current_tank["target_type"][team_hit_type] += 1
+            if resulted_in_kill:
+                current_tank["kills_executed_on"][team_hit_type] += 1
+
     def objectives(self):
         health = [
             self._env_info.vector_observations[0][i * TanksWorldEnv._tank_data_len + 3]
@@ -635,6 +664,7 @@ class TanksWorldEnv(gym.Env):
         info = {
             "red_stats": self.red_team_stats,
             "blue_stats": self.blue_team_stats,
+            "individual_stats": self.individual_stats,
             "episode_step": self.episode_steps,
         }
         state = self.process_state(self.state)
