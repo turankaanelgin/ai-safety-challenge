@@ -289,6 +289,7 @@ class TanksWorldEnv(gym.Env):
         self.shell_in_air = [False] * 12
 
         self.episode_steps = 0
+        self.episode_reward = 0
 
         self.red_team_stats = team_stats_dict(self)
         self.blue_team_stats = team_stats_dict(self)
@@ -661,14 +662,16 @@ class TanksWorldEnv(gym.Env):
             if self.done:
                 break
 
+        state = self.process_state(self.state)
+        reward = sum([self.reward[i] for i in self.training_tanks])
+        self.episode_reward += reward
         info = {
             "red_stats": self.red_team_stats,
             "blue_stats": self.blue_team_stats,
             "individual_stats": self.individual_stats,
             "episode_step": self.episode_steps,
+            "episode_reward": self.episode_reward,
         }
-        state = self.process_state(self.state)
-        reward = sum([self.reward[i] for i in self.training_tanks])
         return (
             state,
             reward,

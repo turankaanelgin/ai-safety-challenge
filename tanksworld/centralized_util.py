@@ -1,5 +1,6 @@
 from collections import deque
 from os.path import join as pjoin
+import optuna
 import pickle
 import json
 from typing import Callable
@@ -22,7 +23,6 @@ from stable_baselines3.common.callbacks import CheckpointCallback, BaseCallback
 import torch
 import os
 import yaml
-from datetime import datetime
 from collections import deque
 from typing import Callable
 import numpy as np
@@ -63,27 +63,30 @@ class CentralizedTraining:
         preload_str = "preloaded" if params["save_path"] is not None else ""
         load_type_str = params["load_type"] if params["save_path"] is not None else ""
         freeze_cnn_str = "freeze-cnn" if params["freeze_cnn"] else ""
-        desc = datetime.now().strftime("%y-%m-%d-%H:%M:%S")
-        desc += "TW{}-{}-{}-timestep{}M-nstep{}-nenv{}-timeout-{}-neg-{}-lrtype-{}-input-type-{}-config-{}-{}".format(
-            preload_str,
-            load_type_str,
-            freeze_cnn_str,
-            params["timestep"] / 1e6,
-            params["n_steps"],
-            params["n_envs"],
-            params["env_params"]["timeout"],
-            params["penalty_weight"],
-            params["lr_type"],
-            params["input_type"],
-            params["config"],
-            params["config_desc"],
-        )
+#        desc += "TW{}-{}-{}-timestep{}M-nstep{}-nenv{}-timeout-{}-neg-{}-lr{}-lrtype-{}-ftr-extract{}-input-type-{}-config-{}-{}".format(
+#            preload_str,
+#            load_type_str,
+#            freeze_cnn_str,
+#            params["timestep"] / 1e6,
+#            params["n_steps"],
+#            params["n_envs"],
+#            params["env_params"]["timeout"],
+#            params["penalty_weight"],
+#            params["learning_rate"],
+#            params["learning_rate_type"],
+#            params["extract_ftr_model"],
+#            params["input_type"],
+#            params["config"],
+#            params["config_desc"],
+#        )
         if params["debug"]:
-            self.save_path = "./testing/" + desc
+            self.save_path = pjoin(self.params["exp_dir"], "debug", params['exp_desc'])
         else:
-            self.save_path = "./results/" + desc
+            self.save_path = pjoin(self.params["exp_dir"], "train", params['exp_desc'])
             if params["continue_training"]:
                 self.save_path = params["save_path"]
+
+        os.makedirs(self.save_path, exist_ok=True)
 
         self.model_path = None
         if self.params["save_path"] is not None and self.params["model_num"] > 0:
@@ -112,7 +115,8 @@ class CentralizedTraining:
             env = make_vec_env(create_env_, n_envs=n_envs, vec_env_cls=SubprocVecEnv)
         # env = VecFrameStack(env, 4)
         # wrap env into a Monitor
-        env = VecEnvTankworldMonitor(env, n_envs, self.save_path)
+        n_training_tank = len(self.params["env_params"]["training_tanks"])
+        env = VecEnvTankworldMonitor(env, n_envs, n_training_tank, self.save_path)
         return env
 
     def create_model(self):
@@ -134,8 +138,15 @@ class CentralizedTraining:
 
             policy_kwargs = dict(
                 features_extractor_class=features_extractor_class,
-                # features_extractor_kwargs=dict(features_dim=512),
-                net_arch=[dict(pi=[64], vf=[64])],
+                features_extractor_kwargs={
+                    "model_type": self.params["extract_ftr_model"]
+                },
+                net_arch=[
+                    dict(
+                        pi=[self.params["net_arch_size"]],
+                        vf=[self.params["net_arch_size"]],
+                    )
+                ],
             )
 
             def linear_schedule(initial_value: float) -> Callable[[float], float]:
@@ -144,19 +155,19 @@ class CentralizedTraining:
 
                 return func
 
-            if self.params["lr_type"] == "linear":
-                lr = linear_schedule(self.params["lr"])
-            elif self.params["lr_type"] == "constant":
-                lr = self.params["lr"]
+            if self.params["learning_rate_type"] == "linear":
+                learning_rate = linear_schedule(self.params["learning_rate"])
+            elif self.params["learning_rate_type"] == "constant":
+                learning_rate = self.params["learning_rate"]
 
             model = PPO(
                 policy_type,
                 self.training_env,
                 policy_kwargs=policy_kwargs,
                 n_steps=self.params["n_steps"],
-                learning_rate=lr,
+                learning_rate=learning_rate,
                 verbose=0,
-                batch_size=64,
+                batch_size=self.params["batch_size"],
                 ent_coef=self.params["ent_coef"],
                 n_epochs=self.params["epochs"],
                 tensorboard_log=self.save_path,
@@ -267,20 +278,26 @@ class CentralizedTraining:
             name_prefix="rl_model",
         )
         tensorboard_callback = TankworldLoggerCallback()
+        trial_eval_callback = TrialEvalCallback(self.params["trial"])
         early_stop_callback = EarlyStopCallback(
             n_training_agent=len(self.params["env_params"]["training_tanks"])
         )
         #        callback_list = []
         callback_list = [checkpoint_callback, tensorboard_callback, early_stop_callback]
-        self.training_model.learn(
-            total_timesteps=self.params["timestep"],
-            callback=callback_list,
-            reset_num_timesteps=not self.params["continue_training"],
-        )
+        callback_list.append(trial_eval_callback)
+        try:
+            self.training_model.learn(
+                total_timesteps=self.params["timestep"],
+                callback=callback_list,
+                reset_num_timesteps=not self.params["continue_training"],
+            )
+        except:
+            raise optuna.exceptions.TrialPruned()
+        self.score = self.training_env.get_score()
+        self.training_env.close()
 
     def eval(self):
         model_path = pjoin(args.save_path, "checkpoints", args.checkpoint)
-        print(model_path)
         model = PPO.load(model_path)
         env = create_env()
         observation = env.reset()
@@ -365,34 +382,41 @@ class CustomDictExtractor(BaseFeaturesExtractor):
         This corresponds to the number of unit for the last layer.
     """
 
-    def __init__(self, observation_space, features_dim: int = 256):
+    def __init__(self, observation_space, model_type="small", features_dim: int = 256):
         super(CustomDictExtractor, self).__init__(observation_space, 1)
         features_dim = 128
         # We assume CxHxW images (channels first)
         # Re-ordering will be done by pre-preprocessing or wrapper
         n_input_channels = observation_space.spaces["0"].shape[0]
 
-        cnn_sequence = nn.Sequential(
+        base = [
             nn.Conv2d(n_input_channels, 32, kernel_size=8, stride=4, padding=0),
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
             nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=0),
-            nn.ReLU(),
-            nn.Flatten(),
-        )
+        ]
+        if model_type == "small":
+            base = base + [
+                nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=0),
+                nn.ReLU(),
+            ]
+        elif model_type == "big":
+            base = base + [
+                nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=0),
+                nn.ReLU(),
+                nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=0),
+                nn.ReLU(),
+            ]
+        base.append(nn.Flatten())
 
         # Compute shape by doing one forward pass
         with th.no_grad():
-            n_flatten = cnn_sequence(
+            n_flatten = nn.Sequential(*base)(
                 th.as_tensor(observation_space.spaces["0"].sample()[None]).float()
             ).shape[1]
 
         linear_sequence = nn.Sequential(nn.Linear(n_flatten, features_dim), nn.ReLU())
-        extractors = {}
-        self.extract_module = nn.Sequential(
-            *(list(cnn_sequence) + list(linear_sequence))
-        )
+        self.extract_module = nn.Sequential(*(list(base) + list(linear_sequence)))
         self._features_dim = features_dim * len(observation_space.spaces.items())
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
@@ -403,6 +427,23 @@ class CustomDictExtractor(BaseFeaturesExtractor):
         return out_
 
         return self.linear(self.cnn(observations))
+
+
+class TrialEvalCallback(BaseCallback):
+    def __init__(self, trial, eval_freq=10000, n_training_tank=1, verbose=0):
+        super(TrialEvalCallback, self).__init__(verbose)
+        self.eval_freq = eval_freq
+        self.trial = trial
+        self.n_training_tank = n_training_tank
+
+    def _on_rollout_end(self):
+        score = self.training_env.get_score()
+        self.trial.report(score, self.num_timesteps)
+
+    def _on_step(self):
+        if self.trial.should_prune():
+            return False
+        return True
 
 
 class EarlyStopCallback(BaseCallback):
@@ -460,16 +501,19 @@ class TankworldLoggerCallback(BaseCallback):
 
 
 class VecEnvTankworldMonitor(VecEnvWrapper):
-    def __init__(self, venv: VecEnv, n_env, save_path):
+    def __init__(self, venv: VecEnv, n_env, n_training_tank, save_path):
         VecEnvWrapper.__init__(self, venv)
         self.save_path = pjoin(save_path, "stats.pickle")
         self.stats = deque(maxlen=1000)
         self.rewards = np.zeros(n_env)
         self.prune_total_reward_queue = deque(maxlen=200)
         self.prune_enemy_damage = deque(maxlen=200)
+        self.score = deque(maxlen=200)
         self.saved_stats_list = []
+        self.n_training_tank = n_training_tank
 
-    #        self.logger = logger
+    def get_score(self):
+        return np.mean(self.score) if len(self.score) > 0 else 0
 
     def save_stats(self):
         with open(self.save_path, "wb") as handle:
@@ -497,19 +541,30 @@ class VecEnvTankworldMonitor(VecEnvWrapper):
                     }
                 )
                 red_dmg_inflicted = red_stats["damage_inflicted_on"]
+                red_dmg_taken = red_stats["damage_taken_by"]
+
+                score = (
+                    red_dmg_inflicted["enemy"]
+                    - red_dmg_taken["ally"]
+                    - red_dmg_taken["enemy"]
+                )
+                score /= self.n_training_tank
+                score /= 100  # Normalize score
+                self.score.append(score)
+
                 tsboard_log = {
                     "1_damage/dmg_inflict_on_enemy": red_dmg_inflicted["enemy"],
                     "1_damage/dmg_inflict_on_neutral": red_dmg_inflicted["neutral"],
                     "1_damage/dmg_inflict_on_ally": red_dmg_inflicted["ally"],
-                    "1_damage/dmg_taken_by_ally": red_stats["damage_taken_by"]["ally"],
-                    "1_damage/dmg_taken_by_enemy": red_stats["damage_taken_by"][
-                        "enemy"
-                    ],
+                    "1_damage/dmg_taken_by_ally": red_dmg_taken["ally"],
+                    "1_damage/dmg_taken_by_enemy": red_dmg_taken["enemy"],
                     "1_damage/#shots": red_stats["number_shots_fired"]["ally"],
                     "2_lives/alive_ally": red_stats["tanks_alive"]["ally"],
                     "2_lives/alive_enemy": red_stats["tanks_alive"]["enemy"],
                     "2_lives/alive_neutral": red_stats["tanks_alive"]["neutral"],
                     "0_general_stats/step_per_episode": infos[i]["episode_step"],
+                    "0_general_stats/reward": infos[i]["episode_reward"],
+                    "0_general_stats/score": score,
                 }
                 # Individual stats
                 for idx, tank_stats in enumerate(individual_stats[:5]):
@@ -524,11 +579,6 @@ class VecEnvTankworldMonitor(VecEnvWrapper):
                             tsboard_log[tank_field] = value
 
                 self.stats.append(tsboard_log)
-
-                self.prune_total_reward_queue.append(self.rewards[i])
-                self.prune_enemy_damage.append(
-                    infos[i]["red_stats"]["damage_inflicted_on"]["enemy"]
-                )
                 self.rewards[i] = 0
 
         return obs, rewards, dones, infos

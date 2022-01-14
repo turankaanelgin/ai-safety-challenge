@@ -1,5 +1,5 @@
 def update_config(params):
-    exe_path = params['exe']
+    exe_path = params["exe"]
     if params["config"] == 1:
         params["env_params"] = {
             "exe": exe_path,
