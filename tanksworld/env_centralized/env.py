@@ -33,7 +33,8 @@ def individual_stats():
             "damage_inflicted_on": {"ally": 0.0, "enemy": 0.0, "neutral": 0.0},
             #            "damage_taken_by": {"ally": 0.0, "enemy": 0.0, "neutral": 0.0},
         }
-    ] * 10
+        for _ in range(10)
+    ]
 
 
 def team_stats_dict(env):

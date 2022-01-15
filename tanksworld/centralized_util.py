@@ -63,26 +63,26 @@ class CentralizedTraining:
         preload_str = "preloaded" if params["save_path"] is not None else ""
         load_type_str = params["load_type"] if params["save_path"] is not None else ""
         freeze_cnn_str = "freeze-cnn" if params["freeze_cnn"] else ""
-#        desc += "TW{}-{}-{}-timestep{}M-nstep{}-nenv{}-timeout-{}-neg-{}-lr{}-lrtype-{}-ftr-extract{}-input-type-{}-config-{}-{}".format(
-#            preload_str,
-#            load_type_str,
-#            freeze_cnn_str,
-#            params["timestep"] / 1e6,
-#            params["n_steps"],
-#            params["n_envs"],
-#            params["env_params"]["timeout"],
-#            params["penalty_weight"],
-#            params["learning_rate"],
-#            params["learning_rate_type"],
-#            params["extract_ftr_model"],
-#            params["input_type"],
-#            params["config"],
-#            params["config_desc"],
-#        )
+        #        desc += "TW{}-{}-{}-timestep{}M-nstep{}-nenv{}-timeout-{}-neg-{}-lr{}-lrtype-{}-ftr-extract{}-input-type-{}-config-{}-{}".format(
+        #            preload_str,
+        #            load_type_str,
+        #            freeze_cnn_str,
+        #            params["timestep"] / 1e6,
+        #            params["n_steps"],
+        #            params["n_envs"],
+        #            params["env_params"]["timeout"],
+        #            params["penalty_weight"],
+        #            params["learning_rate"],
+        #            params["learning_rate_type"],
+        #            params["extract_ftr_model"],
+        #            params["input_type"],
+        #            params["config"],
+        #            params["config_desc"],
+        #        )
         if params["debug"]:
-            self.save_path = pjoin(self.params["exp_dir"], "debug", params['exp_desc'])
+            self.save_path = pjoin(self.params["exp_dir"], "debug", params["exp_desc"])
         else:
-            self.save_path = pjoin(self.params["exp_dir"], "train", params['exp_desc'])
+            self.save_path = pjoin(self.params["exp_dir"], "train", params["exp_desc"])
             if params["continue_training"]:
                 self.save_path = params["save_path"]
 

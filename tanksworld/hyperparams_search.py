@@ -19,8 +19,8 @@ def sample_ppo_params(trial: optuna.Trial):
     batch_size = trial.suggest_categorical("batch_size", [32, 64, 128])
     net_arch_size = trial.suggest_categorical("net_arch_size", [32, 64, 128])
     extract_ftr_model = trial.suggest_categorical("extract_ftr_model", ["small", "big"])
-#    learning_rate = trial.suggest_loguniform("learning_rate", 1e-5, 1)
-#    n_steps = trial.suggest_categorical("n_steps", [8, 16, 32, 64, 128])
+    #    learning_rate = trial.suggest_loguniform("learning_rate", 1e-5, 1)
+    #    n_steps = trial.suggest_categorical("n_steps", [8, 16, 32, 64, 128])
 
     return {
         "batch_size": batch_size,
@@ -33,8 +33,8 @@ def objective(trial):
     params = cfg.params
     update_config(params)
     ppo_params = sample_ppo_params(trial)
-    desc = ';'.join([key + ':' + str(value) for key, value in ppo_params.items()])
-    desc = datetime.now().strftime("%y-%m-%d-%H:%M:%S") + '-' + desc
+    desc = ";".join([key + ":" + str(value) for key, value in ppo_params.items()])
+    desc = datetime.now().strftime("%y-%m-%d-%H:%M:%S") + "-" + desc
     params.update(ppo_params)
     centralized_training = CentralizedTraining(trial=trial, exp_desc=desc, **params)
     centralized_training.train()
