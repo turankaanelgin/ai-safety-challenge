@@ -63,22 +63,6 @@ class CentralizedTraining:
         preload_str = "preloaded" if params["save_path"] is not None else ""
         load_type_str = params["load_type"] if params["save_path"] is not None else ""
         freeze_cnn_str = "freeze-cnn" if params["freeze_cnn"] else ""
-        #        desc += "TW{}-{}-{}-timestep{}M-nstep{}-nenv{}-timeout-{}-neg-{}-lr{}-lrtype-{}-ftr-extract{}-input-type-{}-config-{}-{}".format(
-        #            preload_str,
-        #            load_type_str,
-        #            freeze_cnn_str,
-        #            params["timestep"] / 1e6,
-        #            params["n_steps"],
-        #            params["n_envs"],
-        #            params["env_params"]["timeout"],
-        #            params["penalty_weight"],
-        #            params["learning_rate"],
-        #            params["learning_rate_type"],
-        #            params["extract_ftr_model"],
-        #            params["input_type"],
-        #            params["config"],
-        #            params["config_desc"],
-        #        )
         if params["debug"]:
             self.save_path = pjoin(self.params["exp_dir"], "debug", params["exp_desc"])
         else:
@@ -139,7 +123,8 @@ class CentralizedTraining:
             policy_kwargs = dict(
                 features_extractor_class=features_extractor_class,
                 features_extractor_kwargs={
-                    "model_type": self.params["extract_ftr_model"]
+                    "model_type": self.params["extract_ftr_model"],
+                    'features_dim': self.params['features_dim']
                 },
                 net_arch=[
                     dict(
@@ -169,6 +154,7 @@ class CentralizedTraining:
                 verbose=0,
                 batch_size=self.params["batch_size"],
                 ent_coef=self.params["ent_coef"],
+                clip_range=self.params["clip_range"],
                 n_epochs=self.params["epochs"],
                 tensorboard_log=self.save_path,
             )
@@ -384,7 +370,6 @@ class CustomDictExtractor(BaseFeaturesExtractor):
 
     def __init__(self, observation_space, model_type="small", features_dim: int = 256):
         super(CustomDictExtractor, self).__init__(observation_space, 1)
-        features_dim = 128
         # We assume CxHxW images (channels first)
         # Re-ordering will be done by pre-preprocessing or wrapper
         n_input_channels = observation_space.spaces["0"].shape[0]
@@ -400,7 +385,7 @@ class CustomDictExtractor(BaseFeaturesExtractor):
                 nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=0),
                 nn.ReLU(),
             ]
-        elif model_type == "big":
+        elif model_type == "medium":
             base = base + [
                 nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=0),
                 nn.ReLU(),
@@ -506,9 +491,9 @@ class VecEnvTankworldMonitor(VecEnvWrapper):
         self.save_path = pjoin(save_path, "stats.pickle")
         self.stats = deque(maxlen=1000)
         self.rewards = np.zeros(n_env)
-        self.prune_total_reward_queue = deque(maxlen=200)
         self.prune_enemy_damage = deque(maxlen=200)
-        self.score = deque(maxlen=200)
+        self.score = deque(maxlen=500)
+        self.damage_inflicted_on_enemy = deque(maxlen=500)
         self.saved_stats_list = []
         self.n_training_tank = n_training_tank
 
@@ -548,8 +533,11 @@ class VecEnvTankworldMonitor(VecEnvWrapper):
                     - red_dmg_taken["ally"]
                     - red_dmg_taken["enemy"]
                 )
+                self.damage_inflicted_on_enemy.append(red_dmg_inflicted['enemy'])
                 score /= self.n_training_tank
                 score /= 100  # Normalize score
+                if np.mean(self.damage_inflicted_on_enemy) < 5:
+                    score = -2 # set low score if damange inflicted on enemy is small.
                 self.score.append(score)
 
                 tsboard_log = {
@@ -567,7 +555,7 @@ class VecEnvTankworldMonitor(VecEnvWrapper):
                     "0_general_stats/score": score,
                 }
                 # Individual stats
-                for idx, tank_stats in enumerate(individual_stats[:5]):
+                for idx, tank_stats in enumerate(individual_stats):
                     tank_str = "3_tank_stats/tank_{}".format(idx)
                     for key, value in tank_stats.items():
                         tank_field = "{}/{}".format(tank_str, key)

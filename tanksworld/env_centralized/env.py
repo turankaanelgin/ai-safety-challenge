@@ -31,7 +31,7 @@ def individual_stats():
             # TODO:
             "kills_executed_on": {"ally": 0, "enemy": 0, "neutral": 0},
             "damage_inflicted_on": {"ally": 0.0, "enemy": 0.0, "neutral": 0.0},
-            #            "damage_taken_by": {"ally": 0.0, "enemy": 0.0, "neutral": 0.0},
+            "damage_taken_by": {"ally": 0.0, "enemy": 0.0, "neutral": 0.0},
         }
         for _ in range(10)
     ]
