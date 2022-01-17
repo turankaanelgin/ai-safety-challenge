@@ -536,8 +536,8 @@ class VecEnvTankworldMonitor(VecEnvWrapper):
                 self.damage_inflicted_on_enemy.append(red_dmg_inflicted['enemy'])
                 score /= self.n_training_tank
                 score /= 100  # Normalize score
-                if np.mean(self.damage_inflicted_on_enemy) < 5:
-                    score = -2 # set low score if damange inflicted on enemy is small.
+#                if np.mean(self.damage_inflicted_on_enemy) < 5:
+#                    score = -2 # set low score if damange inflicted on enemy is small.
                 self.score.append(score)
 
                 tsboard_log = {

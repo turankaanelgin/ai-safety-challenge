@@ -234,3 +234,5 @@ def update_config(params):
             "timeout": params["env_timeout"],
         }
         params["config_desc"] = "1vs1-4input-1output"
+    params['env_params']['shot_reward'] = params['shot_reward']
+    params['env_params']['shot_reward_amount'] = params['shot_reward_amount']

@@ -42,7 +42,8 @@ parser.add_argument(
     "--env-timeout", type=int, default=500, help="Environments max timestep per episode"
 )
 parser.add_argument("--prune-threshold", type=float, default=0.1)
-parser.add_argument("--reward-shot", action="store_true", default=False)
+parser.add_argument("--shot-reward", action="store_true", default=False)
+parser.add_argument("--shot-reward-amount", action="store_true", default=False)
 parser.add_argument("--penalty-weight", type=float, default=1.0)
 parser.add_argument("--learning-rate", type=float, default=1e-4)
 parser.add_argument("--ent-coef", type=float, default=0.00)

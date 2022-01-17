@@ -1,6 +1,7 @@
 import my_config as cfg
 from centralized_util import CentralizedTraining
-from optuna.pruners import BasePruner
+from optuna.pruners import BasePruner 
+from optuna import pruners, samplers
 from env_config import update_config
 import numpy as np
 from datetime import datetime
@@ -8,7 +9,7 @@ import logging
 import sys
 import os
 import optuna
-from optuna.samplers import TPESampler
+from optuna.samplers import TPESampler, CmaEsSampler
 
 
 def sample_ppo_params(trial: optuna.Trial):
@@ -23,15 +24,19 @@ def sample_ppo_params(trial: optuna.Trial):
             "extract_ftr_model", ["small", "medium"]
         ),
 #        "learning_rate": trial.suggest_loguniform("learning_rate", 1e-4, 1),
-        "learning_rate": trial.suggest_categorical("learning_rate", [1e-4, 3e-4]),
+        "learning_rate": trial.suggest_categorical("learning_rate", [1e-4]),
 #        "penalty_weight": trial.suggest_float("penalty_weight", 0, 1),
         "penalty_weight": trial.suggest_categorical("penalty_weight", [0.4]),
 #        "n_steps": trial.suggest_categorical("n_steps", [8, 16, 32, 64, 128]),
         "n_steps": trial.suggest_categorical("n_steps", [64]),
-        "ent_coef": trial.suggest_loguniform("ent_coef", 0.00000001, 0.1),
+        "shot_reward": trial.suggest_categorical("shot_reward", [True, False]),
+        "shot_reward_amount": trial.suggest_float("shot_reward_amount", 1./500, 0.01),
+#        "ent_coef": trial.suggest_loguniform("ent_coef", 0.00000001, 0.1),
+        "ent_coef": trial.suggest_categorical("ent_coef", [0.0, 0.01]),
         "clip_range": trial.suggest_categorical(
 #            "clip_range", [0.1, 0.2, 0.4, 0.6, 0.8]
-            "clip_range", [0.2, 0.4, 0.8]
+#            "clip_range", [0.2, 0.4, 0.8]
+            "clip_range", [0.4]
         )
     }
 
@@ -61,8 +66,8 @@ class CustomPruner(BasePruner):
 
         if step:  # trial.last_step == None when no scores have been reported yet
             this_score = trial.intermediate_values[step]
-            if this_score < -1.99 and step > 200000:  # prune if score is too low
-                return True
+#            if this_score < -1.99 and step > 200000:  # prune if score is too low
+#                return True
             if step > self.warmup_steps and this_score < self.prune_threshold:
                 print("Prune this trials, step {}, score {}".format(step, this_score))
                 return True
@@ -86,10 +91,12 @@ if __name__ == "__main__":
         }
         sampler = optuna.samplers.GridSampler(search_space)
     else:
-        sampler = TPESampler()
+#        sampler = TPESampler()
+        sampler = samplers.CmaEsSampler()
     study = optuna.create_study(
         sampler=sampler,
-        pruner=CustomPruner(params["warmup_steps"], params["prune_threshold"]),
+#        pruner=CustomPruner(params["warmup_steps"], params["prune_threshold"]),
+        pruner=pruners.SuccessiveHalvingPruner(),
         study_name=study_name,
         storage=storage_name,
         direction="maximize",

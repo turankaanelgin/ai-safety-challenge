@@ -109,6 +109,8 @@ class TanksWorldEnv(gym.Env):
         take_damage_penalty=True,
         kill_bonus=True,
         death_penalty=True,
+        shot_reward=False,
+        shot_reward_amount=0.0,
         training_tanks=[],
         static_tanks=[],
         random_tanks=[],
@@ -134,6 +136,8 @@ class TanksWorldEnv(gym.Env):
         self.enable_input_tanks = enable_input_tanks
         self.enable_output_tanks = enable_output_tanks
         self.training_tanks = training_tanks
+        self.shot_reward = True
+        self.shot_reward_amount = shot_reward_amount
 
         if input_type == "stacked":
             self.observation_space = gym.spaces.Box(
@@ -593,6 +597,8 @@ class TanksWorldEnv(gym.Env):
             self.update_tank_stats(
                 i, state, delta_health[i], my_stats, enemy_stats, new_shot
             )
+            if self.shot_reward and new_shot:
+                reward[i] += self.shot_reward_amount
 
         self.previous_health = health
         return [reward[i] for i in self.training_tanks]
