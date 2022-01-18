@@ -8,6 +8,8 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, ExponentialLR, CyclicLR
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.utils.tensorboard import SummaryWriter
 
+from .mappo_utils.valuenorm import ValueNorm
+
 from . import core
 import os
 import json
@@ -20,7 +22,7 @@ device = torch.device('cuda')
 class RolloutBuffer:
 
     def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95, n_envs=1, use_sde=False,
-                 use_rnn=False, n_states=3):
+                 use_rnn=False, n_states=3, use_value_norm=False, value_normalizer=None):
 
         if use_rnn:
             self.obs_buf = torch.zeros(core.combined_shape_v4(size, n_envs, 5, n_states, obs_dim)).to(device)
@@ -40,6 +42,8 @@ class RolloutBuffer:
         self.ptr, self.path_start_idx, self.max_size = 0, 0, size
         self.n_envs = n_envs
         self.use_rnn = use_rnn
+        self.use_value_norm = use_value_norm
+        self.value_normalizer = value_normalizer
 
     def store(self, obs, act, rew, val, logp, entropy):
         """
@@ -76,8 +80,13 @@ class RolloutBuffer:
         last_val = last_val.unsqueeze(0)
         if self.use_rnn and len(last_val.shape) == 2:
             last_val = last_val.unsqueeze(0)
+        if self.use_value_norm:
+            vals = self.value_normalizer.denormalize(self.val_buf[path_slice].squeeze(1)).unsqueeze(1)
+        else:
+            vals = self.val_buf[path_slice]
+
         rews = torch.cat((self.rew_buf[path_slice], last_val), dim=0)
-        vals = torch.cat((self.val_buf[path_slice], last_val), dim=0)
+        vals = torch.cat((vals, last_val), dim=0)
 
         # the next two lines implement GAE-Lambda advantage calculation
         deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
@@ -184,9 +193,9 @@ class PPOPolicy():
 
                     with open(os.path.join(self.callback.policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
                         json.dump({'Number of games': steps,
-                                   'Red-Red-Damage': avg_red_red_damages,
-                                   'Red-Blue Damage': avg_red_blue_damages,
-                                   'Blue-Red Damage': avg_blue_red_damages}, f, indent=4)
+                                   'Red-Red-Damage': avg_red_red_damages.tolist(),
+                                   'Red-Blue Damage': avg_red_blue_damages.tolist(),
+                                   'Blue-Red Damage': avg_blue_red_damages.tolist()}, f, indent=4)
 
                     avg_red_red_damages_per_env = np.mean(episode_red_red_damages, axis=0)
                     avg_red_blue_damages_per_env = np.mean(episode_red_blue_damages, axis=0)
@@ -194,9 +203,9 @@ class PPOPolicy():
 
                     with open(os.path.join(self.callback.policy_record.data_dir, 'all_statistics.json'), 'w+') as f:
                         json.dump({'Number of games': steps,
-                                   'All-Red-Red-Damage': avg_red_red_damages_per_env,
-                                   'All-Red-Blue Damage': avg_red_blue_damages_per_env,
-                                   'All-Blue-Red Damage': avg_blue_red_damages_per_env}, f, indent=4)
+                                   'All-Red-Red-Damage': avg_red_red_damages_per_env.tolist(),
+                                   'All-Red-Blue Damage': avg_red_blue_damages_per_env.tolist(),
+                                   'All-Blue-Red Damage': avg_blue_red_damages_per_env.tolist()}, f, indent=4)
 
 
 
@@ -214,7 +223,7 @@ class PPOPolicy():
         np.random.seed(seed)
 
 
-    def setup_model(self, actor_critic, pi_lr, vf_lr, pi_scheduler, vf_scheduler, ac_kwargs):
+    def setup_model(self, actor_critic, pi_lr, vf_lr, pi_scheduler, vf_scheduler, ac_kwargs, use_value_norm=False):
 
         self.obs_dim = self.env.observation_space.shape
         self.act_dim = self.env.action_space.shape
@@ -223,6 +232,11 @@ class PPOPolicy():
         self.ac_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
         self.pi_optimizer = Adam(self.ac_model.pi.parameters(), lr=pi_lr)
         self.vf_optimizer = Adam(self.ac_model.v.parameters(), lr=vf_lr)
+        if use_value_norm:
+            self.value_normalizer = ValueNorm((5), device=torch.device('cuda'))
+        else:
+            self.value_normalizer = None
+        self.use_value_norm = use_value_norm
 
         self.scheduler_policy = None
         if pi_scheduler == 'smart':
@@ -268,7 +282,7 @@ class PPOPolicy():
                         param.requires_grad = False
 
         # Only load the representation part
-        elif cnn_model_path and freeze_rep:
+        elif cnn_model_path:
             state_dict = torch.load(cnn_model_path)
 
             temp_state_dict = {}
@@ -278,6 +292,7 @@ class PPOPolicy():
 
             self.ac_model.load_state_dict(temp_state_dict, strict=False)
 
+        if freeze_rep:
             for name, param in self.ac_model.named_parameters():
                 if 'cnn_net' in name:
                     param.requires_grad = False
@@ -296,6 +311,73 @@ class PPOPolicy():
             ckpt_dict['vf_scheduler_state_dict'] = self.scheduler_value.state_dict()
         torch.save(ckpt_dict, model_path)
 
+
+    def calc_kl(self, p, q, npg_approx=False, get_mean=True):
+        '''
+        Get the expected KL distance between two sets of gaussians over states -
+        gaussians p and q where p and q are each tuples (mean, var)
+        - In other words calculates E KL(p||q): E[sum p(x) log(p(x)/q(x))]
+        - From https://stats.stackexchange.com/a/60699
+        '''
+
+        def shape_equal(a, *args):
+            '''
+            Checks that a group of tensors has a required shape
+            Inputs:
+            - a, required shape for all the tensors
+            - Rest of the arguments are tensors
+            Returns:
+            - True if all tensors are of shape a, otherwise ValueError
+            '''
+            for arg in args:
+                if list(arg.shape) != list(a):
+                    if len(arg.shape) != len(a):
+                        raise ValueError("Expected shape: %s, Got shape %s" \
+                                         % (str(a), str(arg.shape)))
+                    for i in range(len(arg.shape)):
+                        if a[i] == -1 or a[i] == arg.shape[i]:
+                            continue
+                        raise ValueError("Expected shape: %s, Got shape %s" \
+                                         % (str(a), str(arg.shape)))
+            return shape_equal_cmp(*args)
+
+        def log_determinant(mat):
+            '''
+            Returns the log determinant of a diagonal matrix
+            Inputs:
+            - mat, a diagonal matrix
+            Returns:
+            - The log determinant of mat, aka sum of the log diagonal
+            '''
+            return ch.log(mat).sum()
+
+        p_mean, p_std = p
+        q_mean, q_std = q
+        p_var = p_std.pow(2) + 1e-10
+        q_var = q_std.pow(2) + 1e-10
+        assert shape_equal([-1, self.action_dim], p_mean, q_mean)
+        assert shape_equal([self.action_dim], p_var, q_var)
+
+        d = q_mean.shape[1]
+        # Add 1e-10 to variances to avoid nans.
+        logdetp = log_determinant(p_var)
+        logdetq = log_determinant(q_var)
+        diff = q_mean - p_mean
+
+        log_quot_frac = logdetq - logdetp
+        tr = (p_var / q_var).sum()
+        quadratic = ((diff / q_var) * diff).sum(dim=1)
+
+        if npg_approx:
+            kl_sum = 0.5 * quadratic + 0.25 * (p_var / q_var - 1.).pow(2).sum()
+        else:
+            kl_sum = 0.5 * (log_quot_frac - d + tr + quadratic)
+        assert kl_sum.shape == (p_mean.shape[0],)
+        if get_mean:
+            return kl_sum.mean()
+        return kl_sum
+
+
     # Set up function for computing PPO policy loss
     def compute_loss_pi(self, data, clip_ratio):
 
@@ -309,8 +391,13 @@ class PPOPolicy():
         pi, logp = self.ac_model.pi(obs, act)
         logp = logp.reshape(size, 1, 5)
         ratio = torch.exp(logp - logp_old)
-        clip_adv = torch.clamp(ratio, 1 - clip_ratio, 1 + clip_ratio) * adv
-        loss_pi = -(torch.min(ratio * adv, clip_adv)).mean()
+
+        if self.use_fixed_kl or self.use_adaptive_kl:
+            kl = (logp_old - logp).mean()
+            loss_pi = -(ratio * adv).mean() + self.kl_beta * kl
+        else:
+            clip_adv = torch.clamp(ratio, 1 - clip_ratio, 1 + clip_ratio) * adv
+            loss_pi = -(torch.min(ratio * adv, clip_adv)).mean()
 
         # Useful extra info
         approx_kl = (logp_old - logp).mean().item()
@@ -327,6 +414,11 @@ class PPOPolicy():
         obs, ret = data['obs'], data['ret']
         obs, ret = obs.to(device), ret.to(device)
         obs = torch.flatten(obs, end_dim=2)
+
+        if self.use_value_norm:
+            self.value_normalizer.update(ret.squeeze(1))
+            ret = self.value_normalizer.normalize(ret.squeeze(1))
+
         ret = torch.flatten(ret)
         return ((self.ac_model.v(obs).squeeze(0) - ret) ** 2).mean()
 
@@ -345,7 +437,11 @@ class PPOPolicy():
             self.pi_optimizer.zero_grad()
             loss_pi, pi_info = self.compute_loss_pi(data, clip_ratio)
             kl = pi_info['kl']
-            if kl > 1.5 * target_kl:
+            if self.use_adaptive_kl and kl > 1.5 * target_kl:
+                self.kl_beta = self.kl_beta * 2
+            elif self.use_adaptive_kl and kl < target_kl / 1.5:
+                self.kl_beta = self.kl_beta / 2
+            elif not self.use_fixed_kl and kl > 1.5 * target_kl:
                 # logger.log('Early stopping at step %d due to reaching max kl.'%i)
                 break
             if entropy_coef > 0.0:
@@ -355,15 +451,16 @@ class PPOPolicy():
                 loss = loss_pi
             loss.backward()
             self.loss_p_index += 1
-            self.writer.add_scalar('loss/Policy_Loss', loss_pi, self.loss_p_index)
-            if entropy_coef > 0.0:
-                self.writer.add_scalar('loss/Entropy_Loss', loss_entropy, self.loss_p_index)
-            std = torch.exp(self.ac_model.pi.log_std)
-            self.writer.add_scalar('std_dev/move', std[0].item(), self.loss_p_index)
-            self.writer.add_scalar('std_dev/turn', std[1].item(), self.loss_p_index)
-            self.writer.add_scalar('std_dev/shoot', std[2].item(), self.loss_p_index)
-            if self.use_rnn:
-                torch.nn.utils.clip_grad_norm(self.ac_model.parameters(), 0.5)
+            #self.writer.add_scalar('loss/Policy_Loss', loss_pi, self.loss_p_index)
+            #if entropy_coef > 0.0:
+            #    self.writer.add_scalar('loss/Entropy_Loss', loss_entropy, self.loss_p_index)
+            #if not self.use_beta:
+            #    std = torch.exp(self.ac_model.pi.log_std)
+            #    self.writer.add_scalar('std_dev/move', std[0].item(), self.loss_p_index)
+            #    self.writer.add_scalar('std_dev/turn', std[1].item(), self.loss_p_index)
+            #    self.writer.add_scalar('std_dev/shoot', std[2].item(), self.loss_p_index)
+            #if self.use_rnn:
+            #    torch.nn.utils.clip_grad_norm(self.ac_model.parameters(), 0.5)
             self.pi_optimizer.step()
 
         # Value function learning
@@ -381,16 +478,23 @@ class PPOPolicy():
               vf_lr=1e-3, ent_coef=0.0, train_pi_iters=80, train_v_iters=80, lam=0.97,
               target_kl=0.01, tsboard_freq=-1, curriculum_start=-1, curriculum_stop=-1, use_value_norm=False,
               use_huber_loss=False, use_rnn=False, use_popart=False, use_sde=False, sde_sample_freq=1,
-              pi_scheduler='cons', vf_scheduler='cons', freeze_rep=True, entropy_coef=0.0,
+              pi_scheduler='cons', vf_scheduler='cons', freeze_rep=True, entropy_coef=0.0, kl_beta=3.0,
               tb_writer=None, **kargs):
 
         env = self.env
         self.writer = tb_writer
         self.loss_p_index, self.loss_v_index = 0, 0
+        self.action_dim = 3
         self.set_random_seed(seed)
         ac_kwargs['use_sde'] = use_sde
         ac_kwargs['use_rnn'] = use_rnn
-        self.setup_model(actor_critic, pi_lr, vf_lr, pi_scheduler, vf_scheduler, ac_kwargs)
+        ac_kwargs['use_beta'] = kargs['use_beta']
+        ac_kwargs['local_std'] = kargs['local_std']
+        self.use_beta = kargs['use_beta']
+        self.use_fixed_kl = kargs['use_fixed_kl']
+        self.use_adaptive_kl = kargs['use_adaptive_kl']
+        self.kl_beta = kl_beta
+        self.setup_model(actor_critic, pi_lr, vf_lr, pi_scheduler, vf_scheduler, ac_kwargs, use_value_norm)
         self.load_model(kargs['model_path'], kargs['cnn_model_path'], freeze_rep, steps_per_epoch)
 
         num_states = kargs['num_states'] if 'num_states' in kargs else None
@@ -405,7 +509,8 @@ class PPOPolicy():
         ep_ret_scheduler, ep_len_scheduler = 0, 0
 
         buf = RolloutBuffer(self.obs_dim, self.act_dim, steps_per_epoch, gamma, lam, n_envs=kargs['n_envs'],
-                            use_sde=use_sde, use_rnn=use_rnn, n_states=num_states)
+                            use_sde=use_sde, use_rnn=use_rnn, n_states=num_states, use_value_norm=use_value_norm,
+                            value_normalizer=self.value_normalizer)
         self.use_sde = use_sde
         self.use_rnn = use_rnn
 
@@ -423,14 +528,6 @@ class PPOPolicy():
             if (step + 1) % 50000 == 0:
                 self.save_model(kargs['save_dir'], kargs['model_id'], step)
 
-            if step % 100 == 0:
-                for name, param in self.ac_model.named_parameters():
-                    if 'cnn_net' in name:
-                        if (step // 100) % 2 == 0:
-                            param.requires_grad = True
-                        else:
-                            param.requires_grad = False
-
             if use_sde and sde_sample_freq > 0 and step % sde_sample_freq == 0:
                 # Sample a new noise matrix
                 self.ac_model.pi.reset_noise()
@@ -442,8 +539,8 @@ class PPOPolicy():
                 obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
             a, v, logp, entropy = self.ac_model.step(obs)
             next_obs, r, terminal, info = env.step(a.cpu().numpy())
-            if self.callback:
-                self.callback._on_step()
+            #if self.callback:
+            #    self.callback._on_step()
 
             stats = info[0]['current']
             ep_rr_dmg += stats['red_ally_damage']
@@ -506,7 +603,7 @@ class PPOPolicy():
                 elif vf_scheduler != 'cons':
                     self.scheduler_value.step()
 
-            if step % 50 == 0 or step == 4:
+            if step % 100 == 0 or step == 4:
                 if self.callback:
                     self.callback.save_metrics(info, episode_returns, episode_lengths, episode_red_blue_damages,
                                                episode_red_red_damages, episode_blue_red_damages)

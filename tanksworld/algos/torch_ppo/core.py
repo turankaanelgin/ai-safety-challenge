@@ -55,23 +55,11 @@ def cnn(observation_space):
         nn.ReLU(),
         nn.Conv2d(64, 64, 3, 1),
         nn.ReLU(),
-        nn.AvgPool2d(2),
         nn.Flatten()
     )
     return model
 
-'''
-def cnn(observation_space):
-    model = nn.Sequential(
-        nn.Conv2d(observation_space.shape[0], 32, 8, 4),
-        nn.ReLU(),
-        nn.Conv2d(32, 64, 4, 2),
-        nn.ReLU(),
-        nn.AvgPool2d(4),
-        nn.Flatten()
-    )
-    return model
-'''
+
 def count_vars(module):
     return sum([np.prod(p.shape) for p in module.parameters()])
 
@@ -145,30 +133,60 @@ class MLPCategoricalActor(Actor):
 
 class MLPBetaActor(Actor):
 
-    def __init__(self, observation_space, act_dim, hidden_sizes, activation, cnn_net=None):
+    def __init__(self, observation_space, act_dim, cnn_net=None):
         super().__init__()
+        self.cnn_net = cnn_net
+        self.action_space_high = 1.0
+        self.action_space_low = -1.0
+
         if cnn_net is not None:
-            self.cnn_net = cnn_net
             dummy_img = torch.rand((1,) + observation_space.shape)
-            #mpi_print(dummy_img.shape)
             self.alpha_net = nn.Sequential(
                 nn.Linear(cnn_net(dummy_img).shape[1], act_dim),
-                activation()
+                nn.Softplus()
             )
             self.beta_net = nn.Sequential(
                 nn.Linear(cnn_net(dummy_img).shape[1], act_dim),
-                activation()
+                nn.Softplus()
             )
 
     def _distribution(self, obs):
+
+        if len(obs.shape) == 4:
+            obs = obs.unsqueeze(0)
+        elif len(obs.shape) == 6:
+            if obs.shape[1] == 1:
+                obs = obs.squeeze(1)
+            elif obs.shape[2] == 1:
+                obs = obs.squeeze(2)
+            else:
+                obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
+                                  obs.shape[3], obs.shape[4], obs.shape[5])
+
         if self.cnn_net is not None:
+            batch_size = obs.shape[0]
+            seq_size = obs.shape[1]
+            obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
             obs = self.cnn_net(obs)
-        alpha = self.alpha_net(obs) + 1e-6
-        beta = self.beta_net(obs) + 1e-6
+            obs = obs.reshape(batch_size, seq_size, obs.shape[1])
+
+        alpha = torch.add(self.alpha_net(obs), 1.)
+        beta = torch.add(self.beta_net(obs), 1.)
         return Beta(alpha, beta)
 
     def _log_prob_from_distribution(self, pi, act):
-        return pi.log_prob(act).sum(axis=-1)  # Last axis sum needed for Torch Normal distribution
+        return pi.log_prob(act).sum(axis=-1)
+
+    def forward(self, obs, act=None):
+        # Produce action distributions for given observations, and
+        # optionally compute the log likelihood of given actions under
+        # those distributions.
+        pi = self._distribution(obs)
+        logp_a = None
+        if act is not None:
+            act = (act - self.action_space_low) / (self.action_space_high - self.action_space_low)
+            logp_a = self._log_prob_from_distribution(pi, act)
+        return pi, logp_a
 
 
 class MLPSDEActor(Actor):
@@ -208,7 +226,8 @@ class MLPSDEActor(Actor):
 
 class MLPGaussianActor(Actor):
 
-    def __init__(self, observation_space, act_dim, hidden_sizes, activation, cnn_net=None, rnn_net=None, two_fc_layers=False):
+    def __init__(self, observation_space, act_dim, hidden_sizes, activation, cnn_net=None, rnn_net=None, two_fc_layers=False,
+                 local_std=False):
         super().__init__()
         log_std = -0.5 * np.ones(act_dim, dtype=np.float32)
         self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
@@ -236,6 +255,9 @@ class MLPGaussianActor(Actor):
                     nn.Linear(cnn_net(dummy_img).shape[1], act_dim),
                     activation()
                 )
+            self.local_std = local_std
+            if local_std:
+                self.local_std_scale = nn.Linear(cnn_net(dummy_img).shape[1], act_dim)
             from torchinfo import summary
             summary(self.cnn_net)
             summary(self.mu_net)
@@ -268,6 +290,10 @@ class MLPGaussianActor(Actor):
             obs, _ = self.rnn_net(obs, hidden)
         mu = self.mu_net(obs)
         std = torch.exp(self.log_std)
+        if self.local_std:
+            local_scale = self.local_std_scale(obs)
+            local_scale = torch.clamp(local_scale, 0.5, 1.5)
+            std = local_scale * std
         if self.rnn_net is not None: mu = mu.unsqueeze(0)
         return Normal(mu, std)
 
@@ -334,7 +360,7 @@ class MLPActorCritic(nn.Module):
 
     def __init__(self, observation_space, action_space,
                  hidden_sizes=(64, 64), activation=nn.Tanh, two_fc_layers=False,
-                 use_rnn=False, use_popart=False, use_sde=False):
+                 use_rnn=False, use_popart=False, use_sde=False, use_beta=False, local_std=False):
         super().__init__()
 
         use_cnn = len(observation_space.shape) == 3
@@ -346,11 +372,16 @@ class MLPActorCritic(nn.Module):
             rnn_net = rnn.GRUNet(input_dim=9216, hidden_dim=1024, output_dim=512, n_layers=1)
 
         if isinstance(action_space, Box):
-            if not use_sde:
+            if use_sde:
+                self.pi = MLPSDEActor(observation_space, action_space.shape[0], hidden_sizes, activation,
+                                      cnn_net=cnn_net)
+            elif use_beta:
+                self.pi = MLPBetaActor(observation_space, action_space.shape[0], cnn_net=cnn_net)
+            else: # Default Gaussian
                 self.pi = MLPGaussianActor(observation_space, action_space.shape[0], hidden_sizes, activation,
-                                           cnn_net=cnn_net, rnn_net=rnn_net, two_fc_layers=two_fc_layers)
-            else:
-                self.pi = MLPSDEActor(observation_space, action_space.shape[0], hidden_sizes, activation, cnn_net=cnn_net)
+                                           cnn_net=cnn_net, rnn_net=rnn_net, two_fc_layers=two_fc_layers,
+                                           local_std=local_std)
+
         elif isinstance(action_space, Discrete):
             self.pi = MLPCategoricalActor(observation_space, action_space.n, hidden_sizes, activation, cnn_net=cnn_net)
 
@@ -358,13 +389,23 @@ class MLPActorCritic(nn.Module):
         self.v = MLPCritic(observation_space, hidden_sizes, activation, cnn_net=cnn_net, rnn_net=rnn_net,
                            use_popart=use_popart)
         self.use_sde = use_sde
+        self.use_beta = use_beta
+        self.action_space_high = 1.0
+        self.action_space_low = -1.0
+
+    def scale_by_action_bounds(self, beta_dist_samples):
+        # Scale [0, 1] back to action space.
+        return beta_dist_samples * (self.action_space_high -
+                                    self.action_space_low) + self.action_space_low
 
     def step(self, obs):
         with torch.no_grad():
             pi = self.pi._distribution(obs)
             a = pi.sample()
-            entropy = pi.entropy()
             logp_a = self.pi._log_prob_from_distribution(pi, a)
+            if self.use_beta:
+                a = self.scale_by_action_bounds(a)
+            entropy = pi.entropy()
             v = self.v(obs)
         if self.use_sde:
             a = a.reshape(a.shape[0]//5, 5, a.shape[1])
@@ -374,6 +415,7 @@ class MLPActorCritic(nn.Module):
 
     def act(self, obs):
         return self.step(obs)[0]
+
 
 
 class ICM(nn.Module):

@@ -39,13 +39,21 @@ parser.add_argument('--use_popart', action='store_true', default=False)
 parser.add_argument('--use_rnn', action='store_true', default=False)
 parser.add_argument('--freeze_rep', action='store_true', default=False)
 parser.add_argument('--multiplayer', action='store_true', default=False)
+parser.add_argument('--eval_logdir', type=str, default='')
+parser.add_argument('--valuenorm', action='store_true', default=False)
+parser.add_argument('--beta', action='store_true', default=False)
+parser.add_argument('--fixed_kl', action='store_true', default=False)
+parser.add_argument('--adaptive_kl', action='store_true', default=False)
+parser.add_argument('--kl_beta', type=float, default=3.0)
 
 args = parser.parse_args()
 args_dict = vars(args)
 
+assert not (args_dict['fixed_kl'] and args_dict['adaptive_kl']), 'Fixed and adaptive KL cannot both be True'
+
 for param in ['reward_weight', 'penalty_weight', 'ff_weight', 'policy_lr', 'value_lr',
               'policy_lr_schedule', 'value_lr_schedule', 'batch_size', 'curriculum_start',
-              'curriculum_stop', 'entropy_coef']:
+              'curriculum_stop', 'entropy_coef', 'kl_beta']:
     if type(args_dict[param]) != list:
         args_dict[param] = [args_dict[param]]
 
@@ -59,7 +67,8 @@ grid = itertools.product(args_dict['reward_weight'],
                          args_dict['batch_size'],
                          args_dict['curriculum_start'],
                          args_dict['curriculum_stop'],
-                         args_dict['entropy_coef'])
+                         args_dict['entropy_coef'],
+                         args_dict['kl_beta'])
 grid = [{'reward_weight': x[0],
          'penalty_weight': x[1],
          'ff_weight': x[2],
@@ -71,13 +80,19 @@ grid = [{'reward_weight': x[0],
          'curriculum_start': x[8],
          'curriculum_stop': x[9],
          'entropy_coef': x[10],
+         'kl_beta': x[11],
+         'valuenorm': args_dict['valuenorm'],
+         'beta': args_dict['beta'],
+         'fixed_kl': args_dict['fixed_kl'],
+         'adaptive_kl': args_dict['adaptive_kl'],
          'multiplayer': args_dict['multiplayer'],
          'use_rnn': args_dict['use_rnn'],
          'use_popart': args_dict['use_popart'],
          'freeze_rep': args_dict['freeze_rep'],
          'save_tag': args_dict['save_tag'],
          'eval_mode': args_dict['eval_mode'],
-         'eval_checkpoint': args_dict['eval_checkpoint']} for x in grid]
+         'eval_checkpoint': args_dict['eval_checkpoint'],
+         'eval_logdir': args_dict['eval_logdir']} for x in grid]
 
 # Tell the arena where it can put log files that describe the results of
 # specific policies.  This is also used to pass results between root processes.

@@ -51,6 +51,11 @@ if __name__ == '__main__':
     parser.add_argument('--use_rnn', action='store_true', default=False)
     parser.add_argument('--eval_logdir', type=str, default='')
     parser.add_argument('--multiplayer', action='store_true', default=False)
+    parser.add_argument('--valuenorm', action='store_true', default=False)
+    parser.add_argument('--beta', action='store_true', default=False)
+    parser.add_argument('--fixed_kl', action='store_true', default=False)
+    parser.add_argument('--adaptive_kl', action='store_true', default=False)
+    parser.add_argument('--kl_beta', type=float, default=3.0)
     args = parser.parse_args()
 
     config = vars(args)
@@ -69,6 +74,12 @@ if __name__ == '__main__':
         folder_name += '__ENT={}'.format(config['entropy_coef'])
     if config['multiplayer']:
         folder_name += '__MULTI'
+    if config['beta']:
+        folder_name += '__BETA'
+    if config['fixed_kl']:
+        folder_name += '__FIXEDKL{}'.format(args.kl_beta)
+    elif config['adaptive_kl']:
+        folder_name += '__ADAPTIVEKL{}'.format(args.kl_beta)
     eval_folder_name = folder_name
     if args.eval_mode:
         eval_folder_name += '__EVAL/{}'.format(args.eval_checkpoint)
@@ -95,10 +106,16 @@ if __name__ == '__main__':
             with open(eval_seed_folder, 'w+') as f:
                 json.dump(env_seeds, f)
 
+        if args.multiplayer:
+            random_tanks = []
+            num_agents = 10
+        else:
+            random_tanks = [5, 6, 7, 8, 9]
+            num_agents = 5
         env_kwargs = []
         for idx in range(10):
             env_kwargs.append({'exe': args.exe,
-                               'static_tanks': [], 'random_tanks': [5,6,7,8,9], 'disable_shooting': [],
+                               'static_tanks': [], 'random_tanks': random_tanks, 'disable_shooting': [],
                                'friendly_fire': True, 'kill_bonus': False, 'death_penalty': False,
                                'take_damage_penalty': True, 'tblogs': stats_dir,
                                'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
@@ -153,8 +170,8 @@ if __name__ == '__main__':
         'seed': args.policy_seed,
         'cnn_model_path': './models/frozen-cnn-0.8/4000000.pth',
         'enemy_model_path': '/cis/net/r09_ssd/data/kelgin/final-baseline-v2-bernese/'+\
-                            'lrp=0.0003cons__lrv=0.001cons__r=1.0__p=0.5__ff=0.0__H=64__/seed0/checkpoints/'+
-                            'final-baseline-v2---lrp=0.0003cons__lrv=0.001cons__r=1.0__p=0.5__ff=0.0__H=64__/'+
+                            'lrp=0.0003cons__lrv=0.001cons__r=1.0__p=0.0__ff=0.0__H=64__/seed0/checkpoints/'+
+                            'final-baseline-v2---lrp=0.0003cons__lrv=0.001cons__r=1.0__p=0.0__ff=0.0__H=64__/'+
                             'seed0-0-/999999.pth',
         'model_path': model_path,
         'n_envs': 1,
@@ -164,12 +181,21 @@ if __name__ == '__main__':
         'use_rnn': args.use_rnn,
         'num_states': 5,
         'tb_writer': tb_writer,
+        'use_value_norm': args.valuenorm,
+        'use_beta': args.beta,
+        'use_fixed_kl': args.fixed_kl,
+        'use_adaptive_kl': args.adaptive_kl,
+        'kl_beta': args.kl_beta,
+        'local_std': True,
     }
 
     callback = EvalCallback(env, policy_record, eval_env=None)
-    policy = TorchGPUMAPPOPolicyNew(env, callback, args.eval_mode, **policy_kwargs)
-    #policy = MAPPOMultiPlayer(env, callback, args.eval_mode, **policy_kwargs)
+    if args.multiplayer:
+        policy = MAPPOMultiPlayer(env, callback, args.eval_mode, **policy_kwargs)
+    else:
+        policy = TorchGPUMAPPOPolicyNew(env, callback, args.eval_mode, **policy_kwargs)
     policy.run(num_steps=args.num_iter)
+    env.close()
 
     '''
     policy_kwargs = {

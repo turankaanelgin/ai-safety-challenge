@@ -121,12 +121,14 @@ class PPOPolicy():
     def run(self, num_steps):
         self.kargs.update({'steps_to_run': num_steps})
         if self.eval_mode:
-            self.evaluate_multiplayer(steps_to_run=num_steps, model_path=self.kargs['model_path'])
+            self.evaluate_multiplayer(steps_to_run=num_steps, model_path=self.kargs['model_path'],
+                                      enemy_model_path=self.kargs['enemy_model_path'])
         else:
             self.learn(**self.kargs)
 
 
-    def evaluate_multiplayer(self, steps_to_run, model_path, actor_critic=core.MLPActorCritic, ac_kwargs=dict()):
+    def evaluate_multiplayer(self, steps_to_run, model_path, actor_critic=core.MLPActorCritic, ac_kwargs=dict(),
+                             enemy_model_path=None):
 
         steps = 0
         observation = self.env.reset()
@@ -136,14 +138,66 @@ class PPOPolicy():
         ckpt = torch.load(model_path)
         self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
         self.ac_model.eval()
-        self.enemy_model.load_state_dict(ckpt['enemy_state_dict'], strict=True)
+        if 'enemy_state_dict' in ckpt.keys():
+            self.enemy_model.load_state_dict(ckpt['enemy_state_dict'], strict=True)
+        elif enemy_model_path:
+            enemy_ckpt = torch.load(enemy_model_path)
+            self.enemy_model.load_state_dict(enemy_ckpt['model_state_dict'], strict=True)
         self.enemy_model.eval()
+        num_envs = 10
+
+        eplen = [0] * num_envs
+        epret = [0] * num_envs
+        ep_rr_damage = [0] * num_envs
+        ep_rb_damage = [0] * num_envs
+        ep_br_damage = [0] * num_envs
+        curr_done = [False] * num_envs
+        episode_returns, episode_lengths = [], []
+        episode_red_blue_damages, episode_blue_red_damages = [], []
+        episode_red_red_damages = []
 
         while steps < steps_to_run:
 
             with torch.no_grad():
-                pdb.set_trace()
-                action, v, logp, _ = self.ac_model.step(torch.as_tensor(observation, dtype=torch.float32).to(device))
+                our_action, _, _, _ = self.ac_model.step(torch.as_tensor(observation[:,:5,:,:,:], dtype=torch.float32).to(device))
+                enemy_action, _, _, _ = self.enemy_model.step(torch.as_tensor(observation[:,5:,:,:,:], dtype=torch.float32).to(device))
+                action = torch.cat((our_action, enemy_action), dim=1)
+            observation, reward, done, info = self.env.step(action.cpu().numpy())
+            curr_done = [done[idx] or curr_done[idx] for idx in range(num_envs)]
+
+            for env_idx, terminal in enumerate(curr_done):
+                if not terminal:
+                    ep_rr_damage[env_idx] += info[env_idx]['current']['red_ally_damage']
+                    ep_rb_damage[env_idx] += info[env_idx]['current']['red_enemy_damage']
+                    ep_br_damage[env_idx] += info[env_idx]['current']['blue_enemy_damage']
+                    eplen[env_idx] += 1
+                    epret[env_idx] += reward[env_idx]
+
+            if np.all(curr_done):
+                episode_returns.append(epret)
+                episode_lengths.append(eplen)
+                episode_red_red_damages.append(ep_rr_damage)
+                episode_blue_red_damages.append(ep_br_damage)
+                episode_red_blue_damages.append(ep_rb_damage)
+                eplen = [0] * num_envs
+                epret = [0] * num_envs
+                ep_rr_damage = [0] * num_envs
+                ep_rb_damage = [0] * num_envs
+                ep_br_damage = [0] * num_envs
+                curr_done = [False] * num_envs
+                steps += 1
+                self.env.reset()
+
+                if steps % 5 == 0 and steps > 0:
+                    avg_red_red_damages = np.mean(episode_red_red_damages)
+                    avg_red_blue_damages = np.mean(episode_red_blue_damages)
+                    avg_blue_red_damages = np.mean(episode_blue_red_damages)
+
+                    with open(os.path.join(self.callback.policy_record.data_dir, 'mean_statistics_multiplayer.json'), 'w+') as f:
+                        json.dump({'Number of games': steps,
+                                   'Red-Red-Damage': avg_red_red_damages,
+                                   'Red-Blue Damage': avg_red_blue_damages,
+                                   'Blue-Red Damage': avg_blue_red_damages}, f, indent=4)
 
 
 
@@ -268,7 +322,7 @@ class PPOPolicy():
         if model_path:
             ckpt = torch.load(model_path)
             self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
-            self.enemy_model.load_state_dict(ckpt['enemy_state_dict'], strict=True)
+            #self.enemy_model.load_state_dict(ckpt['enemy_state_dict'], strict=True)
             self.pi_optimizer.load_state_dict(ckpt['pi_optimizer_state_dict'])
             self.vf_optimizer.load_state_dict(ckpt['vf_optimizer_state_dict'])
             if self.scheduler_policy:

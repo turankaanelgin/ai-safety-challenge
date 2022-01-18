@@ -303,7 +303,7 @@ class PPOPolicy():
         for _ in range(kargs['n_envs']):
             buf.append(RolloutBuffer(self.obs_dim, self.act_dim, steps_per_epoch, gamma,
                                      lam, n_envs=kargs['n_envs'], use_sde=use_sde, use_rnn=use_rnn,
-                                     n_states=num_states))
+                                     n_states=0))
         self.use_sde = use_sde
         self.use_rnn = use_rnn
 
