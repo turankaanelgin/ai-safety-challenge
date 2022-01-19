@@ -72,7 +72,7 @@ if [[ $1 == jobs ]]; then
         --exp-dir single-tank \
         --save-freq 5000 --n-envs 16 --timestep 1500000 --config 2 --env-timeout 500 \
         --input-type dict --warmup-steps 1000000 --prune-threshold 0.00\
-        --learning-rate-type constant --training #--dummy-proc#--debug 
+        --learning-rate-type constant --training #--dummy-proc #--debug 
 elif [[ $1 == job1 ]]; then
     train 64 20 4000000 0.4 0.00 10 500 dict
 elif [[ $1 == job2 ]]; then

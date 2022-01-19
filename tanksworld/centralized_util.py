@@ -124,7 +124,7 @@ class CentralizedTraining:
                 features_extractor_class=features_extractor_class,
                 features_extractor_kwargs={
                     "model_type": self.params["extract_ftr_model"],
-                    'features_dim': self.params['features_dim']
+                    "features_dim": self.params["features_dim"],
                 },
                 net_arch=[
                     dict(
@@ -269,8 +269,12 @@ class CentralizedTraining:
             n_training_agent=len(self.params["env_params"]["training_tanks"])
         )
         #        callback_list = []
-        callback_list = [checkpoint_callback, tensorboard_callback, early_stop_callback]
-        callback_list.append(trial_eval_callback)
+        callback_list = [
+            checkpoint_callback,
+            tensorboard_callback,
+            early_stop_callback,
+            trial_eval_callback,
+        ]
         try:
             self.training_model.learn(
                 total_timesteps=self.params["timestep"],
@@ -436,28 +440,39 @@ class EarlyStopCallback(BaseCallback):
         self,
         check_step=1000000,
         reward_threshold=0.1,
-        enemy_damage_threshold=4,
+        enemy_damage_threshold=1,
         n_training_agent=1,
         verbose=0,
     ):
         super(EarlyStopCallback, self).__init__(verbose)
         self.check_step = check_step
         self.n_training_agent = n_training_agent
+        self.enemy_damage_threshold = enemy_damage_threshold
+
+    def _on_training_start(self) -> None:
+        self.damage_inflicted_on_enemy = self.training_env.damage_inflicted_on_enemy
+
+    def _on_rollout_end(self):
+        if (
+            len(self.damage_inflicted_on_enemy) == self.damage_inflicted_on_enemy.maxlen
+            and np.mean(self.damage_inflicted_on_enemy) < self.enemy_damage_threshold
+        ):
+            raise optuna.exceptions.TrialPruned()
 
     def _on_step(self) -> bool:
-        if self.num_timesteps % 1000 == 0:
-            if self.num_timesteps > self.check_step:
-                return False
-            if (
-                len(self.training_env.prune_enemy_damage)
-                == self.training_env.prune_enemy_damage.maxlen
-                and np.mean(self.training_env.prune_enemy_damage)
-                / self.n_training_agent
-                < self.enemy_damage_threshold
-            ):
-                print("Early stop call, prune by enemy damage")
-                return False
-
+        #        if self.num_timesteps % 1000 == 0:
+        #            if self.num_timesteps > self.check_step:
+        #                return False
+        #            if (
+        #                len(self.training_env.prune_enemy_damage)
+        #                == self.training_env.prune_enemy_damage.maxlen
+        #                and np.mean(self.training_env.prune_enemy_damage)
+        #                / self.n_training_agent
+        #                < self.enemy_damage_threshold
+        #            ):
+        #                print("Early stop call, prune by enemy damage")
+        #                return False
+        #
         return True
 
 
@@ -491,9 +506,9 @@ class VecEnvTankworldMonitor(VecEnvWrapper):
         self.save_path = pjoin(save_path, "stats.pickle")
         self.stats = deque(maxlen=1000)
         self.rewards = np.zeros(n_env)
-        self.prune_enemy_damage = deque(maxlen=200)
-        self.score = deque(maxlen=500)
-        self.damage_inflicted_on_enemy = deque(maxlen=500)
+        #        self.prune_enemy_damage = deque(maxlen=200)
+        self.score = deque(maxlen=300)
+        self.damage_inflicted_on_enemy = deque(maxlen=300)
         self.saved_stats_list = []
         self.n_training_tank = n_training_tank
 
@@ -528,16 +543,17 @@ class VecEnvTankworldMonitor(VecEnvWrapper):
                 red_dmg_inflicted = red_stats["damage_inflicted_on"]
                 red_dmg_taken = red_stats["damage_taken_by"]
 
+                self.damage_inflicted_on_enemy.append(red_dmg_inflicted["enemy"])
+
                 score = (
                     red_dmg_inflicted["enemy"]
                     - red_dmg_taken["ally"]
                     - red_dmg_taken["enemy"]
                 )
-                self.damage_inflicted_on_enemy.append(red_dmg_inflicted['enemy'])
                 score /= self.n_training_tank
                 score /= 100  # Normalize score
-#                if np.mean(self.damage_inflicted_on_enemy) < 5:
-#                    score = -2 # set low score if damange inflicted on enemy is small.
+                #                if np.mean(self.damage_inflicted_on_enemy) < 5:
+                #                    score = -2 # set low score if damange inflicted on enemy is small.
                 self.score.append(score)
 
                 tsboard_log = {
