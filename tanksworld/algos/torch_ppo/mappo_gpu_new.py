@@ -265,7 +265,7 @@ class PPOPolicy():
         self.start_step = 0
         # Load from previous checkpoint
         if model_path:
-            ckpt = torch.load(model_path)
+            ckpt = torch.load(model_path, map_location=device)
             self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
             self.pi_optimizer.load_state_dict(ckpt['pi_optimizer_state_dict'])
             self.vf_optimizer.load_state_dict(ckpt['vf_optimizer_state_dict'])
@@ -389,7 +389,7 @@ class PPOPolicy():
 
         # Policy loss
         pi, logp = self.ac_model.pi(obs, act)
-        logp = logp.reshape(size, 1, 5)
+        logp = logp.reshape(size, -1, 5)
         ratio = torch.exp(logp - logp_old)
 
         if self.use_fixed_kl or self.use_adaptive_kl:
@@ -469,7 +469,7 @@ class PPOPolicy():
             loss_v = self.compute_loss_v(data)
             loss_v.backward()
             self.loss_v_index += 1
-            self.writer.add_scalar('loss/Value_Loss', loss_v, self.loss_v_index)
+            #self.writer.add_scalar('loss/Value_Loss', loss_v, self.loss_v_index)
             self.vf_optimizer.step()
 
 
@@ -495,6 +495,8 @@ class PPOPolicy():
         self.use_adaptive_kl = kargs['use_adaptive_kl']
         self.kl_beta = kl_beta
         self.setup_model(actor_critic, pi_lr, vf_lr, pi_scheduler, vf_scheduler, ac_kwargs, use_value_norm)
+        ac_kwargs['local_std'] = kargs['local_std']
+        self.setup_model(actor_critic, pi_lr, vf_lr, pi_scheduler, vf_scheduler, ac_kwargs)
         self.load_model(kargs['model_path'], kargs['cnn_model_path'], freeze_rep, steps_per_epoch)
 
         num_states = kargs['num_states'] if 'num_states' in kargs else None
@@ -546,7 +548,7 @@ class PPOPolicy():
             ep_rr_dmg += stats['red_ally_damage']
             ep_rb_dmg += stats['red_enemy_damage']
             ep_br_dmg += stats['blue_enemy_damage']
-            ep_ret += np.sum(r)
+            ep_ret += np.sum(r[0])
             ep_ret_scheduler += np.sum(r)
             ep_len += 1
             ep_len_scheduler += 1

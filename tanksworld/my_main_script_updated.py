@@ -11,10 +11,11 @@ import numpy as np
 from make_env import make_env
 from core.policy_record import PolicyRecord
 from algos.torch_ppo.mappo_gpu_new import PPOPolicy as TorchGPUMAPPOPolicyNew
+from algos.torch_ppo.mappo_gpu_separate_env_new import PPOPolicy as MultiEnvMAPPOPolicy
 from algos.torch_ppo.mappo_gpu_multiplayer import PPOPolicy as MAPPOMultiPlayer
 from algos.torch_ppo.mappo_gpu_curiosity import PPOPolicy as MAPPOCuriosity
-from algos.torch_sac.sac_new import SACPolicy
 from algos.maddpg.maddpg import MADDPGPolicy
+from algos.torch_sac.sac_new import SACPolicy
 from algos.torch_ppo.callbacks import EvalCallback
 from algos.torch_ppo.vec_env import DummyVecEnv, SubprocVecEnv
 
@@ -56,6 +57,7 @@ if __name__ == '__main__':
     parser.add_argument('--fixed_kl', action='store_true', default=False)
     parser.add_argument('--adaptive_kl', action='store_true', default=False)
     parser.add_argument('--kl_beta', type=float, default=3.0)
+    parser.add_argument('--num_envs', type=int, default=1)
     args = parser.parse_args()
 
     config = vars(args)
@@ -124,8 +126,7 @@ if __name__ == '__main__':
         env_functions = []
         for idx in range(len(env_kwargs)):
             env_functions.append(lambda : make_env(**env_kwargs[idx]))
-        stacked_env = [env_functions[i] for i in range(len(env_kwargs))]
-        env = SubprocVecEnv(stacked_env)
+        env = SubprocVecEnv(env_functions)
 
     else:
         if args.multiplayer:
@@ -134,14 +135,37 @@ if __name__ == '__main__':
         else:
             random_tanks = [5,6,7,8,9]
             num_agents = 5
-        env_kwargs = {'exe': args.exe,
-                     'static_tanks': [], 'random_tanks': random_tanks, 'disable_shooting': [],
-                     'friendly_fire': True, 'kill_bonus': False, 'death_penalty': False,
-                     'take_damage_penalty': True, 'tblogs': stats_dir, 'tb_writer': tb_writer,
-                     'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
-                     'friendly_fire_weight': config['ff_weight'], 'timeout': 500, 'log_statistics': True,
-                     'seed': args.env_seed, 'curriculum_stop': config['curriculum_stop'], 'curriculum_steps': args.num_iter,}
-        env = DummyVecEnv([lambda : make_env(**env_kwargs)], num_agents)
+
+        if args.num_envs == 1:
+            env_kwargs = {'exe': args.exe,
+                          'static_tanks': [], 'random_tanks': random_tanks, 'disable_shooting': [],
+                          'friendly_fire': True, 'kill_bonus': False, 'death_penalty': False,
+                          'take_damage_penalty': True, 'tblogs': stats_dir, 'tb_writer': tb_writer,
+                          'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
+                          'friendly_fire_weight': config['ff_weight'], 'timeout': 500, 'log_statistics': True,
+                          'seed': args.env_seed, 'curriculum_stop': config['curriculum_stop'],
+                          'curriculum_steps': args.num_iter, }
+            env = DummyVecEnv([lambda : make_env(**env_kwargs)], num_agents)
+        else:
+            env_kwargs = []
+            if args.num_envs != 1:
+                _MAX_INT = 2147483647  # Max int for Unity ML Seed
+                env_seed = [np.random.randint(_MAX_INT) for _ in range(args.num_envs)]
+            else:
+                env_seed = args.env_seed
+            for idx in range(args.num_envs):
+                env_kwargs.append({'exe': args.exe,
+                                   'static_tanks': [], 'random_tanks': [5, 6, 7, 8, 9], 'disable_shooting': [],
+                                   'friendly_fire': True, 'kill_bonus': False, 'death_penalty': False,
+                                   'take_damage_penalty': True, 'tblogs': stats_dir,
+                                   'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
+                                   'friendly_fire_weight': config['ff_weight'], 'timeout': 500, 'log_statistics': True,
+                                   'seed': env_seed[idx], 'curriculum_stop': config['curriculum_stop'],
+                                   'curriculum_steps': args.num_iter})
+            env_functions = []
+            for idx in range(len(env_kwargs)):
+                env_functions.append(lambda: make_env(**env_kwargs[idx]))
+            env = SubprocVecEnv(env_functions)
 
     if args.eval_mode:
         policy_record = PolicyRecord(eval_folder_name, './logs/' + args.logdir + '/')
@@ -168,13 +192,17 @@ if __name__ == '__main__':
         'pi_scheduler': config['policy_lr_schedule'],
         'vf_scheduler': config['value_lr_schedule'],
         'seed': args.policy_seed,
+        #'cnn_model_path': None,
         'cnn_model_path': './models/frozen-cnn-0.8/4000000.pth',
+        #'cnn_model_path': './logs/20-env-rep/lrp=0.0003cons__lrv=0.001cons__r=1.0__p=0.5__ff=0.0__H=64__/seed0/'+\
+        #                  'checkpoints/final-baseline-v2---lrp=0.0003cons__lrv=0.001cons__r=1.0__p=0.5__ff=0.0__H=64__/'+\
+        #                  'seed0-0-/149999.pth',
         'enemy_model_path': '/cis/net/r09_ssd/data/kelgin/final-baseline-v2-bernese/'+\
                             'lrp=0.0003cons__lrv=0.001cons__r=1.0__p=0.0__ff=0.0__H=64__/seed0/checkpoints/'+
                             'final-baseline-v2---lrp=0.0003cons__lrv=0.001cons__r=1.0__p=0.0__ff=0.0__H=64__/'+
                             'seed0-0-/999999.pth',
         'model_path': model_path,
-        'n_envs': 1,
+        'n_envs': args.num_envs,
         'model_id': model_id,
         'save_dir': os.path.join(policy_record.data_dir, 'checkpoints'),
         'freeze_rep': args.freeze_rep,
@@ -199,7 +227,8 @@ if __name__ == '__main__':
 
     '''
     policy_kwargs = {
-        'steps_per_epoch': config['batch_size'],
+        'steps_per_epoch': 500,
+        'batch_size': config['batch_size'],
         'seed': args.policy_seed,
         'model_path': None,
         'cnn_model_path': './models/frozen-cnn-0.8/4000000.pth',
@@ -207,11 +236,13 @@ if __name__ == '__main__':
         'save_dir': os.path.join(policy_record.data_dir, 'checkpoints'),
         'model_id': model_id,
         'n_envs': 1,
+        'q_lr': 5e-4,
+        'pi_lr': 3e-4,
     }
     
     callback = EvalCallback(env, policy_record, eval_env=None)
     #policy = SACPolicy(env, callback, args.eval_mode, **policy_kwargs)
-    policy = MAPPOCuriosity(env, callback, args.eval_mode, **policy_kwargs)
-    #policy = MADDPGPolicy(env, callback, args.eval_mode, **policy_kwargs)
+    #policy = MAPPOCuriosity(env, callback, args.eval_mode, **policy_kwargs)
+    policy = MADDPGPolicy(env, callback, args.eval_mode, **policy_kwargs)
     policy.run(num_steps=args.num_iter)
     '''

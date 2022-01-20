@@ -564,8 +564,10 @@ class TanksWorldEnv(gym.Env):
             # was the damage dealt good or bad?
             if (my_team==1 and team_hit==2) or (my_team==2 and team_hit==1):
                 multiplier = self.reward_weight
-            else:
+            elif (my_team==1 and team_hit==1) or (my_team==2 and team_hit==2):
                 multiplier = -self.friendly_fire_weight
+            else: # disable neutral team
+                multiplier = 0.0
 
             #eliminate friendly fire (and neutral) penalties if required
             if multiplier < 0 and not self.penalties:

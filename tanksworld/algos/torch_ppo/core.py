@@ -294,6 +294,7 @@ class MLPGaussianActor(Actor):
             local_scale = self.local_std_scale(obs)
             local_scale = torch.clamp(local_scale, 0.5, 1.5)
             std = local_scale * std
+
         if self.rnn_net is not None: mu = mu.unsqueeze(0)
         return Normal(mu, std)
 
@@ -381,7 +382,6 @@ class MLPActorCritic(nn.Module):
                 self.pi = MLPGaussianActor(observation_space, action_space.shape[0], hidden_sizes, activation,
                                            cnn_net=cnn_net, rnn_net=rnn_net, two_fc_layers=two_fc_layers,
                                            local_std=local_std)
-
         elif isinstance(action_space, Discrete):
             self.pi = MLPCategoricalActor(observation_space, action_space.n, hidden_sizes, activation, cnn_net=cnn_net)
 

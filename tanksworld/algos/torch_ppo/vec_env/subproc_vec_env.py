@@ -134,6 +134,11 @@ class SubprocVecEnv(VecEnv):
         obs = [remote.recv() for remote in self.remotes]
         return _flatten_obs(obs, self.observation_space)
 
+    def reset_single_env(self, idx) -> VecEnvObs:
+        self.remotes[idx].send(("reset", None))
+        obs = self.remotes[idx].recv()
+        return np.concatenate(obs, axis=0)
+
     def close(self) -> None:
         if self.closed:
             return

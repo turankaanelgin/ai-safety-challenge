@@ -32,27 +32,22 @@ class RolloutBuffer:
         self.ret_buf = torch.zeros((size, n_envs, 5)).to(device)
         self.val_buf = torch.zeros((size, n_envs, 5)).to(device)
         self.logp_buf = torch.zeros((size, n_envs, 5)).to(device)
-        if not use_sde:
-            self.entropy_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, act_dim)).to(device)
-        else:
-            self.entropy_buf = torch.zeros(core.combined_shape_v2(size, n_envs, 5)).to(device)
         self.gamma, self.lam = gamma, lam
         self.ptr, self.path_start_idx, self.max_size = 0, 0, size
         self.n_envs = n_envs
         self.use_rnn = use_rnn
 
-    def store(self, obs, act, rew, val, logp, entropy):
+    def store(self, obs, act, rew, val, logp):
         """
         Append one timestep of agent-environment interaction to the buffer.
         """
 
         assert self.ptr < self.max_size  # buffer has to have room so you can store
-        self.obs_buf[self.ptr] = obs.squeeze(2) if not self.use_rnn else obs
+        self.obs_buf[self.ptr] = obs.squeeze(1)
         self.act_buf[self.ptr] = act
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
         self.logp_buf[self.ptr] = logp
-        self.entropy_buf[self.ptr] = entropy if entropy is not None else torch.Tensor([0])
         self.ptr += 1
 
     def finish_path(self, last_val=[0, 0, 0, 0, 0]):
@@ -73,7 +68,7 @@ class RolloutBuffer:
 
         path_slice = slice(self.path_start_idx, self.ptr)
 
-        last_val = last_val.unsqueeze(0)
+        last_val = last_val.unsqueeze(0).unsqueeze(0)
         if self.use_rnn and len(last_val.shape) == 2:
             last_val = last_val.unsqueeze(0)
         rews = torch.cat((self.rew_buf[path_slice], last_val), dim=0)
@@ -104,7 +99,7 @@ class RolloutBuffer:
         adv_buf = (adv_buf - adv_mean) / adv_std
         self.adv_buf = adv_buf.reshape(adv_buf.shape[0], self.n_envs, 5)
         data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
-                    adv=self.adv_buf, logp=self.logp_buf, entropy=self.entropy_buf)
+                    adv=self.adv_buf, logp=self.logp_buf)
         return {k: torch.as_tensor(v, dtype=torch.float32).to(device) for k, v in data.items()}
 
 
@@ -238,10 +233,9 @@ class PPOPolicy():
         data = []
         for env_idx in range(len(buf)):
             data.append(buf[env_idx].get())
-        pdb.set_trace()
         combined_data = dict()
         for key in data[0]:
-            combined_data[key] = torch.cat([data[i][key].unsqueeze(1) for i in range(len(data))], dim=1)
+            combined_data[key] = torch.cat([data[i][key] for i in range(len(data))], dim=1)
         data = combined_data
 
         # Train policy with multiple steps of gradient descent
@@ -294,15 +288,19 @@ class PPOPolicy():
         self.set_random_seed(seed)
         self.setup_model(actor_critic, pi_lr, vf_lr, ac_kwargs)
         self.load_model(kargs['model_path'], kargs['cnn_model_path'], freeze_rep, steps_per_epoch)
+        num_envs = kargs['n_envs']
 
-        ep_ret, ep_len = 0, 0
-        ep_rb_dmg, ep_br_dmg, ep_rr_dmg = 0, 0, 0
-        ep_ret_scheduler, ep_len_scheduler = 0, 0
+        ep_ret = [0]*num_envs
+        ep_len = [0]*num_envs
+        ep_rb_dmg = [0]*num_envs
+        ep_br_dmg = [0]*num_envs
+        ep_rr_dmg = [0]*num_envs
+        curr_done = [False]*num_envs
 
         buf = []
         for _ in range(kargs['n_envs']):
             buf.append(RolloutBuffer(self.obs_dim, self.act_dim, steps_per_epoch, gamma,
-                                     lam, n_envs=kargs['n_envs'], use_sde=use_sde, use_rnn=use_rnn,
+                                     lam, n_envs=1, use_sde=use_sde, use_rnn=use_rnn,
                                      n_states=0))
         self.use_sde = use_sde
         self.use_rnn = use_rnn
@@ -325,22 +323,25 @@ class PPOPolicy():
             obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
             a, v, logp, entropy = self.ac_model.step(obs)
             next_obs, r, terminal, info = env.step(a.cpu().numpy())
+            curr_done = [terminal[idx] or curr_done[idx] for idx in range(num_envs)]
             if self.callback:
                 self.callback._on_step()
 
-            stats = info[0]['current']
-            ep_rr_dmg += stats['red_ally_damage']
-            ep_rb_dmg += stats['red_enemy_damage']
-            ep_br_dmg += stats['blue_enemy_damage']
-            ep_ret += np.sum(r)
-            ep_ret_scheduler += np.sum(r)
-            ep_len += 1
-            ep_len_scheduler += 1
+            for env_idx, done in enumerate(curr_done):
+                if not done:
+                    ep_rr_dmg[env_idx] += info[env_idx]['current']['red_ally_damage']
+                    ep_rb_damage[env_idx] += info[env_idx]['current']['red_enemy_damage']
+                    ep_br_damage[env_idx] += info[env_idx]['current']['blue_enemy_damage']
+                    eplen[env_idx] += 1
+                    epret[env_idx] += r[env_idx]
 
             r = torch.as_tensor(r, dtype=torch.float32).to(device)
 
             self.obs = next_obs
-            buf.store(obs, a, r, v, logp, entropy)
+
+            for env_idx in range(kargs['n_envs']):
+                buf[env_idx].store(obs[env_idx], a[env_idx], r[env_idx], v[env_idx], logp[env_idx])
+
             epoch_ended = step > 0 and step % steps_per_epoch == 0
 
             if epoch_ended:
@@ -358,21 +359,6 @@ class PPOPolicy():
 
                 self.update(buf, train_pi_iters, train_v_iters, target_kl, clip_ratio, entropy_coef)
                 ep_ret, ep_len, ep_rr_dmg, ep_rb_dmg, ep_br_dmg = 0, 0, 0, 0, 0
-
-            else:
-
-                for env_idx, term in enumerate(terminal):
-                    if term:
-                        v = torch.zeros((5,)).to(device)
-                        buf[env_idx].finish_path(v)
-                        local_o = env.reset_single_env(env_idx)
-                        local_o = np.expand_dims(local_o, axis=0)
-                        if env_idx == 0:
-                            self.obs = np.concatenate((local_o, self.obs[env_idx+1:]), axis=0)
-                        elif env_idx == len(buf)-1:
-                            self.obs = np.concatenate((self.obs[:env_idx], local_o), axis=0)
-                        else:
-                            self.obs = np.concatenate((self.obs[:env_idx], local_o, o[env_idx+1:]), axis=0)
 
             if step % 50 == 0:
                 if self.callback:

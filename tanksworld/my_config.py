@@ -45,6 +45,7 @@ parser.add_argument('--beta', action='store_true', default=False)
 parser.add_argument('--fixed_kl', action='store_true', default=False)
 parser.add_argument('--adaptive_kl', action='store_true', default=False)
 parser.add_argument('--kl_beta', type=float, default=3.0)
+parser.add_argument('--num_envs', type=int, default=1)
 
 args = parser.parse_args()
 args_dict = vars(args)
@@ -85,6 +86,7 @@ grid = [{'reward_weight': x[0],
          'beta': args_dict['beta'],
          'fixed_kl': args_dict['fixed_kl'],
          'adaptive_kl': args_dict['adaptive_kl'],
+         'num_envs': args_dict['num_envs'],
          'multiplayer': args_dict['multiplayer'],
          'use_rnn': args_dict['use_rnn'],
          'use_popart': args_dict['use_popart'],
