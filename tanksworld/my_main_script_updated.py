@@ -58,6 +58,7 @@ if __name__ == '__main__':
     parser.add_argument('--adaptive_kl', action='store_true', default=False)
     parser.add_argument('--kl_beta', type=float, default=3.0)
     parser.add_argument('--num_envs', type=int, default=1)
+    parser.add_argument('--local_std', action='store_true', default=False)
     args = parser.parse_args()
 
     config = vars(args)
@@ -82,6 +83,8 @@ if __name__ == '__main__':
         folder_name += '__FIXEDKL{}'.format(args.kl_beta)
     elif config['adaptive_kl']:
         folder_name += '__ADAPTIVEKL{}'.format(args.kl_beta)
+    if config['local_std']:
+        folder_name += '__LOCALSTD'
     eval_folder_name = folder_name
     if args.eval_mode:
         eval_folder_name += '__EVAL/{}'.format(args.eval_checkpoint)
@@ -214,7 +217,7 @@ if __name__ == '__main__':
         'use_fixed_kl': args.fixed_kl,
         'use_adaptive_kl': args.adaptive_kl,
         'kl_beta': args.kl_beta,
-        'local_std': True,
+        'local_std': args.local_std,
     }
 
     callback = EvalCallback(env, policy_record, eval_env=None)

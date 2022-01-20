@@ -70,7 +70,7 @@ for config in cfg.grid:
                 if isinstance(arg_value, bool):
                     if arg_name in ['multiplayer', 'valuenorm', 'freeze_rep',
                                     'use_rnn', 'beta', 'fixed_kl', 'adaptive_kl',
-                                    'eval_mode'] and arg_value:
+                                    'eval_mode', 'local_std'] and arg_value:
                         command += ['--{}'.format(arg_name)]
                 else:
                     command += ['--{}'.format(arg_name)]
