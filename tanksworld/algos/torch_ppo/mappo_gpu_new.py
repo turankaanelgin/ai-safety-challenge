@@ -129,10 +129,76 @@ class PPOPolicy():
     def run(self, num_steps):
         self.kargs.update({'steps_to_run': num_steps})
         if self.eval_mode:
-            self.evaluate(steps_to_run=num_steps, model_path=self.kargs['model_path'])
+            #self.evaluate(steps_to_run=num_steps, model_path=self.kargs['model_path'])
+            self.evaluate_modified(steps_to_run=num_steps, model_path=self.kargs['model_path'])
         else:
             self.learn(**self.kargs)
 
+
+    def evaluate_modified(self, steps_to_run, model_path, actor_critic=core.MLPActorCritic, ac_kwargs=dict()):
+
+        steps = 0
+        observation = self.env.reset()
+
+        self.ac_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
+        ckpt = torch.load(model_path)
+        self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
+        self.ac_model.eval()
+        num_envs = 10
+
+        ep_rr_damage = [0] * num_envs
+        ep_rb_damage = [0] * num_envs
+        ep_br_damage = [0] * num_envs
+        curr_done = [False] * num_envs
+        taken_stats = [False] * num_envs
+        episode_red_blue_damages, episode_blue_red_damages = [], []
+        episode_red_red_damages = []
+
+        while steps < steps_to_run:
+            with torch.no_grad():
+                action, v, logp, _ = self.ac_model.step(torch.as_tensor(observation, dtype=torch.float32).to(device))
+            observation, reward, done, info = self.env.step(action.cpu().numpy())
+            curr_done = [done[idx] or curr_done[idx] for idx in range(num_envs)]
+
+            for env_idx, terminal in enumerate(curr_done):
+                if terminal and not taken_stats[env_idx]:
+                    ep_rr_damage[env_idx] = info[env_idx]['red_stats']['damage_inflicted_on']['ally']
+                    ep_rb_damage[env_idx] = info[env_idx]['red_stats']['damage_inflicted_on']['enemy']
+                    ep_br_damage[env_idx] = info[env_idx]['red_stats']['damage_taken_by']['enemy']
+                    taken_stats[env_idx] = True
+
+            if np.all(curr_done):
+                episode_red_red_damages.append(ep_rr_damage)
+                episode_blue_red_damages.append(ep_br_damage)
+                episode_red_blue_damages.append(ep_rb_damage)
+                ep_rr_damage = [0] * num_envs
+                ep_rb_damage = [0] * num_envs
+                ep_br_damage = [0] * num_envs
+                curr_done = [False] * num_envs
+                taken_stats = [False] * num_envs
+                steps += 1
+                observation = self.env.reset()
+
+                if steps % 5 == 0 and steps > 0:
+                    avg_red_red_damages = np.mean(episode_red_red_damages)
+                    avg_red_blue_damages = np.mean(episode_red_blue_damages)
+                    avg_blue_red_damages = np.mean(episode_blue_red_damages)
+
+                    with open(os.path.join(self.callback.policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
+                        json.dump({'Number of games': steps,
+                                   'Red-Red-Damage': avg_red_red_damages.tolist(),
+                                   'Red-Blue Damage': avg_red_blue_damages.tolist(),
+                                   'Blue-Red Damage': avg_blue_red_damages.tolist()}, f, indent=4)
+
+                    avg_red_red_damages_per_env = np.mean(episode_red_red_damages, axis=0)
+                    avg_red_blue_damages_per_env = np.mean(episode_red_blue_damages, axis=0)
+                    avg_blue_red_damages_per_env = np.mean(episode_blue_red_damages, axis=0)
+
+                    with open(os.path.join(self.callback.policy_record.data_dir, 'all_statistics.json'), 'w+') as f:
+                        json.dump({'Number of games': steps,
+                                   'All-Red-Red-Damage': avg_red_red_damages_per_env.tolist(),
+                                   'All-Red-Blue Damage': avg_red_blue_damages_per_env.tolist(),
+                                   'All-Blue-Red Damage': avg_blue_red_damages_per_env.tolist()}, f, indent=4)
 
 
     def evaluate(self, steps_to_run, model_path, actor_critic=core.MLPActorCritic, ac_kwargs=dict()):
@@ -184,7 +250,7 @@ class PPOPolicy():
                 ep_br_damage = [0] * num_envs
                 curr_done = [False] * num_envs
                 steps += 1
-                self.env.reset()
+                observation = self.env.reset()
 
                 if steps % 5 == 0 and steps > 0:
                     avg_red_red_damages = np.mean(episode_red_red_damages)
@@ -296,6 +362,9 @@ class PPOPolicy():
             for name, param in self.ac_model.named_parameters():
                 if 'cnn_net' in name:
                     param.requires_grad = False
+
+        from torchinfo import summary
+        summary(self.ac_model)
 
 
     def save_model(self, save_dir, model_id, step):
@@ -486,6 +555,7 @@ class PPOPolicy():
         self.loss_p_index, self.loss_v_index = 0, 0
         self.action_dim = 3
         self.set_random_seed(seed)
+        print('***************POLICY SEED', seed)
         ac_kwargs['use_sde'] = use_sde
         ac_kwargs['use_rnn'] = use_rnn
         ac_kwargs['use_beta'] = kargs['use_beta']
@@ -508,7 +578,6 @@ class PPOPolicy():
 
         ep_ret, ep_len = 0, 0
         ep_rb_dmg, ep_br_dmg, ep_rr_dmg = 0, 0, 0
-        ep_ret_scheduler, ep_len_scheduler = 0, 0
 
         buf = RolloutBuffer(self.obs_dim, self.act_dim, steps_per_epoch, gamma, lam, n_envs=kargs['n_envs'],
                             use_sde=use_sde, use_rnn=use_rnn, n_states=num_states, use_value_norm=use_value_norm,
@@ -541,17 +610,9 @@ class PPOPolicy():
                 obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
             a, v, logp, entropy = self.ac_model.step(obs)
             next_obs, r, terminal, info = env.step(a.cpu().numpy())
-            #if self.callback:
-            #    self.callback._on_step()
 
-            stats = info[0]['current']
-            ep_rr_dmg += stats['red_ally_damage']
-            ep_rb_dmg += stats['red_enemy_damage']
-            ep_br_dmg += stats['blue_enemy_damage']
             ep_ret += np.sum(r[0])
-            ep_ret_scheduler += np.sum(r)
             ep_len += 1
-            ep_len_scheduler += 1
 
             r = torch.as_tensor(r, dtype=torch.float32).to(device)
 
@@ -568,6 +629,12 @@ class PPOPolicy():
             epoch_ended = step > 0 and step % steps_per_epoch == 0
 
             if np.all(terminal) or epoch_ended:
+
+                stats = info[0]['red_stats']
+                ep_rr_dmg = stats['damage_inflicted_on']['ally']
+                ep_rb_dmg = stats['damage_inflicted_on']['enemy']
+                ep_br_dmg = stats['damage_taken_by']['enemy']
+
                 episode_lengths.append(ep_len)
                 episode_returns.append(ep_ret)
                 episode_red_red_damages.append(ep_rr_dmg)
@@ -579,8 +646,10 @@ class PPOPolicy():
                         obs = [torch.as_tensor(obs, dtype=torch.float32).to(device) for obs in state_history]
                         self.obs = torch.cat(obs, dim=2)
                     _, v, _, _ = self.ac_model.step(torch.as_tensor(self.obs, dtype=torch.float32).to(device))
+
                 else:
                     v = torch.zeros((kargs['n_envs'], 5)).to(device)
+
                 buf.finish_path(v)
                 if np.all(terminal):
                     obs, ep_ret, ep_len = env.reset(), 0, 0
@@ -595,20 +664,30 @@ class PPOPolicy():
             if epoch_ended:
                 self.update(buf, train_pi_iters, train_v_iters, target_kl, clip_ratio, entropy_coef)
 
-                if pi_scheduler == 'smart':
-                    self.scheduler_policy.step(ep_ret_scheduler / ep_len_scheduler)
-                elif pi_scheduler != 'cons':
-                    self.scheduler_policy.step()
-
-                if vf_scheduler == 'smart':
-                    self.scheduler_value.step(ep_ret_scheduler / ep_len_scheduler)
-                elif vf_scheduler != 'cons':
-                    self.scheduler_value.step()
-
             if step % 100 == 0 or step == 4:
+
                 if self.callback:
-                    self.callback.save_metrics(info, episode_returns, episode_lengths, episode_red_blue_damages,
-                                               episode_red_red_damages, episode_blue_red_damages)
+                    self.callback.save_metrics_modified(episode_returns, episode_lengths, episode_red_blue_damages,
+                                                        episode_red_red_damages, episode_blue_red_damages)
+                '''
+                if len(episode_lengths) > 0:
+                    episode_stats = {'Red-Blue-Damage': np.mean(episode_red_blue_damages),
+                                     'Red-Red-Damage': np.mean(episode_red_red_damages),
+                                     'Blue-Red-Damage': np.mean(episode_blue_red_damages)}
+
+                    if self.callback.policy_record:
+                        with open(os.path.join(self.callback.policy_record.data_dir, 'mean_statistics.json'),
+                                  'w+') as f:
+                            json.dump(episode_stats, f, indent=True)
+
+                        for idx in range(len(episode_lengths)):
+                            self.callback.policy_record.add_result(episode_returns[idx], episode_red_blue_damages[idx],
+                                                                   episode_red_red_damages[idx],
+                                                                   episode_blue_red_damages[idx],
+                                                                   episode_lengths[idx])
+                        self.callback.policy_record.save()
+                '''
+
                 episode_lengths = []
                 episode_returns = []
                 episode_red_blue_damages = []
