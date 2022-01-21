@@ -555,6 +555,7 @@ class PPOPolicy():
         self.loss_p_index, self.loss_v_index = 0, 0
         self.action_dim = 3
         self.set_random_seed(seed)
+        print('***************POLICY SEED', seed)
         ac_kwargs['use_sde'] = use_sde
         ac_kwargs['use_rnn'] = use_rnn
         ac_kwargs['use_beta'] = kargs['use_beta']
@@ -577,7 +578,6 @@ class PPOPolicy():
 
         ep_ret, ep_len = 0, 0
         ep_rb_dmg, ep_br_dmg, ep_rr_dmg = 0, 0, 0
-        ep_ret_scheduler, ep_len_scheduler = 0, 0
 
         buf = RolloutBuffer(self.obs_dim, self.act_dim, steps_per_epoch, gamma, lam, n_envs=kargs['n_envs'],
                             use_sde=use_sde, use_rnn=use_rnn, n_states=num_states, use_value_norm=use_value_norm,
@@ -610,18 +610,9 @@ class PPOPolicy():
                 obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
             a, v, logp, entropy = self.ac_model.step(obs)
             next_obs, r, terminal, info = env.step(a.cpu().numpy())
-            #if self.callback:
-            #    self.callback._on_step()
-
-            #stats = info[0]['current']
-            #ep_rr_dmg += stats['red_ally_damage']
-            #ep_rb_dmg += stats['red_enemy_damage']
-            #ep_br_dmg += stats['blue_enemy_damage']
 
             ep_ret += np.sum(r[0])
-            ep_ret_scheduler += np.sum(r)
             ep_len += 1
-            ep_len_scheduler += 1
 
             r = torch.as_tensor(r, dtype=torch.float32).to(device)
 
@@ -638,6 +629,17 @@ class PPOPolicy():
             epoch_ended = step > 0 and step % steps_per_epoch == 0
 
             if np.all(terminal) or epoch_ended:
+
+                stats = info[0]['red_stats']
+                ep_rr_dmg = stats['damage_inflicted_on']['ally']
+                ep_rb_dmg = stats['damage_inflicted_on']['enemy']
+                ep_br_dmg = stats['damage_taken_by']['enemy']
+
+                episode_lengths.append(ep_len)
+                episode_returns.append(ep_ret)
+                episode_red_red_damages.append(ep_rr_dmg)
+                episode_blue_red_damages.append(ep_br_dmg)
+                episode_red_blue_damages.append(ep_rb_dmg)
 
                 if epoch_ended:
                     if use_rnn:
@@ -673,20 +675,31 @@ class PPOPolicy():
             if epoch_ended:
                 self.update(buf, train_pi_iters, train_v_iters, target_kl, clip_ratio, entropy_coef)
 
-                if pi_scheduler == 'smart':
-                    self.scheduler_policy.step(ep_ret_scheduler / ep_len_scheduler)
-                elif pi_scheduler != 'cons':
-                    self.scheduler_policy.step()
-
-                if vf_scheduler == 'smart':
-                    self.scheduler_value.step(ep_ret_scheduler / ep_len_scheduler)
-                elif vf_scheduler != 'cons':
-                    self.scheduler_value.step()
-
             if step % 100 == 0 or step == 4:
+
                 if self.callback:
                     self.callback.save_metrics_modified(episode_returns, episode_lengths, episode_red_blue_damages,
                                                         episode_red_red_damages, episode_blue_red_damages)
+
+                '''
+                if len(episode_lengths) > 0:
+                    episode_stats = {'Red-Blue-Damage': np.mean(episode_red_blue_damages),
+                                     'Red-Red-Damage': np.mean(episode_red_red_damages),
+                                     'Blue-Red-Damage': np.mean(episode_blue_red_damages)}
+
+                    if self.callback.policy_record:
+                        with open(os.path.join(self.callback.policy_record.data_dir, 'mean_statistics.json'),
+                                  'w+') as f:
+                            json.dump(episode_stats, f, indent=True)
+
+                        for idx in range(len(episode_lengths)):
+                            self.callback.policy_record.add_result(episode_returns[idx], episode_red_blue_damages[idx],
+                                                                   episode_red_red_damages[idx],
+                                                                   episode_blue_red_damages[idx],
+                                                                   episode_lengths[idx])
+                        self.callback.policy_record.save()
+                '''
+
                 episode_lengths = []
                 episode_returns = []
                 episode_red_blue_damages = []
