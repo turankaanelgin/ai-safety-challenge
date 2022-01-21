@@ -642,7 +642,11 @@ class PPOPolicy():
                 last_hundred_red_red_damages.append(ep_rr_dmg)
                 last_hundred_blue_red_damages.append(ep_br_dmg)
                 last_hundred_red_blue_damages = last_hundred_red_blue_damages[-100:]
+<<<<<<< HEAD
                 last_hundred_red_blue_damages = last_hundred_red_red_damages[-100:]
+=======
+                last_hundred_red_red_damages = last_hundred_red_red_damages[-100:]
+>>>>>>> 77ce4ff952c1ea91df8e8aab6ecedfaf9c898b03
                 last_hundred_blue_red_damages = last_hundred_blue_red_damages[-100:]
 
                 episode_lengths.append(ep_len)
@@ -692,9 +696,12 @@ class PPOPolicy():
                                                         episode_red_red_damages, episode_blue_red_damages)
 
                     with open(os.path.join(self.callback.policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
-                        red_red_damage = np.average(last_hundred_red_red_damages)
-                        red_blue_damage = np.average(last_hundred_red_blue_damages)
-                        blue_red_damage = np.average(last_hundred_blue_red_damages)
+                        if len(last_hundred_red_blue_damages) > 0:
+                            red_red_damage = np.average(last_hundred_red_red_damages)
+                            red_blue_damage = np.average(last_hundred_red_blue_damages)
+                            blue_red_damage = np.average(last_hundred_blue_red_damages)
+                        else:
+                            red_red_damage, red_blue_damage, blue_red_damage = 0.0, 0.0, 0.0
                         json.dump({'Red-Blue-Damage': red_blue_damage,
                                    'Red-Red-Damage': red_red_damage,
                                    'Blue-Red-Damage': blue_red_damage}, f, indent=True)
