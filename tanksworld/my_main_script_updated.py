@@ -130,7 +130,7 @@ if __name__ == '__main__':
             '''
             env_kwargs.append({'exe': args.exe,
                                'static_tanks': [], 'random_tanks': random_tanks, 'disable_shooting': [],
-                               'friendly_fire': True, 'kill_bonus': False, 'death_penalty': False,
+                               'friendly_fire': False, 'kill_bonus': False, 'death_penalty': False,
                                'take_damage_penalty': True, 'tblogs': stats_dir,
                                'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
                                'timeout': 500, 'seed': env_seeds[idx]})
