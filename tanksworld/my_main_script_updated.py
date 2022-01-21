@@ -119,6 +119,7 @@ if __name__ == '__main__':
             num_agents = 5
         env_kwargs = []
         for idx in range(10):
+            '''
             env_kwargs.append({'exe': args.exe,
                                'static_tanks': [], 'random_tanks': random_tanks, 'disable_shooting': [],
                                'friendly_fire': True, 'kill_bonus': False, 'death_penalty': False,
@@ -126,6 +127,13 @@ if __name__ == '__main__':
                                'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
                                'friendly_fire_weight': config['ff_weight'], 'timeout': 500, 'log_statistics': True,
                                'seed': env_seeds[idx], 'curriculum_stop': config['curriculum_stop'], 'curriculum_steps': args.num_iter})
+            '''
+            env_kwargs.append({'exe': args.exe,
+                               'static_tanks': [], 'random_tanks': random_tanks, 'disable_shooting': [],
+                               'friendly_fire': True, 'kill_bonus': False, 'death_penalty': False,
+                               'take_damage_penalty': True, 'tblogs': stats_dir,
+                               'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
+                               'timeout': 500, 'seed': env_seeds[idx]})
         env_functions = []
         for idx in range(len(env_kwargs)):
             env_functions.append(lambda : make_env(**env_kwargs[idx]))
@@ -143,11 +151,9 @@ if __name__ == '__main__':
             env_kwargs = {'exe': args.exe,
                           'static_tanks': [], 'random_tanks': random_tanks, 'disable_shooting': [],
                           'friendly_fire': True, 'kill_bonus': False, 'death_penalty': False,
-                          'take_damage_penalty': True, 'tblogs': stats_dir, 'tb_writer': tb_writer,
+                          'take_damage_penalty': True, 'tblogs': stats_dir, 'tbwriter': tb_writer,
                           'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
-                          'friendly_fire_weight': config['ff_weight'], 'timeout': 500, 'log_statistics': True,
-                          'seed': args.env_seed, 'curriculum_stop': config['curriculum_stop'],
-                          'curriculum_steps': args.num_iter, }
+                          'timeout': 500, 'seed': args.env_seed, }
             env = DummyVecEnv([lambda : make_env(**env_kwargs)], num_agents)
         else:
             env_kwargs = []
@@ -162,9 +168,7 @@ if __name__ == '__main__':
                                    'friendly_fire': True, 'kill_bonus': False, 'death_penalty': False,
                                    'take_damage_penalty': True, 'tblogs': stats_dir,
                                    'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
-                                   'friendly_fire_weight': config['ff_weight'], 'timeout': 500, 'log_statistics': True,
-                                   'seed': env_seed[idx], 'curriculum_stop': config['curriculum_stop'],
-                                   'curriculum_steps': args.num_iter})
+                                   'timeout': 500, 'seed': env_seed[idx]})
             env_functions = []
             for idx in range(len(env_kwargs)):
                 env_functions.append(lambda: make_env(**env_kwargs[idx]))
@@ -180,7 +184,10 @@ if __name__ == '__main__':
         model_path = os.path.join(policy_record.data_dir, 'checkpoints', model_id)
         checkpoint_files = os.listdir(model_path)
         checkpoint_files.sort(key=lambda f: int(f.split('.')[0]))
-        model_path = os.path.join(model_path, checkpoint_files[-1])
+        if len(checkpoint_files) == 0:
+            model_path = None
+        else:
+            model_path = os.path.join(model_path, checkpoint_files[-1])
     elif args.eval_mode:
         model_path = os.path.join('./logs', args.eval_logdir, folder_name, 'checkpoints', model_id)
         model_path = os.path.join(model_path, '{}.pth'.format(args.eval_checkpoint))
