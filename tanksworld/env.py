@@ -7,10 +7,11 @@ import gym
 from mlagents.envs import UnityEnvironment
 from collections import defaultdict
 import os
-from mpi4py import MPI
+#from mpi4py import MPI
 import numpy as np
 import matplotlib.pyplot as plt
-from tanksworld.minimap_util import minimap_for_player, displayable_rgb_map, display_cvimage
+#from tanksworld.minimap_util import minimap_for_player, displayable_rgb_map, display_cvimage
+from minimap_util import minimap_for_player, displayable_rgb_map, display_cvimage
 import cv2
 import pathlib
 from tensorboardX import SummaryWriter
@@ -100,7 +101,8 @@ class TanksWorldEnv(gym.Env):
                  seed=-1, log_statistics=False, no_timeout=False, friendly_fire_weight=1.0, curriculum_stop=-1.0, curriculum_steps=1000):
 
         # call reset() to begin playing
-        self._workerid = MPI.COMM_WORLD.Get_rank() #int(os.environ['L2EXPLORER_WORKER_ID'])
+        #self._workerid = MPI.COMM_WORLD.Get_rank() #int(os.environ['L2EXPLORER_WORKER_ID'])
+        self._workerid = 0
         self._filename =  exe#'/home/rivercg1/projects/aisafety/build/aisafetytanks_0.1.2/TanksWorld.x86_64'
         self.observation_space = gym.spaces.box.Box(0,255,(4,128,128))
         #self.observation_space = gym.spaces.box.Box(0,255,(3,128,128))

@@ -167,7 +167,6 @@ class EvalCallback:
                                                   episode_lengths[idx])
                 self.policy_record.save()
             else:
-                pdb.set_trace()
                 with open(os.path.join(self.policy_record.data_dir, 'mean_eval_statistics.json'), 'w+') as f:
                     json.dump(episode_stats, f, indent=True)
 

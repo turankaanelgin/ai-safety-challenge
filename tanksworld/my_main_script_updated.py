@@ -8,6 +8,8 @@ from tensorboardX import SummaryWriter
 
 import numpy as np
 
+#os.system("taskset -p 0xff %d" % os.getpid())
+
 from make_env import make_env
 from core.policy_record import PolicyRecord
 from algos.torch_ppo.mappo_gpu_new import PPOPolicy as TorchGPUMAPPOPolicyNew
@@ -146,6 +148,7 @@ if __name__ == '__main__':
                           'seed': args.env_seed, 'curriculum_stop': config['curriculum_stop'],
                           'curriculum_steps': args.num_iter, }
             env = DummyVecEnv([lambda : make_env(**env_kwargs)], num_agents)
+
         else:
             env_kwargs = []
             if args.num_envs != 1:
@@ -214,7 +217,7 @@ if __name__ == '__main__':
         'use_fixed_kl': args.fixed_kl,
         'use_adaptive_kl': args.adaptive_kl,
         'kl_beta': args.kl_beta,
-        'local_std': True,
+        'local_std': False,
     }
 
     callback = EvalCallback(env, policy_record, eval_env=None)

@@ -6,6 +6,7 @@ import os
 import json
 import numpy as np
 import pprint
+import multiprocessing
 
 import my_config as cfg
 
@@ -58,6 +59,10 @@ if n_env_seeds < len(env_seeds):
 if n_policy_seeds < len(policy_seeds):
     policy_seeds = policy_seeds[:n_policy_seeds]
 
+# TODO remove this line
+#env_seeds = env_seeds[:1]
+#policy_seeds = policy_seeds[:1]
+
 commands = []
 for config in cfg.grid:
     for e_seed_idx, e_seed in enumerate(env_seeds):
@@ -83,9 +88,24 @@ for config in cfg.grid:
                 command += ['--load_from_checkpoint']
             commands.append(command)
 
+def call_func(command):
+    subprocess.call(command)
+
 for c in commands:
     print(' '.join(c))
 
 procs = [ Popen(c) for c in commands ]
 for p in procs:
    p.wait()
+
+'''
+processes = []
+for core_idx, c in enumerate(commands):
+    p = multiprocessing.Process(target=call_func, args=(c,))
+    #os.system('taskset -p -c %d %d' % (core_idx, p.pid))
+    processes.append(p)
+    p.start()
+
+for process in processes:
+    process.join()
+'''

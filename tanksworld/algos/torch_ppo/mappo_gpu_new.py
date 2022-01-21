@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch import nn
 from torch.optim import Adam
-from torch.optim.lr_scheduler import ReduceLROnPlateau, ExponentialLR, CyclicLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau, ExponentialLR
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.utils.tensorboard import SummaryWriter
 
@@ -34,10 +34,10 @@ class RolloutBuffer:
         self.ret_buf = torch.zeros((size, n_envs, 5)).to(device)
         self.val_buf = torch.zeros((size, n_envs, 5)).to(device)
         self.logp_buf = torch.zeros((size, n_envs, 5)).to(device)
-        if not use_sde:
-            self.entropy_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, act_dim)).to(device)
-        else:
-            self.entropy_buf = torch.zeros(core.combined_shape_v2(size, n_envs, 5)).to(device)
+        #if not use_sde:
+        #    self.entropy_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, act_dim)).to(device)
+        #else:
+        #    self.entropy_buf = torch.zeros(core.combined_shape_v2(size, n_envs, 5)).to(device)
         self.gamma, self.lam = gamma, lam
         self.ptr, self.path_start_idx, self.max_size = 0, 0, size
         self.n_envs = n_envs
@@ -45,18 +45,21 @@ class RolloutBuffer:
         self.use_value_norm = use_value_norm
         self.value_normalizer = value_normalizer
 
-    def store(self, obs, act, rew, val, logp, entropy):
+    def store(self, obs, act, rew, val, logp):
         """
         Append one timestep of agent-environment interaction to the buffer.
         """
 
         assert self.ptr < self.max_size  # buffer has to have room so you can store
-        self.obs_buf[self.ptr] = obs.squeeze(2) if not self.use_rnn else obs
+        try:
+            self.obs_buf[self.ptr] = obs.squeeze(2) if not self.use_rnn else obs
+        except:
+            pdb.set_trace()
         self.act_buf[self.ptr] = act
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
         self.logp_buf[self.ptr] = logp
-        self.entropy_buf[self.ptr] = entropy if entropy is not None else torch.Tensor([0])
+        #self.entropy_buf[self.ptr] = entropy if entropy is not None else torch.Tensor([0])
         self.ptr += 1
 
     def finish_path(self, last_val=[0, 0, 0, 0, 0]):
@@ -113,7 +116,7 @@ class RolloutBuffer:
         adv_buf = (adv_buf - adv_mean) / adv_std
         self.adv_buf = adv_buf.reshape(adv_buf.shape[0], self.n_envs, 5)
         data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
-                    adv=self.adv_buf, logp=self.logp_buf, entropy=self.entropy_buf)
+                    adv=self.adv_buf, logp=self.logp_buf)
         return {k: torch.as_tensor(v, dtype=torch.float32).to(device) for k, v in data.items()}
 
 
@@ -539,7 +542,7 @@ class PPOPolicy():
                 obs = torch.as_tensor(state_history, dtype=torch.float32).to(device)
             else:
                 obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
-            a, v, logp, entropy = self.ac_model.step(obs)
+            a, v, logp, _ = self.ac_model.step(obs)
             next_obs, r, terminal, info = env.step(a.cpu().numpy())
             #if self.callback:
             #    self.callback._on_step()
@@ -561,9 +564,9 @@ class PPOPolicy():
             if use_rnn:
                 self.obs = self.obs.unsqueeze(2)
                 state_history = torch.cat((state_history[:,:,1:,:,:,:], self.obs), dim=2)
-                buf.store(state_history, a, r, v, logp, entropy)
+                buf.store(state_history, a, r, v, logp)
             else:
-                buf.store(obs, a, r, v, logp, entropy)
+                buf.store(obs, a, r, v, logp)
 
             epoch_ended = step > 0 and step % steps_per_epoch == 0
 
@@ -605,10 +608,11 @@ class PPOPolicy():
                 elif vf_scheduler != 'cons':
                     self.scheduler_value.step()
 
-            if step % 100 == 0 or step == 4:
+            if step % 100 == 0 or step == 10:
                 if self.callback:
                     self.callback.save_metrics(info, episode_returns, episode_lengths, episode_red_blue_damages,
                                                episode_red_red_damages, episode_blue_red_damages)
+
                 episode_lengths = []
                 episode_returns = []
                 episode_red_blue_damages = []

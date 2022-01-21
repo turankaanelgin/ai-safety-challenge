@@ -4,7 +4,7 @@ import numpy as np
 import math
 import scipy.signal
 from gym.spaces import Box, Discrete
-from arena5.core.utils import mpi_print
+#from arena5.core.utils import mpi_print
 
 import torch
 import torch.nn as nn
@@ -55,6 +55,7 @@ def cnn(observation_space):
         nn.ReLU(),
         nn.Conv2d(64, 64, 3, 1),
         nn.ReLU(),
+        nn.AvgPool2d(2),
         nn.Flatten()
     )
     return model
@@ -258,9 +259,9 @@ class MLPGaussianActor(Actor):
             self.local_std = local_std
             if local_std:
                 self.local_std_scale = nn.Linear(cnn_net(dummy_img).shape[1], act_dim)
-            from torchinfo import summary
-            summary(self.cnn_net)
-            summary(self.mu_net)
+            #from torchinfo import summary
+            #summary(self.cnn_net)
+            #summary(self.mu_net)
 
         else:
             obs_dim = observation_space.shape[0]
