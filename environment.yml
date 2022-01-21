@@ -1,4 +1,4 @@
-name: tanksworld
+name: tanksworld_2
 channels:
   - pytorch
   - conda-forge
@@ -221,4 +221,4 @@ dependencies:
     - werkzeug==2.0.1
     - widgetsnbextension==3.5.1
     - zipp==3.5.0
-prefix: ~/anaconda3/envs/tanksworld
+prefix: ~/anaconda3/envs/tanksworld_2

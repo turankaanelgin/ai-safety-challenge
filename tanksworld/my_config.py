@@ -46,6 +46,7 @@ parser.add_argument('--fixed_kl', action='store_true', default=False)
 parser.add_argument('--adaptive_kl', action='store_true', default=False)
 parser.add_argument('--kl_beta', type=float, default=3.0)
 parser.add_argument('--num_envs', type=int, default=1)
+parser.add_argument('--local_std', action='store_true', default=False)
 
 args = parser.parse_args()
 args_dict = vars(args)
@@ -83,6 +84,7 @@ grid = [{'reward_weight': x[0],
          'entropy_coef': x[10],
          'num_envs': args_dict['num_envs'],
          'kl_beta': x[11],
+         'local_std': args_dict['local_std'],
          'valuenorm': args_dict['valuenorm'],
          'beta': args_dict['beta'],
          'fixed_kl': args_dict['fixed_kl'],

@@ -1,6 +1,7 @@
 
 # ©2020 Johns Hopkins University Applied Physics Laboratory LLC.
-from env import TanksWorldEnv
+#from tanksworld.env import TanksWorldEnv
+from tanksworld.original_env import TanksWorldEnv
 #import tanksworld.my_config as cfg
 
 import numpy as np

@@ -143,6 +143,29 @@ class EvalCallback:
             p.join()
         '''
 
+    def save_metrics_modified(self, episode_returns, episode_lengths, episode_red_blue_damages, episode_red_red_damages,
+                                episode_blue_red_damages, eval_mode=False):
+
+        assert len(episode_lengths) == len(episode_returns) == len(episode_red_red_damages) == len(episode_red_blue_damages) \
+               == len(episode_blue_red_damages)
+
+        if len(episode_lengths) == 0: return
+
+        episode_stats = {'Red-Blue-Damage': np.mean(episode_red_blue_damages),
+                         'Red-Red-Damage': np.mean(episode_red_red_damages),
+                         'Blue-Red-Damage': np.mean(episode_blue_red_damages)}
+        if self.policy_record:
+            if not eval_mode:
+                with open(os.path.join(self.policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
+                    json.dump(episode_stats, f, indent=True)
+
+                for idx in range(len(episode_lengths)):
+                    self.policy_record.add_result(episode_returns[idx], episode_red_blue_damages[idx],
+                                                  episode_red_red_damages[idx], episode_blue_red_damages[idx],
+                                                  episode_lengths[idx])
+                self.policy_record.save()
+
+
     def save_metrics(self, info, episode_returns, episode_lengths, episode_red_blue_damages, episode_red_red_damages,
                      episode_blue_red_damages, eval_mode=False):
 
