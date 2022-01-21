@@ -642,11 +642,7 @@ class PPOPolicy():
                 last_hundred_red_red_damages.append(ep_rr_dmg)
                 last_hundred_blue_red_damages.append(ep_br_dmg)
                 last_hundred_red_blue_damages = last_hundred_red_blue_damages[-100:]
-<<<<<<< HEAD
-                last_hundred_red_blue_damages = last_hundred_red_red_damages[-100:]
-=======
                 last_hundred_red_red_damages = last_hundred_red_red_damages[-100:]
->>>>>>> 77ce4ff952c1ea91df8e8aab6ecedfaf9c898b03
                 last_hundred_blue_red_damages = last_hundred_blue_red_damages[-100:]
 
                 episode_lengths.append(ep_len)
