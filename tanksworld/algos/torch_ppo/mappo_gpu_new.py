@@ -596,6 +596,7 @@ class PPOPolicy():
         episode_lengths = []
         episode_returns = []
         episode_red_blue_damages, episode_red_red_damages, episode_blue_red_damages = [], [], []
+        last_hundred_red_blue_damages, last_hundred_red_red_damages, last_hundred_blue_red_damages = [], [], []
 
         while step < steps_to_run:
 
@@ -637,6 +638,12 @@ class PPOPolicy():
                 ep_rr_dmg = stats['damage_inflicted_on']['ally']
                 ep_rb_dmg = stats['damage_inflicted_on']['enemy']
                 ep_br_dmg = stats['damage_taken_by']['enemy']
+                last_hundred_red_blue_damages.append(ep_rb_dmg)
+                last_hundred_red_red_damages.append(ep_rr_dmg)
+                last_hundred_blue_red_damages.append(ep_br_dmg)
+                last_hundred_red_blue_damages = last_hundred_red_blue_damages[-100:]
+                last_hundred_red_red_damages = last_hundred_red_red_damages[-100:]
+                last_hundred_blue_red_damages = last_hundred_blue_red_damages[-100:]
 
                 episode_lengths.append(ep_len)
                 episode_returns.append(ep_ret)
@@ -683,6 +690,17 @@ class PPOPolicy():
                 if self.callback:
                     self.callback.save_metrics_modified(episode_returns, episode_lengths, episode_red_blue_damages,
                                                         episode_red_red_damages, episode_blue_red_damages)
+
+                    with open(os.path.join(self.callback.policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
+                        if len(last_hundred_red_blue_damages) > 0:
+                            red_red_damage = np.average(last_hundred_red_red_damages)
+                            red_blue_damage = np.average(last_hundred_red_blue_damages)
+                            blue_red_damage = np.average(last_hundred_blue_red_damages)
+                        else:
+                            red_red_damage, red_blue_damage, blue_red_damage = 0.0, 0.0, 0.0
+                        json.dump({'Red-Blue-Damage': red_blue_damage,
+                                   'Red-Red-Damage': red_red_damage,
+                                   'Blue-Red-Damage': blue_red_damage}, f, indent=True)
 
                 '''
                 if len(episode_lengths) > 0:
