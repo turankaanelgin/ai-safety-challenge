@@ -64,16 +64,24 @@ class CentralizedTraining:
         load_type_str = params["load_type"] if params["save_path"] is not None else ""
         freeze_cnn_str = "freeze-cnn" if params["freeze_cnn"] else ""
         if params["debug"]:
-            self.save_path = pjoin(self.params["experiment"], "debug", params["exp_desc"])
+            self.save_path = pjoin(
+                self.params["experiment"], "debug", params["exp_desc"]
+            )
         else:
-            self.save_path = pjoin(self.params["experiment"], "train", params["exp_desc"])
+            self.save_path = pjoin(
+                self.params["experiment"], "train", params["exp_desc"]
+            )
             if params["continue_training"]:
                 self.save_path = params["save_path"]
 
         os.makedirs(self.save_path, exist_ok=True)
+        self.model_path = params["model_path"]
 
-        self.model_path = None
-        if self.params["save_path"] is not None and self.params["model_num"] > 0:
+        if (
+            self.model_path is None
+            and self.params["save_path"] is not None
+            and self.params["model_num"] > 0
+        ):
             self.model_path = pjoin(
                 self.params["save_path"],
                 "checkpoints",
@@ -253,8 +261,8 @@ class CentralizedTraining:
         out.release()
 
     def train(self):
-#        if not os.path.exists(self.save_path):
-#            os.mkdir(self.save_path)
+        #        if not os.path.exists(self.save_path):
+        #            os.mkdir(self.save_path)
         with open(self.save_path + "/config.yaml", "w") as f:
             yaml.dump(self.params, f)
 
@@ -554,19 +562,27 @@ class VecEnvTankworldMonitor(VecEnvWrapper):
                     - blue_dmg_taken["ally"]
                     - blue_dmg_taken["enemy"]
                 )
+
+                intended_score = red_dmg_inflicted["enemy"] / 100
+                unintended_score = (
+                    red_dmg_taken["ally"] + red_dmg_taken["enemy"]
+                ) / 100
+                volume_score = intended_score * (5 - unintended_score) / 25
+
                 win = 1 if red_score > blue_score else 0
-                score = red_score / self.n_training_tank
-                score /= 100  # Normalize score
+                sum_damage_score = red_score / self.n_training_tank
+                sum_damage_score /= 100  # Normalize score
                 #                if np.mean(self.damage_inflicted_on_enemy) < 5:
                 #                    score = -2 # set low score if damange inflicted on enemy is small.
-                self.score.append(score)
+                self.score.append(volume_score)
 
                 tsboard_log = {
                     "0_general_stats/win_rate": win,
                     "0_general_stats/step_per_episode": infos[i]["episode_step"],
                     "0_general_stats/shot_reward": red_stats["shot_reward"],
                     "0_general_stats/reward": infos[i]["episode_reward"],
-                    "0_general_stats/score": score,
+                    "0_general_stats/sum_damage_score": sum_damage_score,
+                    "0_general_stats/volume_score": volume_score,
                     "1_team_stats/dmg_inflict_on_enemy": red_dmg_inflicted["enemy"],
                     "1_team_stats/dmg_inflict_on_neutral": red_dmg_inflicted["neutral"],
                     "1_team_stats/dmg_inflict_on_ally": red_dmg_inflicted["ally"],

@@ -29,6 +29,9 @@ parser.add_argument(
     "--net-arch-size", type=int, default=64, help="net arch size for actor critic model"
 )
 parser.add_argument(
+    "--features-dim", type=int, default=64, help="dimension of output of CNN"
+)
+parser.add_argument(
     "--n-input-enable",
     type=int,
     default=1,
@@ -53,6 +56,7 @@ parser.add_argument(
 parser.add_argument("--input-type", default="stacked", help="stacked or dict")
 parser.add_argument("--video-path", help="")
 parser.add_argument("--save-path", help="")
+parser.add_argument("--model-path", help="path to training model")
 parser.add_argument("--model-num", type=int, default=-1)
 parser.add_argument("--load-type", help="none or full or cnn")
 parser.add_argument("--freeze-cnn", action="store_true", default=False)

@@ -2,7 +2,7 @@ import my_config as cfg
 from centralized_util import CentralizedTraining
 from optuna.pruners import BasePruner
 from optuna import pruners, samplers
-from env_config import update_env_config 
+from env_config import update_env_config
 import numpy as np
 from datetime import datetime
 import logging
@@ -39,36 +39,42 @@ def sample_params_1tank(trial: optuna.Trial):
             #            "clip_range", [0.1, 0.2, 0.4, 0.6, 0.8]
             #            "clip_range", [0.2, 0.4, 0.8]
             "clip_range",
-            0.05, 0.4
+            0.05,
+            0.4,
         ),
     }
+
 
 def sample_params_2tanks(trial: optuna.Trial):
     return {
         "features_dim": trial.suggest_categorical("features_dim", [128, 256]),
         "shot_reward": trial.suggest_categorical("shot_reward", [True, False]),
-        "shot_reward_amount": trial.suggest_float(
-            "shot_reward_amount", 0.0001, 0.1
-        ),
-        "clip_range": trial.suggest_float(
-            "clip_range",
-            0.001, 0.4
-        ),
+        "shot_reward_amount": trial.suggest_float("shot_reward_amount", 0.0001, 0.1),
+        "clip_range": trial.suggest_float("clip_range", 0.001, 0.4),
+    }
+
+
+def sample_params_5tanks(trial: optuna.Trial):
+    return {
+        "shot_reward_amount": trial.suggest_float("shot_reward_amount", 0.00001, 0.05),
+        "clip_range": trial.suggest_float("clip_range", 0.0001, 0.4),
     }
 
 
 def get_experiment_config(experiment):
-    if experiment == 'single-tank':
-        return {'function': sample_params_1tank, 'env_config': 2}
-    elif experiment == '2vs1':
-        return {'function': sample_params_2tanks, 'env_config': 3}
+    if experiment == "single-tank":
+        return {"function": sample_params_1tank, "env_config": 2}
+    elif experiment == "2vs1":
+        return {"function": sample_params_2tanks, "env_config": 3}
+    elif experiment == "5vs1":
+        return {"function": sample_params_5tanks, "env_config": 8}
 
 
 def objective(trial):
     params = cfg.params
-    exp_config = get_experiment_config(params['experiment'])
-    params['config'] = exp_config['env_config']
-    ppo_params = exp_config['function'](trial)
+    exp_config = get_experiment_config(params["experiment"])
+    params["config"] = exp_config["env_config"]
+    ppo_params = exp_config["function"](trial)
     desc = ";".join([key + ":" + str(value) for key, value in ppo_params.items()])
     desc = datetime.now().strftime("%y-%m-%d-%H:%M:%S") + "-" + desc
     params.update(ppo_params)
@@ -78,6 +84,7 @@ def objective(trial):
         centralized_training.train()
     except:
         import traceback
+
         traceback.print_exc()
     return centralized_training.score
 
@@ -123,7 +130,8 @@ if __name__ == "__main__":
     #        sampler = samplers.CmaEsSampler()
     study = optuna.create_study(
         sampler=sampler,
-        pruner=CustomPruner(params["warmup_steps"], params["prune_threshold"]),
+        pruner=optuna.pruners.MedianPruner(n_warmup_steps=200000),
+        #        pruner=CustomPruner(params["warmup_steps"], params["prune_threshold"]),
         study_name=study_name,
         storage=storage_name,
         direction="maximize",

@@ -60,7 +60,7 @@ def team_stats_dict(env):
         "kills_executed_on": {"ally": 0, "enemy": 0, "neutral": 0},
         "deaths_caused_by": {"ally": 0, "enemy": 0, "neutral": 0},
         # some stats for debugging
-        'shot_reward': 0.0,
+        "shot_reward": 0.0,
         # reward parameters given to the environment- these are constant
         "reward_parameters": {
             "reward_weight": env.reward_weight,
@@ -118,7 +118,6 @@ class TanksWorldEnv(gym.Env):
         random_tanks=[],
         disable_shooting=[],
         enable_input_tanks=[],
-        enable_output_tanks=[],
         penalty_weight=1.0,
         reward_weight=1.0,
         will_render=False,
@@ -134,9 +133,7 @@ class TanksWorldEnv(gym.Env):
         self.observation_space = None
         self.n_train_tanks = len(training_tanks)
         self.n_enable_inputs = len(enable_input_tanks)
-        self.n_enable_outputs = len(enable_output_tanks)
         self.enable_input_tanks = enable_input_tanks
-        self.enable_output_tanks = enable_output_tanks
         self.training_tanks = training_tanks
         self.shot_reward = shot_reward
         self.shot_reward_amount = shot_reward_amount
@@ -415,7 +412,7 @@ class TanksWorldEnv(gym.Env):
         if new_shot:
             ally_stats["number_shots_fired"]["ally"] += 1
             enemy_stats["number_shots_fired"]["enemy"] += 1
-            ally_stats['shot_reward'] += self.shot_reward_amount
+            ally_stats["shot_reward"] += self.shot_reward_amount
 
         if damage_dealt > 0.0:
 
@@ -524,7 +521,6 @@ class TanksWorldEnv(gym.Env):
                         "penalties_only"
                     ] += delta_rew
                     ally_stats["reward_components_cumulative"]["all"] += delta_rew
-
 
         # Update for individual tank
         current_tank = self.individual_stats[i]

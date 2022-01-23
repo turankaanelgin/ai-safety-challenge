@@ -69,9 +69,12 @@ debug(){
 }
 if [[ $1 == jobs ]]; then
     python hyperparams_search.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
-        --exp-dir single-tank \
-        --save-freq 5000 --n-envs 16 --timestep 1500000 --config 2 --env-timeout 500 \
-        --input-type dict --warmup-steps 1000000 --prune-threshold 0.00\
+        --experiment 5vs1 \
+        --save-freq 5000 --n-envs 16 --timestep 1200000 --env-timeout 500 \
+        --model-path 'models/ftr_dim:64;extract_ftr_model:medium;net_arch:512;n_env:16.zip' --load-type cnn \
+        --batch-size 64 --net-arch-size 512 --extract-ftr-model medium --features-dim 64 --shot-reward \
+        --penalty-weight 0.4 --learning-rate 0.0001 --n-steps 64\
+        --input-type dict --warmup-steps 1000000 --prune-threshold 0.15\
         --learning-rate-type constant --training #--dummy-proc #--debug 
 elif [[ $1 == job1 ]]; then
     python hyperparams_search.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
