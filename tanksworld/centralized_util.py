@@ -64,9 +64,9 @@ class CentralizedTraining:
         load_type_str = params["load_type"] if params["save_path"] is not None else ""
         freeze_cnn_str = "freeze-cnn" if params["freeze_cnn"] else ""
         if params["debug"]:
-            self.save_path = pjoin(self.params["exp_dir"], "debug", params["exp_desc"])
+            self.save_path = pjoin(self.params["experiment"], "debug", params["exp_desc"])
         else:
-            self.save_path = pjoin(self.params["exp_dir"], "train", params["exp_desc"])
+            self.save_path = pjoin(self.params["experiment"], "train", params["exp_desc"])
             if params["continue_training"]:
                 self.save_path = params["save_path"]
 
@@ -253,10 +253,10 @@ class CentralizedTraining:
         out.release()
 
     def train(self):
-        if not os.path.exists(self.save_path):
-            os.mkdir(self.save_path)
-            with open(self.save_path + "/config.yaml", "w") as f:
-                yaml.dump(self.params, f)
+#        if not os.path.exists(self.save_path):
+#            os.mkdir(self.save_path)
+        with open(self.save_path + "/config.yaml", "w") as f:
+            yaml.dump(self.params, f)
 
         checkpoint_callback = CheckpointCallback(
             save_freq=self.params["save_freq"],
@@ -275,14 +275,11 @@ class CentralizedTraining:
             early_stop_callback,
             trial_eval_callback,
         ]
-        try:
-            self.training_model.learn(
-                total_timesteps=self.params["timestep"],
-                callback=callback_list,
-                reset_num_timesteps=not self.params["continue_training"],
-            )
-        except:
-            raise optuna.exceptions.TrialPruned()
+        self.training_model.learn(
+            total_timesteps=self.params["timestep"],
+            callback=callback_list,
+            reset_num_timesteps=not self.params["continue_training"],
+        )
         self.score = self.training_env.get_score()
         self.training_env.close()
 
@@ -447,7 +444,7 @@ class EarlyStopCallback(BaseCallback):
         super(EarlyStopCallback, self).__init__(verbose)
         self.check_step = check_step
         self.n_training_agent = n_training_agent
-        self.enemy_damage_threshold = enemy_damage_threshold
+        self.enemy_damage_threshold = enemy_damage_threshold * self.n_training_agent
 
     def _on_training_start(self) -> None:
         self.damage_inflicted_on_enemy = self.training_env.damage_inflicted_on_enemy
@@ -542,42 +539,52 @@ class VecEnvTankworldMonitor(VecEnvWrapper):
                 )
                 red_dmg_inflicted = red_stats["damage_inflicted_on"]
                 red_dmg_taken = red_stats["damage_taken_by"]
+                blue_dmg_inflicted = blue_stats["damage_inflicted_on"]
+                blue_dmg_taken = blue_stats["damage_taken_by"]
 
                 self.damage_inflicted_on_enemy.append(red_dmg_inflicted["enemy"])
 
-                score = (
+                red_score = (
                     red_dmg_inflicted["enemy"]
                     - red_dmg_taken["ally"]
                     - red_dmg_taken["enemy"]
                 )
-                score /= self.n_training_tank
+                blue_score = (
+                    blue_dmg_inflicted["enemy"]
+                    - blue_dmg_taken["ally"]
+                    - blue_dmg_taken["enemy"]
+                )
+                win = 1 if red_score > blue_score else 0
+                score = red_score / self.n_training_tank
                 score /= 100  # Normalize score
                 #                if np.mean(self.damage_inflicted_on_enemy) < 5:
                 #                    score = -2 # set low score if damange inflicted on enemy is small.
                 self.score.append(score)
 
                 tsboard_log = {
-                    "1_damage/dmg_inflict_on_enemy": red_dmg_inflicted["enemy"],
-                    "1_damage/dmg_inflict_on_neutral": red_dmg_inflicted["neutral"],
-                    "1_damage/dmg_inflict_on_ally": red_dmg_inflicted["ally"],
-                    "1_damage/dmg_taken_by_ally": red_dmg_taken["ally"],
-                    "1_damage/dmg_taken_by_enemy": red_dmg_taken["enemy"],
-                    "1_damage/#shots": red_stats["number_shots_fired"]["ally"],
+                    "0_general_stats/win_rate": win,
+                    "0_general_stats/step_per_episode": infos[i]["episode_step"],
+                    "0_general_stats/shot_reward": red_stats["shot_reward"],
+                    "0_general_stats/reward": infos[i]["episode_reward"],
+                    "0_general_stats/score": score,
+                    "1_team_stats/dmg_inflict_on_enemy": red_dmg_inflicted["enemy"],
+                    "1_team_stats/dmg_inflict_on_neutral": red_dmg_inflicted["neutral"],
+                    "1_team_stats/dmg_inflict_on_ally": red_dmg_inflicted["ally"],
+                    "1_team_stats/dmg_taken_by_ally": red_dmg_taken["ally"],
+                    "1_team_stats/dmg_taken_by_enemy": red_dmg_taken["enemy"],
+                    "1_team_stats/#shots": red_stats["number_shots_fired"]["ally"],
                     "2_lives/alive_ally": red_stats["tanks_alive"]["ally"],
                     "2_lives/alive_enemy": red_stats["tanks_alive"]["enemy"],
                     "2_lives/alive_neutral": red_stats["tanks_alive"]["neutral"],
-                    "0_general_stats/step_per_episode": infos[i]["episode_step"],
-                    "0_general_stats/reward": infos[i]["episode_reward"],
-                    "0_general_stats/score": score,
                 }
                 # Individual stats
                 for idx, tank_stats in enumerate(individual_stats):
-                    tank_str = "3_tank_stats/tank_{}".format(idx)
+                    tank_str = "3_tank#{}/".format(idx)
                     for key, value in tank_stats.items():
-                        tank_field = "{}/{}".format(tank_str, key)
+                        tank_field = "{} {}".format(tank_str, key)
                         if type(value) is dict:
                             for key1, value1 in value.items():
-                                tank_field1 = "{}/{}".format(tank_field, key1)
+                                tank_field1 = "{} {}".format(tank_field, key1)
                                 tsboard_log[tank_field1] = value1
                         else:
                             tsboard_log[tank_field] = value

@@ -59,6 +59,8 @@ def team_stats_dict(env):
         # tank deaths caused / experienced
         "kills_executed_on": {"ally": 0, "enemy": 0, "neutral": 0},
         "deaths_caused_by": {"ally": 0, "enemy": 0, "neutral": 0},
+        # some stats for debugging
+        'shot_reward': 0.0,
         # reward parameters given to the environment- these are constant
         "reward_parameters": {
             "reward_weight": env.reward_weight,
@@ -136,7 +138,7 @@ class TanksWorldEnv(gym.Env):
         self.enable_input_tanks = enable_input_tanks
         self.enable_output_tanks = enable_output_tanks
         self.training_tanks = training_tanks
-        self.shot_reward = True
+        self.shot_reward = shot_reward
         self.shot_reward_amount = shot_reward_amount
 
         if input_type == "stacked":
@@ -382,7 +384,7 @@ class TanksWorldEnv(gym.Env):
         self.blue_team_stats["team_health"]["enemy"] = red_health
         self.blue_team_stats["team_health"]["neutral"] = neutral_health
 
-    def update_individual_tank(sefl, i, state, new_shot):
+    def update_individual_tank(self, i, state, new_shot):
         damage_dealt = state[5]
 
     # team stats that need to be updated on a tankwise basis
@@ -413,6 +415,7 @@ class TanksWorldEnv(gym.Env):
         if new_shot:
             ally_stats["number_shots_fired"]["ally"] += 1
             enemy_stats["number_shots_fired"]["enemy"] += 1
+            ally_stats['shot_reward'] += self.shot_reward_amount
 
         if damage_dealt > 0.0:
 
@@ -522,6 +525,7 @@ class TanksWorldEnv(gym.Env):
                     ] += delta_rew
                     ally_stats["reward_components_cumulative"]["all"] += delta_rew
 
+
         # Update for individual tank
         current_tank = self.individual_stats[i]
         if new_shot:
@@ -594,11 +598,11 @@ class TanksWorldEnv(gym.Env):
                 elif self.take_damage_penalty:
                     reward[i] -= delta_health[i] * self.penalty_weight / 100.0
 
+            if self.shot_reward and new_shot:
+                reward[i] += self.shot_reward_amount
             self.update_tank_stats(
                 i, state, delta_health[i], my_stats, enemy_stats, new_shot
             )
-            if self.shot_reward and new_shot:
-                reward[i] += self.shot_reward_amount
 
         self.previous_health = health
         return [reward[i] for i in self.training_tanks]

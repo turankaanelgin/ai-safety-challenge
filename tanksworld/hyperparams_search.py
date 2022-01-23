@@ -2,7 +2,7 @@ import my_config as cfg
 from centralized_util import CentralizedTraining
 from optuna.pruners import BasePruner
 from optuna import pruners, samplers
-from env_config import update_config
+from env_config import update_env_config 
 import numpy as np
 from datetime import datetime
 import logging
@@ -12,7 +12,7 @@ import optuna
 from optuna.samplers import TPESampler, CmaEsSampler
 
 
-def sample_ppo_params(trial: optuna.Trial):
+def sample_params_1tank(trial: optuna.Trial):
     return {
         #        "batch_size": trial.suggest_categorical("batch_size", [32, 64, 128, 256]),
         "batch_size": trial.suggest_categorical("batch_size", [64]),
@@ -35,24 +35,50 @@ def sample_ppo_params(trial: optuna.Trial):
         ),
         #        "ent_coef": trial.suggest_loguniform("ent_coef", 0.00000001, 0.1),
         "ent_coef": trial.suggest_categorical("ent_coef", [0.0, 0.01]),
-        "clip_range": trial.suggest_categorical(
+        "clip_range": trial.suggest_float(
             #            "clip_range", [0.1, 0.2, 0.4, 0.6, 0.8]
             #            "clip_range", [0.2, 0.4, 0.8]
             "clip_range",
-            [0.4],
+            0.05, 0.4
+        ),
+    }
+
+def sample_params_2tanks(trial: optuna.Trial):
+    return {
+        "features_dim": trial.suggest_categorical("features_dim", [128, 256]),
+        "shot_reward": trial.suggest_categorical("shot_reward", [True, False]),
+        "shot_reward_amount": trial.suggest_float(
+            "shot_reward_amount", 0.0001, 0.1
+        ),
+        "clip_range": trial.suggest_float(
+            "clip_range",
+            0.001, 0.4
         ),
     }
 
 
+def get_experiment_config(experiment):
+    if experiment == 'single-tank':
+        return {'function': sample_params_1tank, 'env_config': 2}
+    elif experiment == '2vs1':
+        return {'function': sample_params_2tanks, 'env_config': 3}
+
+
 def objective(trial):
     params = cfg.params
-    update_config(params)
-    ppo_params = sample_ppo_params(trial)
+    exp_config = get_experiment_config(params['experiment'])
+    params['config'] = exp_config['env_config']
+    ppo_params = exp_config['function'](trial)
     desc = ";".join([key + ":" + str(value) for key, value in ppo_params.items()])
     desc = datetime.now().strftime("%y-%m-%d-%H:%M:%S") + "-" + desc
     params.update(ppo_params)
-    centralized_training = CentralizedTraining(trial=trial, exp_desc=desc, **params)
-    centralized_training.train()
+    update_env_config(params)
+    try:
+        centralized_training = CentralizedTraining(trial=trial, exp_desc=desc, **params)
+        centralized_training.train()
+    except:
+        import traceback
+        traceback.print_exc()
     return centralized_training.score
 
 
@@ -69,8 +95,6 @@ class CustomPruner(BasePruner):
 
         if step:  # trial.last_step == None when no scores have been reported yet
             this_score = trial.intermediate_values[step]
-            #            if this_score < -1.99 and step > 200000:  # prune if score is too low
-            #                return True
             if step > self.warmup_steps and this_score < self.prune_threshold:
                 print("Prune this trials, step {}, score {}".format(step, this_score))
                 return True
@@ -80,10 +104,10 @@ class CustomPruner(BasePruner):
 
 if __name__ == "__main__":
     params = cfg.params
-    if not os.path.exists(params["exp_dir"]):
-        os.makedirs(params["exp_dir"])
+    if not os.path.exists(params["experiment"]):
+        os.makedirs(params["experiment"])
     study_name = "trials"  # Unique identifier of the study.
-    storage_name = "sqlite:///{}/trials.db".format(params["exp_dir"])
+    storage_name = "sqlite:///{}/trials.db".format(params["experiment"])
     search_type = "grid_search"
     grid_search = False
     if grid_search:
@@ -100,12 +124,11 @@ if __name__ == "__main__":
     study = optuna.create_study(
         sampler=sampler,
         pruner=CustomPruner(params["warmup_steps"], params["prune_threshold"]),
-        #        pruner=pruners.SuccessiveHalvingPruner(),
         study_name=study_name,
         storage=storage_name,
         direction="maximize",
         load_if_exists=True,
     )
-    study.optimize(objective, n_trials=300)
+    study.optimize(objective, n_trials=100)
     df = study.trials_dataframe(attrs=("number", "value", "params", "state"))
     print(df)

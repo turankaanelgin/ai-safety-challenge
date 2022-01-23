@@ -8,7 +8,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description="AI Safety TanksWorld")
 parser.add_argument("--exe", help="the absolute path of the tanksworld executable")
-parser.add_argument("--exp-dir", help="relative path for experiment")
+parser.add_argument("--experiment", help="experiment name")
 parser.add_argument("--record", action="store_true", default=False)
 parser.add_argument("--debug", action="store_true", default=False)
 parser.add_argument("--training", action="store_true", default=False)

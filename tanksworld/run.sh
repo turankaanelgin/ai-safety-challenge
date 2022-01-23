@@ -74,7 +74,12 @@ if [[ $1 == jobs ]]; then
         --input-type dict --warmup-steps 1000000 --prune-threshold 0.00\
         --learning-rate-type constant --training #--dummy-proc #--debug 
 elif [[ $1 == job1 ]]; then
-    train 64 20 4000000 0.4 0.00 10 500 dict
+    python hyperparams_search.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
+        --experiment 2vs1 \
+        --save-freq 5000 --n-envs 16 --timestep 2000000 --env-timeout 500 \
+        --batch-size 64 --net-arch-size 512 --extract-ftr-model medium --penalty-weight 0.4 --learning-rate 0.0001 --n-steps 64\
+        --input-type dict --warmup-steps 1000000 --prune-threshold 0.00\
+        --learning-rate-type constant --training #--dummy-proc #--debug 
 elif [[ $1 == job2 ]]; then
     train_preload 64 20 4000000  0.4 0.00 10 500 dict 22-01-06-14:56:42TW---timestep4.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-input-type-dict-config-2-1vs1-1input-1output 1000000
 elif [[ $1 == job3 ]]; then

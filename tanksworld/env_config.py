@@ -1,4 +1,4 @@
-def update_config(params):
+def update_env_config(params):
     exe_path = params["exe"]
     if params["config"] == 1:
         params["env_params"] = {
@@ -41,7 +41,7 @@ def update_config(params):
             "exe": exe_path,
             "friendly_fire": True,
             "take_damage_penalty": True,
-            "kill_bonus": True,
+            "kill_bonus": False,
             "death_penalty": False,
             "training_tanks": [0, 1],
             "static_tanks": [2, 3, 4, 6, 7, 8, 9],
