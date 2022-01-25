@@ -135,7 +135,7 @@ if __name__ == '__main__':
                                'friendly_fire': False, 'kill_bonus': False, 'death_penalty': False,
                                'take_damage_penalty': True, 'tblogs': stats_dir,
                                'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
-                               'timeout': 500, 'seed': env_seeds[idx]})
+                               'timeout': 500, 'seed': env_seeds[idx], 'tbwriter': None})
         env_functions = []
         for idx in range(len(env_kwargs)):
             env_functions.append(lambda : make_env(**env_kwargs[idx]))
