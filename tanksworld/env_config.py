@@ -146,7 +146,7 @@ def update_env_config(params):
     elif params["config"] == 9:
         params["env_params"] = {
             "exe": exe_path,
-            "friendly_fire": True,
+            "friendly_fire": False,
             "take_damage_penalty": True,
             "kill_bonus": False,
             "death_penalty": False,
@@ -155,7 +155,6 @@ def update_env_config(params):
             "random_tanks": [5, 6, 7, 8, 9],
             "disable_shooting": [],
             "enable_input_tanks": [0, 1, 2, 3, 4],
-            "enable_output_tanks": [0, 1, 2, 3, 4],
             "input_type": params["input_type"],
             "penalty_weight": params["penalty_weight"],
             "timeout": params["env_timeout"],
