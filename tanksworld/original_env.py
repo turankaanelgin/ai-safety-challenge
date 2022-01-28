@@ -164,11 +164,8 @@ class TanksWorldEnv(gym.Env):
         )
 
         self.tblogs = tblogs
-        if self.tblogs is not None:
-            #self.tb_writer = SummaryWriter(tblogs)
-            self.tb_writer = tbwriter
-            self.log_iter = 0
-
+        self.tb_writer = tbwriter if tbwriter else SummaryWriter(tblogs)
+        self.log_iter = 0
         self.reset(params={})
 
     #def seed(self, val):

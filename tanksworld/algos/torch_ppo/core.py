@@ -55,7 +55,6 @@ def cnn(observation_space):
         nn.ReLU(),
         nn.Conv2d(64, 64, 3, 1),
         nn.ReLU(),
-        nn.AvgPool2d(2),
         nn.Flatten()
     )
     return model
