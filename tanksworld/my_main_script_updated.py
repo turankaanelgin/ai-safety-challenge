@@ -207,9 +207,6 @@ if __name__ == '__main__':
         'seed': args.policy_seed,
         #'cnn_model_path': None,
         'cnn_model_path': './models/frozen-cnn-0.8/4000000.pth',
-        #'cnn_model_path': './logs/20-env-rep/lrp=0.0003cons__lrv=0.001cons__r=1.0__p=0.5__ff=0.0__H=64__/seed0/'+\
-        #                  'checkpoints/final-baseline-v2---lrp=0.0003cons__lrv=0.001cons__r=1.0__p=0.5__ff=0.0__H=64__/'+\
-        #                  'seed0-0-/149999.pth',
         'enemy_model_path': '/cis/net/r09_ssd/data/kelgin/final-baseline-v2-bernese/'+\
                             'lrp=0.0003cons__lrv=0.001cons__r=1.0__p=0.0__ff=0.0__H=64__/seed0/checkpoints/'+
                             'final-baseline-v2---lrp=0.0003cons__lrv=0.001cons__r=1.0__p=0.0__ff=0.0__H=64__/'+

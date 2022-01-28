@@ -16,7 +16,7 @@ import json
 from matplotlib import pyplot as plt
 
 
-device = torch.device('cpu')
+device = torch.device('cuda')
 
 
 class RolloutBuffer:
