@@ -79,11 +79,12 @@ if [[ $1 == jobs ]]; then
 elif [[ $1 == train5vs5 ]]; then
     python hyperparams_search.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
         --experiment 5vs5 \
-        --save-freq 5000 --n-envs 32 --timestep 1500000 --env-timeout 500 \
-        --model-path 'models/ftr_dim:64;extract_ftr_model:medium;net_arch:512;n_env:16.zip' --load-type cnn \
+        --save-freq 5000 --n-envs 32 --timestep 7000000 --env-timeout 500 \
         --extract-ftr-model medium --features-dim 64 --shot-reward --n-steps 64\
-        --input-type dict --warmup-steps 350000 --prune-threshold 0.15 \
+        --input-type dict --warmup-steps 500000 --prune-threshold 0.15 \
+        --model-path 'models/ftr_dim:64;extract_ftr_model:medium;net_arch:512;n_env:16.zip' --load-type cnn \
         --learning-rate-type constant --training #--dummy-proc #--debug 
+        #--net-arch-size 512 \
 elif [[ $1 == job2 ]]; then
     train_preload 64 20 4000000  0.4 0.00 10 500 dict 22-01-06-14:56:42TW---timestep4.0M-nstep64-nenv20-timeout-500-neg-0.4-lrtype-constant-input-type-dict-config-2-1vs1-1input-1output 1000000
 elif [[ $1 == job3 ]]; then
@@ -112,9 +113,8 @@ elif [[ $1 == debug-gym ]]; then
 elif [[ $1 == record ]]; then
     python centralized.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
         --n-env 1 --penalty-weight 0.2 --timestep 4000000 \
-        --save-path results/22-01-05-11:28:11TW---timestep10.0M-nstep64-nenv20-timeout-500-neg-0.0-lrtype-constant-input-type-dict-config-8-5vs1 \
-        --config 8 --input-type dict --model-num 600000 \
-        --video-path tmp/$2.avi --n-episode 3 --record --input-type dict
+        --config 8 --input-type dict --model-path models/5vs1_1/checkpoints/rl_model_1200000_steps.zip \
+        --video-path tmp/$2.avi --n-episode 100 --record --input-type dict
 elif [[ $1 == record-full-step ]]; then
     SETTING=21-12-17-10:19:42TW-timestep7.0M-nstep64-nenv20-timeout-250-neg-0.4-lrtype-constant-froze,no-shooting-tank-1->9
     EXPMNT=results/$SETTING

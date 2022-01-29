@@ -63,32 +63,33 @@ class CentralizedTraining:
         preload_str = "preloaded" if params["save_path"] is not None else ""
         load_type_str = params["load_type"] if params["save_path"] is not None else ""
         freeze_cnn_str = "freeze-cnn" if params["freeze_cnn"] else ""
-        if params["debug"]:
-            self.save_path = pjoin(
-                self.params["experiment"], "debug", params["exp_desc"]
-            )
-        else:
-            self.save_path = pjoin(
-                self.params["experiment"], "train", params["exp_desc"]
-            )
-            if params["continue_training"]:
-                self.save_path = params["save_path"]
 
-        os.makedirs(self.save_path, exist_ok=True)
         self.model_path = params["model_path"]
-
-        if (
-            self.model_path is None
-            and self.params["save_path"] is not None
-            and self.params["model_num"] > 0
-        ):
-            self.model_path = pjoin(
-                self.params["save_path"],
-                "checkpoints",
-                "rl_model_{}_steps.zip".format(self.params["model_num"]),
-            )
-
         if self.params["training"]:
+            if params["debug"]:
+                self.save_path = pjoin(
+                    self.params["experiment"], "debug", params["exp_desc"]
+                )
+            else:
+                self.save_path = pjoin(
+                    self.params["experiment"], "train", params["exp_desc"]
+                )
+                if params["continue_training"]:
+                    self.save_path = params["save_path"]
+
+            os.makedirs(self.save_path, exist_ok=True)
+
+            if (
+                self.model_path is None
+                and self.params["save_path"] is not None
+                and self.params["model_num"] > 0
+            ):
+                self.model_path = pjoin(
+                    self.params["save_path"],
+                    "checkpoints",
+                    "rl_model_{}_steps.zip".format(self.params["model_num"]),
+                )
+
             self.training_env = self.create_env(self.params["n_envs"])
             self.training_model = self.create_model()
         elif self.params["record"]:
@@ -447,12 +448,16 @@ class EarlyStopCallback(BaseCallback):
         reward_threshold=0.1,
         enemy_damage_threshold=1,
         n_training_agent=1,
+        check_improving_steps=500000,
         verbose=0,
     ):
         super(EarlyStopCallback, self).__init__(verbose)
         self.check_step = check_step
         self.n_training_agent = n_training_agent
         self.enemy_damage_threshold = enemy_damage_threshold * self.n_training_agent
+        self.check_improving_steps = check_improving_steps
+        self.last_step_check = 0
+        self.last_score = -np.inf
 
     def _on_training_start(self) -> None:
         self.damage_inflicted_on_enemy = self.training_env.damage_inflicted_on_enemy
@@ -463,21 +468,15 @@ class EarlyStopCallback(BaseCallback):
             and np.mean(self.damage_inflicted_on_enemy) < self.enemy_damage_threshold
         ):
             raise optuna.exceptions.TrialPruned()
+        if self.num_timesteps - self.last_step_check > self.check_improving_steps:
+            score = self.training_env.get_score()
+            if score < self.last_score:
+                raise optuna.exceptions.TrialPruned()
+            else:
+                self.last_score = score
+                self.last_step_check = self.num_timesteps
 
     def _on_step(self) -> bool:
-        #        if self.num_timesteps % 1000 == 0:
-        #            if self.num_timesteps > self.check_step:
-        #                return False
-        #            if (
-        #                len(self.training_env.prune_enemy_damage)
-        #                == self.training_env.prune_enemy_damage.maxlen
-        #                and np.mean(self.training_env.prune_enemy_damage)
-        #                / self.n_training_agent
-        #                < self.enemy_damage_threshold
-        #            ):
-        #                print("Early stop call, prune by enemy damage")
-        #                return False
-        #
         return True
 
 

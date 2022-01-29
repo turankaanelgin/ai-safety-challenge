@@ -59,18 +59,19 @@ def sample_params_5tanks(trial: optuna.Trial):
         "shot_reward_amount": trial.suggest_float("shot_reward_amount", 0.00001, 0.05),
         "clip_range": trial.suggest_float("clip_range", 0.0001, 0.4),
     }
+
+
 def sample_params_5vs5tanks(trial: optuna.Trial):
     return {
-        "net_arch_size": trial.suggest_categorical("features_dim", [512, 1024]),
+        #        "net_arch_size": trial.suggest_categorical("features_dim", [512, 1024]),
         "shot_reward_amount": trial.suggest_float("shot_reward_amount", 0.00001, 0.02),
-        "batch_size": trial.suggest_categorical("batch_size", [32, 64, 128]),
-        "learning_rate": trial.suggest_float("learning_rate", 1e-5, 3e-4),
-        "penalty_weight": trial.suggest_float("penalty_weight", 0.2, 0.8),
-        "n_steps": trial.suggest_categorical("n_steps", [32, 64, 128]),
+        #        "batch_size": trial.suggest_categorical("batch_size", [32, 64, 128]),
+        "learning_rate": trial.suggest_float("learning_rate", 1e-5, 2e-4),
+        "penalty_weight": trial.suggest_float("penalty_weight", 0.3, 0.6),
+        #        "n_steps": trial.suggest_categorical("n_steps", [32, 64, 128]),
         "clip_range": trial.suggest_float("clip_range", 0.0001, 0.4),
-        "ent_coef": trial.suggest_float("ent_coef", 0.0, 0.01),
+        #        "ent_coef": trial.suggest_float("ent_coef", 0.0, 0.01),
     }
-
 
 
 def get_experiment_config(experiment):
@@ -93,16 +94,17 @@ def objective(trial):
     ppo_params = exp_config["function"](trial)
     desc = ";".join([key + ":" + str(value) for key, value in ppo_params.items()])
     desc = datetime.now().strftime("%y-%m-%d-%H:%M:%S") + "-" + desc
+    params["exp_desc"] = desc
     params.update(ppo_params)
     update_env_config(params)
     try:
-        centralized_training = CentralizedTraining(trial=trial, exp_desc=desc, **params)
+        centralized_training = CentralizedTraining(trial=trial, **params)
         centralized_training.train()
+        return centralized_training.score
     except:
         import traceback
 
         traceback.print_exc()
-    return centralized_training.score
 
 
 class CustomPruner(BasePruner):
@@ -146,13 +148,13 @@ if __name__ == "__main__":
     #        sampler = samplers.CmaEsSampler()
     study = optuna.create_study(
         sampler=sampler,
-        pruner=optuna.pruners.MedianPruner(n_warmup_steps=params['warmup_steps']),
+        pruner=optuna.pruners.MedianPruner(n_warmup_steps=params["warmup_steps"]),
         #        pruner=CustomPruner(params["warmup_steps"], params["prune_threshold"]),
         study_name=study_name,
         storage=storage_name,
         direction="maximize",
         load_if_exists=True,
     )
-    study.optimize(objective, n_trials=100)
+    study.optimize(objective, n_trials=50)
     df = study.trials_dataframe(attrs=("number", "value", "params", "state"))
     print(df)
