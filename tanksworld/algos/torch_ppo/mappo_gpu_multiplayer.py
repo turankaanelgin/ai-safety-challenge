@@ -146,13 +146,11 @@ class PPOPolicy():
         self.enemy_model.eval()
         num_envs = 10
 
-        eplen = [0] * num_envs
-        epret = [0] * num_envs
         ep_rr_damage = [0] * num_envs
         ep_rb_damage = [0] * num_envs
         ep_br_damage = [0] * num_envs
         curr_done = [False] * num_envs
-        episode_returns, episode_lengths = [], []
+        taken_stats = [False] * num_envs
         episode_red_blue_damages, episode_blue_red_damages = [], []
         episode_red_red_damages = []
 
@@ -166,27 +164,22 @@ class PPOPolicy():
             curr_done = [done[idx] or curr_done[idx] for idx in range(num_envs)]
 
             for env_idx, terminal in enumerate(curr_done):
-                if not terminal:
-                    ep_rr_damage[env_idx] += info[env_idx]['current']['red_ally_damage']
-                    ep_rb_damage[env_idx] += info[env_idx]['current']['red_enemy_damage']
-                    ep_br_damage[env_idx] += info[env_idx]['current']['blue_enemy_damage']
-                    eplen[env_idx] += 1
-                    epret[env_idx] += reward[env_idx]
+                if terminal and not taken_stats[env_idx]:
+                    ep_rr_damage[env_idx] = info[env_idx]['red_stats']['damage_inflicted_on']['ally']
+                    ep_rb_damage[env_idx] = info[env_idx]['red_stats']['damage_inflicted_on']['enemy']
+                    ep_br_damage[env_idx] = info[env_idx]['red_stats']['damage_taken_by']['enemy']
+                    taken_stats[env_idx] = True
 
             if np.all(curr_done):
-                episode_returns.append(epret)
-                episode_lengths.append(eplen)
                 episode_red_red_damages.append(ep_rr_damage)
                 episode_blue_red_damages.append(ep_br_damage)
                 episode_red_blue_damages.append(ep_rb_damage)
-                eplen = [0] * num_envs
-                epret = [0] * num_envs
                 ep_rr_damage = [0] * num_envs
                 ep_rb_damage = [0] * num_envs
                 ep_br_damage = [0] * num_envs
                 curr_done = [False] * num_envs
                 steps += 1
-                self.env.reset()
+                observation = self.env.reset()
 
                 if steps % 5 == 0 and steps > 0:
                     avg_red_red_damages = np.mean(episode_red_red_damages)
@@ -198,6 +191,16 @@ class PPOPolicy():
                                    'Red-Red-Damage': avg_red_red_damages,
                                    'Red-Blue Damage': avg_red_blue_damages,
                                    'Blue-Red Damage': avg_blue_red_damages}, f, indent=4)
+
+                    avg_red_red_damages_per_env = np.mean(episode_red_red_damages, axis=0)
+                    avg_red_blue_damages_per_env = np.mean(episode_red_blue_damages, axis=0)
+                    avg_blue_red_damages_per_env = np.mean(episode_blue_red_damages, axis=0)
+
+                    with open(os.path.join(self.callback.policy_record.data_dir, 'all_statistics.json'), 'w+') as f:
+                        json.dump({'Number of games': steps,
+                                   'All-Red-Red-Damage': avg_red_red_damages_per_env.tolist(),
+                                   'All-Red-Blue Damage': avg_red_blue_damages_per_env.tolist(),
+                                   'All-Blue-Red Damage': avg_blue_red_damages_per_env.tolist()}, f, indent=4)
 
 
 
