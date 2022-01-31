@@ -67,7 +67,7 @@ def sample_params_5vs5tanks(trial: optuna.Trial):
         "shot_reward_amount": trial.suggest_float("shot_reward_amount", 0.00001, 0.02),
         #        "batch_size": trial.suggest_categorical("batch_size", [32, 64, 128]),
         "learning_rate": trial.suggest_float("learning_rate", 1e-5, 2e-4),
-        "penalty_weight": trial.suggest_float("penalty_weight", 0.3, 0.6),
+        "penalty_weight": trial.suggest_float("penalty_weight", 0.0, 0.6),
         #        "n_steps": trial.suggest_categorical("n_steps", [32, 64, 128]),
         "clip_range": trial.suggest_float("clip_range", 0.0001, 0.4),
         #        "ent_coef": trial.suggest_float("ent_coef", 0.0, 0.01),

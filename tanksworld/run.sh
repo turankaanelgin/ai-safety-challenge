@@ -79,7 +79,7 @@ if [[ $1 == jobs ]]; then
 elif [[ $1 == train5vs5 ]]; then
     python hyperparams_search.py --exe /home/ado8/ai-safety-challenge/exe/aisafetytanks_017_headless/aisafetytanks_017_headless.x86_64 \
         --experiment 5vs5 \
-        --save-freq 5000 --n-envs 32 --timestep 7000000 --env-timeout 500 \
+        --save-freq 5000 --n-envs 32 --timestep 10000000 --env-timeout 500 \
         --extract-ftr-model medium --features-dim 64 --shot-reward --n-steps 64\
         --input-type dict --warmup-steps 500000 --prune-threshold 0.15 \
         --model-path 'models/ftr_dim:64;extract_ftr_model:medium;net_arch:512;n_env:16.zip' --load-type cnn \
