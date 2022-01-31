@@ -8,55 +8,12 @@ from tensorboardX import SummaryWriter
 import numpy as np
 from multiprocessing import Process
 
+import trainer_config
 from make_env import make_env
 from core.policy_record import PolicyRecord
 from algos.torch_ppo.mappo_gpu_new import PPOPolicy as TorchGPUMAPPOPolicyNew
 from algos.torch_ppo.vec_env import DummyVecEnv, SubprocVecEnv
-
-
-def config():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--logdir', help='the location of saved policys and logs')
-    parser.add_argument('--exe', help='the absolute path of the tanksworld executable')
-    parser.add_argument('--teamname1', help='the name for team 1', default='red')
-    parser.add_argument('--teamname2', help='the name for team 2', default='blue')
-    parser.add_argument('--reward_weight', type=float, default=1.0)
-    parser.add_argument('--penalty_weight', type=float, default=1.0)
-    parser.add_argument('--ff_weight', type=float, default=0.0)
-    parser.add_argument('--curriculum_start', type=float, default=-1)
-    parser.add_argument('--curriculum_stop', type=float, default=-1)
-    parser.add_argument('--policy_lr', type=float, default=3e-4)
-    parser.add_argument('--value_lr', type=float, default=1e-3)
-    parser.add_argument('--policy_lr_schedule', type=str, default='cons')
-    parser.add_argument('--value_lr_schedule', type=str, default='cons')
-    parser.add_argument('--entropy_coef', type=float, default=0.0)
-    parser.add_argument('--batch_size', type=int, default=64)
-    parser.add_argument('--num_epochs', type=int, default=4)
-    parser.add_argument('--death_penalty', action='store_true', default=False)
-    parser.add_argument('--friendly_fire', action='store_true', default=True)
-    parser.add_argument('--kill_bonus', action='store_true', default=False)
-    parser.add_argument('--eval_mode', action='store_true', default=False)
-    parser.add_argument('--num_iter', type=int, default=1000)
-    parser.add_argument('--eval_checkpoint', type=int, default=999999)
-    parser.add_argument('--save_tag', type=str, default='')
-    parser.add_argument('--load_from_checkpoint', action='store_true', default=False)
-    parser.add_argument('--seed_index', type=int, default=0)
-    parser.add_argument('--freeze_rep', action='store_true', default=False)
-    parser.add_argument('--use_rnn', action='store_true', default=False)
-    parser.add_argument('--eval_logdir', type=str, default='')
-    parser.add_argument('--multiplayer', action='store_true', default=False)
-    parser.add_argument('--valuenorm', action='store_true', default=False)
-    parser.add_argument('--beta', action='store_true', default=False)
-    parser.add_argument('--fixed_kl', action='store_true', default=False)
-    parser.add_argument('--adaptive_kl', action='store_true', default=False)
-    parser.add_argument('--kl_beta', type=float, default=3.0)
-    parser.add_argument('--num_rollout_threads', type=int, default=1)
-    parser.add_argument('--local_std', action='store_true', default=False)
-    parser.add_argument('--n_env_seeds', type=int, default=1)
-    parser.add_argument('--n_policy_seeds', type=int, default=1)
-    parser.add_argument('--cnn_path', type=str, default='./models/frozen-cnn-0.8/4000000.pth')
-    parser.add_argument('--weight_sharing', action='store_true', default=False)
-    return var(parser.parse_args)
+from algos.torch_ppo.callbacks import EvalCallback
 
 
 class Trainer:
@@ -110,7 +67,7 @@ class Trainer:
                     tb_writer = SummaryWriter(stats_dir)
 
                     env_kwargs = {'exe': config['exe'],
-                                  'static_tanks': [], 'random_tanks': random_tanks, 'disable_shooting': [],
+                                  'static_tanks': [], 'random_tanks': [5,6,7,8,9], 'disable_shooting': [],
                                   'friendly_fire': False, 'kill_bonus': False, 'death_penalty': False,
                                   'take_damage_penalty': True, 'tblogs': stats_dir, 'tbwriter': tb_writer,
                                   'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
@@ -140,7 +97,7 @@ class Trainer:
                     env_kwargs.append({'exe': config['exe'],
                                        'static_tanks': [], 'random_tanks': [5, 6, 7, 8, 9], 'disable_shooting': [],
                                        'friendly_fire': False, 'kill_bonus': False, 'death_penalty': False,
-                                       'take_damage_penalty': True, 'tblogs': stats_dir, 'tbwriter': tb_writer,
+                                       'take_damage_penalty': True, 'tblogs': stats_dir,
                                        'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
                                        'timeout': 500, 'seed': e_seed})
                 env_functions = []
@@ -161,7 +118,7 @@ class Trainer:
             env_kwargs = []
             for e_seed in eval_env_seeds:
                 env_kwargs.append({'exe': config['exe'],
-                                   'static_tanks': [], 'random_tanks': random_tanks, 'disable_shooting': [],
+                                   'static_tanks': [], 'random_tanks': [5,6,7,8,9], 'disable_shooting': [],
                                    'friendly_fire': False, 'kill_bonus': False, 'death_penalty': False,
                                    'take_damage_penalty': True, 'tblogs': stats_dir, 'tbwriter': tb_writer,
                                    'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
@@ -227,7 +184,7 @@ class Trainer:
             'ent_coef': config['entropy_coef'],
             'pi_scheduler': config['policy_lr_schedule'],
             'vf_scheduler': config['value_lr_schedule'],
-            'cnn_model_path': config['cnn_path'] if 'cnn_path' != 'None' else None,
+            'cnn_model_path': config['cnn_path'] if config['cnn_path'] != 'None' else None,
             'n_envs': config['num_rollout_threads'],
             'freeze_rep': config['freeze_rep'],
             'use_rnn': config['use_rnn'],
@@ -247,7 +204,8 @@ class Trainer:
         config = self.config
         _MAX_INT = 2147483647  # Max int for Unity ML Seed
         n_policy_seeds = config['n_policy_seeds']
-        n_env_seeds = config['n_env_seeds']
+        n_rollout_threads = config['num_rollout_threads']
+        n_env_seeds = n_rollout_threads if n_rollout_threads > 0 else config['n_env_seeds']
 
         # Create the log directory if not exists
         if not os.path.exists(os.path.join('./logs', config['logdir'])):
@@ -255,7 +213,7 @@ class Trainer:
 
         # If seeds were saved under the log directory as a json file, load them.
         # Else generate new seeds and save.
-        init_seeds = os.path.join('./logs', args.logdir, 'seeds.json')
+        init_seeds = os.path.join('./logs', config['logdir'], 'seeds.json')
 
         if os.path.exists(init_seeds):
             with open(init_seeds, 'r') as f:
@@ -286,7 +244,7 @@ if __name__=='__main__':
         pol.run(num_steps=args['num_iter'])
         env.close()
 
-    args = config()
+    args = trainer_config.config
     trainer = Trainer(args)
     trainer.set_seeds()
 
@@ -304,10 +262,11 @@ if __name__=='__main__':
 
             policy_params = trainer.get_policy_params()
             policy_params['model_path'] = model_path
+            policy_params['save_dir'] = os.path.join(policy_record.data_dir, 'checkpoints')
             policy_params['tb_writer'] = tbwriter
 
             callback = EvalCallback(envs[seed_idx], policy_record, eval_env=None)
-            policy = TorchGPUMAPPOPolicyNew(envs[seed_idx], callback, True, **policy_kwargs)
+            policy = TorchGPUMAPPOPolicyNew(envs[seed_idx], callback, True, **policy_params)
             policies_to_run.append(policy)
 
     else:
@@ -326,11 +285,11 @@ if __name__=='__main__':
             policy_params = trainer.get_policy_params()
             policy_params['model_path'] = model_path
             policy_params['tb_writer'] = tb_writers[seed_idx]
-            policy_params['save_dir']: os.path.join(policy_record.data_dir, 'checkpoints')
+            policy_params['save_dir'] = os.path.join(policy_record.data_dir, 'checkpoints')
             policy_params['seed'] = policy_seeds[seed_idx]
 
             callback = EvalCallback(envs[seed_idx], policy_record, eval_env=envs[seed_idx], eval_steps=5)
-            policy = TorchGPUMAPPOPolicyNew(envs[seed_idx], callback, False, **policy_kwargs)
+            policy = TorchGPUMAPPOPolicyNew(envs[seed_idx], callback, False, **policy_params)
             policies_to_run.append(policy)
 
 

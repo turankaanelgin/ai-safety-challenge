@@ -299,8 +299,11 @@ class PPOPolicy():
         self.obs = self.env.reset()
 
         self.ac_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
-        self.pi_optimizer = Adam(self.ac_model.pi.parameters(), lr=pi_lr)
-        self.vf_optimizer = Adam(self.ac_model.v.parameters(), lr=vf_lr)
+        if self.weight_sharing:
+            self.pi_optimizer = Adam(self.ac_model.parameters(), lr=pi_lr)
+        else:
+            self.pi_optimizer = Adam(self.ac_model.pi.parameters(), lr=pi_lr)
+            self.vf_optimizer = Adam(self.ac_model.v.parameters(), lr=vf_lr)
         if use_value_norm:
             self.value_normalizer = ValueNorm((5), device=torch.device('cuda'))
         else:
@@ -336,8 +339,11 @@ class PPOPolicy():
         if model_path:
             ckpt = torch.load(model_path, map_location=device)
             self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
-            self.pi_optimizer.load_state_dict(ckpt['pi_optimizer_state_dict'])
-            self.vf_optimizer.load_state_dict(ckpt['vf_optimizer_state_dict'])
+            if self.weight_sharing:
+                self.pi_optimizer.load_state_dict(ckpt['pi_optimizer_state_dict'], strict=True)
+            else:
+                self.pi_optimizer.load_state_dict(ckpt['pi_optimizer_state_dict'], strict=True)
+                self.vf_optimizer.load_state_dict(ckpt['vf_optimizer_state_dict'], strict=True)
             if self.scheduler_policy:
                 self.scheduler_policy.load_state_dict(ckpt['pi_scheduler_state_dict'])
             if self.scheduler_value:
@@ -370,84 +376,23 @@ class PPOPolicy():
         summary(self.ac_model)
 
 
-    def save_model(self, save_dir, model_id, step):
+    def save_model(self, save_dir, step):
 
-        model_path = os.path.join(save_dir, model_id, str(step) + '.pth')
-        ckpt_dict = {'step': step,
-                     'model_state_dict': self.ac_model.state_dict(),
-                     'pi_optimizer_state_dict': self.pi_optimizer.state_dict(),
-                     'vf_optimizer_state_dict': self.vf_optimizer.state_dict()}
+        model_path = os.path.join(save_dir, str(step) + '.pth')
+        if self.weight_sharing:
+            ckpt_dict = {'step': step,
+                         'model_state_dict': self.ac_model.state_dict(),
+                         'pi_optimizer_state_dict': self.pi_optimizer.state_dict()}
+        else:
+            ckpt_dict = {'step': step,
+                        'model_state_dict': self.ac_model.state_dict(),
+                        'pi_optimizer_state_dict': self.pi_optimizer.state_dict(),
+                        'vf_optimizer_state_dict': self.vf_optimizer.state_dict()}
         if self.scheduler_policy:
             ckpt_dict['pi_scheduler_state_dict'] = self.scheduler_policy.state_dict()
         if self.scheduler_value:
             ckpt_dict['vf_scheduler_state_dict'] = self.scheduler_value.state_dict()
         torch.save(ckpt_dict, model_path)
-
-
-    def calc_kl(self, p, q, npg_approx=False, get_mean=True):
-        '''
-        Get the expected KL distance between two sets of gaussians over states -
-        gaussians p and q where p and q are each tuples (mean, var)
-        - In other words calculates E KL(p||q): E[sum p(x) log(p(x)/q(x))]
-        - From https://stats.stackexchange.com/a/60699
-        '''
-
-        def shape_equal(a, *args):
-            '''
-            Checks that a group of tensors has a required shape
-            Inputs:
-            - a, required shape for all the tensors
-            - Rest of the arguments are tensors
-            Returns:
-            - True if all tensors are of shape a, otherwise ValueError
-            '''
-            for arg in args:
-                if list(arg.shape) != list(a):
-                    if len(arg.shape) != len(a):
-                        raise ValueError("Expected shape: %s, Got shape %s" \
-                                         % (str(a), str(arg.shape)))
-                    for i in range(len(arg.shape)):
-                        if a[i] == -1 or a[i] == arg.shape[i]:
-                            continue
-                        raise ValueError("Expected shape: %s, Got shape %s" \
-                                         % (str(a), str(arg.shape)))
-            return shape_equal_cmp(*args)
-
-        def log_determinant(mat):
-            '''
-            Returns the log determinant of a diagonal matrix
-            Inputs:
-            - mat, a diagonal matrix
-            Returns:
-            - The log determinant of mat, aka sum of the log diagonal
-            '''
-            return ch.log(mat).sum()
-
-        p_mean, p_std = p
-        q_mean, q_std = q
-        p_var = p_std.pow(2) + 1e-10
-        q_var = q_std.pow(2) + 1e-10
-        assert shape_equal([-1, self.action_dim], p_mean, q_mean)
-        assert shape_equal([self.action_dim], p_var, q_var)
-
-        d = q_mean.shape[1]
-        # Add 1e-10 to variances to avoid nans.
-        logdetp = log_determinant(p_var)
-        logdetq = log_determinant(q_var)
-        diff = q_mean - p_mean
-
-        log_quot_frac = logdetq - logdetp
-        tr = (p_var / q_var).sum()
-        quadratic = ((diff / q_var) * diff).sum(dim=1)
-
-        if npg_approx:
-            kl_sum = 0.5 * quadratic + 0.25 * (p_var / q_var - 1.).pow(2).sum()
-        else:
-            kl_sum = 0.5 * (log_quot_frac - d + tr + quadratic)
-        assert kl_sum.shape == (p_mean.shape[0],)
-        if get_mean:
-            return kl_sum.mean()
-        return kl_sum
 
 
     # Set up function for computing PPO policy loss
@@ -509,49 +454,60 @@ class PPOPolicy():
             self.pi_optimizer.zero_grad()
             loss_pi, pi_info = self.compute_loss_pi(data, clip_ratio)
             kl = pi_info['kl']
+
             if self.use_adaptive_kl and kl > 1.5 * target_kl:
                 self.kl_beta = self.kl_beta * 2
             elif self.use_adaptive_kl and kl < target_kl / 1.5:
                 self.kl_beta = self.kl_beta / 2
             elif not self.use_fixed_kl and kl > 1.5 * target_kl:
-                # logger.log('Early stopping at step %d due to reaching max kl.'%i)
+                #logger.log('Early stopping at step %d due to reaching max kl.'%i)
                 break
+
+            if self.weight_sharing:
+                loss_v = self.compute_loss_v(data)
+                loss_pi = loss_pi + loss_v
+
             if entropy_coef > 0.0:
                 loss_entropy = self.compute_loss_entropy(data)
                 loss = loss_pi + entropy_coef * loss_entropy
             else:
                 loss = loss_pi
+
             loss.backward()
             self.loss_p_index += 1
-            #self.writer.add_scalar('loss/Policy_Loss', loss_pi, self.loss_p_index)
-            #if entropy_coef > 0.0:
-            #    self.writer.add_scalar('loss/Entropy_Loss', loss_entropy, self.loss_p_index)
-            #if not self.use_beta:
-            #    std = torch.exp(self.ac_model.pi.log_std)
-            #    self.writer.add_scalar('std_dev/move', std[0].item(), self.loss_p_index)
-            #    self.writer.add_scalar('std_dev/turn', std[1].item(), self.loss_p_index)
-            #    self.writer.add_scalar('std_dev/shoot', std[2].item(), self.loss_p_index)
-            #if self.use_rnn:
-            #    torch.nn.utils.clip_grad_norm(self.ac_model.parameters(), 0.5)
+
+            self.writer.add_scalar('loss/Policy_Loss', loss_pi, self.loss_p_index)
+            if self.weight_sharing:
+                self.writer.add_scalar('loss/Value_Loss', loss_v, self.loss_v_index)
+            if entropy_coef > 0.0:
+                self.writer.add_scalar('loss/Entropy_Loss', loss_entropy, self.loss_p_index)
+            if not self.use_beta:
+                std = torch.exp(self.ac_model.pi.log_std)
+                self.writer.add_scalar('std_dev/move', std[0].item(), self.loss_p_index)
+                self.writer.add_scalar('std_dev/turn', std[1].item(), self.loss_p_index)
+                self.writer.add_scalar('std_dev/shoot', std[2].item(), self.loss_p_index)
+            if self.use_rnn:
+                torch.nn.utils.clip_grad_norm(self.ac_model.parameters(), 0.5)
+
             self.pi_optimizer.step()
 
-        # Value function learning
-        for i in range(train_v_iters):
-            self.vf_optimizer.zero_grad()
-            loss_v = self.compute_loss_v(data)
-            loss_v.backward()
-            self.loss_v_index += 1
-            #self.writer.add_scalar('loss/Value_Loss', loss_v, self.loss_v_index)
-            self.vf_optimizer.step()
+        if not self.weight_sharing:
+            # Value function learning
+            for i in range(train_v_iters):
+                self.vf_optimizer.zero_grad()
+                loss_v = self.compute_loss_v(data)
+                loss_v.backward()
+                self.loss_v_index += 1
+                self.writer.add_scalar('loss/Value_Loss', loss_v, self.loss_v_index)
+                self.vf_optimizer.step()
 
 
     def learn(self, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=-1,
               steps_per_epoch=800, steps_to_run=100000, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
               vf_lr=1e-3, ent_coef=0.0, train_pi_iters=80, train_v_iters=80, lam=0.97,
-              target_kl=0.01, tsboard_freq=-1, curriculum_start=-1, curriculum_stop=-1, use_value_norm=False,
-              use_huber_loss=False, use_rnn=False, use_popart=False, use_sde=False, sde_sample_freq=1,
-              pi_scheduler='cons', vf_scheduler='cons', freeze_rep=True, entropy_coef=0.0, kl_beta=3.0,
-              tb_writer=None, **kargs):
+              target_kl=0.01, use_value_norm=False, use_huber_loss=False, use_rnn=False, use_popart=False,
+              use_sde=False, sde_sample_freq=1, pi_scheduler='cons', vf_scheduler='cons', freeze_rep=True,
+              entropy_coef=0.0, kl_beta=3.0, tb_writer=None, **kargs):
 
         env = self.env
         self.writer = tb_writer
@@ -566,11 +522,14 @@ class PPOPolicy():
         self.use_beta = kargs['use_beta']
         self.use_fixed_kl = kargs['use_fixed_kl']
         self.use_adaptive_kl = kargs['use_adaptive_kl']
+        self.weight_sharing = kargs['weight_sharing']
         self.kl_beta = kl_beta
         self.setup_model(actor_critic, pi_lr, vf_lr, pi_scheduler, vf_scheduler, ac_kwargs, use_value_norm)
         ac_kwargs['local_std'] = kargs['local_std']
         self.setup_model(actor_critic, pi_lr, vf_lr, pi_scheduler, vf_scheduler, ac_kwargs)
         self.load_model(kargs['model_path'], kargs['cnn_model_path'], freeze_rep, steps_per_epoch)
+        if self.callback:
+            self.callback.init_model(self.ac_model)
 
         num_states = kargs['num_states'] if 'num_states' in kargs else None
         if use_rnn:
@@ -580,7 +539,6 @@ class PPOPolicy():
             state_history = torch.cat(obs, dim=2)
 
         ep_ret, ep_len = 0, 0
-        ep_rb_dmg, ep_br_dmg, ep_rr_dmg = 0, 0, 0
 
         buf = RolloutBuffer(self.obs_dim, self.act_dim, steps_per_epoch, gamma, lam, n_envs=kargs['n_envs'],
                             use_sde=use_sde, use_rnn=use_rnn, n_states=num_states, use_value_norm=use_value_norm,
@@ -588,9 +546,14 @@ class PPOPolicy():
         self.use_sde = use_sde
         self.use_rnn = use_rnn
 
+        '''
         if not os.path.exists(os.path.join(kargs['save_dir'], str(kargs['model_id']))):
             from pathlib import Path
             Path(os.path.join(kargs['save_dir'], str(kargs['model_id']))).mkdir(parents=True, exist_ok=True)
+        '''
+        if not os.path.exists(kargs['save_dir']):
+            from pathlib import Path
+            Path(kargs['save_dir']).mkdir(parents=True, exist_ok=True)
 
         step = self.start_step
         episode_lengths = []
@@ -600,8 +563,9 @@ class PPOPolicy():
 
         while step < steps_to_run:
 
-            if (step + 1) % 50000 == 0:
-                self.save_model(kargs['save_dir'], kargs['model_id'], step)
+            if (step + 1) % 50000 == 0 or step == 0:
+                #    self.save_model(kargs['save_dir'], kargs['model_id'], step)
+                self.save_model(kargs['save_dir'], step)
 
             if use_sde and sde_sample_freq > 0 and step % sde_sample_freq == 0:
                 # Sample a new noise matrix
@@ -632,7 +596,7 @@ class PPOPolicy():
 
             epoch_ended = step > 0 and step % steps_per_epoch == 0
 
-            if np.all(terminal) or epoch_ended:
+            if np.any(terminal) or epoch_ended:
 
                 stats = info[0]['red_stats']
                 ep_rr_dmg = stats['damage_inflicted_on']['ally']
@@ -658,21 +622,10 @@ class PPOPolicy():
                     _, v, _, _ = self.ac_model.step(torch.as_tensor(self.obs, dtype=torch.float32).to(device))
 
                 else:
-                    stats = info[0]['red_stats']
-                    ep_rr_dmg = stats['damage_inflicted_on']['ally']
-                    ep_rb_dmg = stats['damage_inflicted_on']['enemy']
-                    ep_br_dmg = stats['damage_taken_by']['enemy']
-
-                    episode_lengths.append(ep_len)
-                    episode_returns.append(ep_ret)
-                    episode_red_red_damages.append(ep_rr_dmg)
-                    episode_blue_red_damages.append(ep_br_dmg)
-                    episode_red_blue_damages.append(ep_rb_dmg)
-
                     v = torch.zeros((kargs['n_envs'], 5)).to(device)
 
                 buf.finish_path(v)
-                if np.all(terminal):
+                if np.any(terminal):
                     obs, ep_ret, ep_len = env.reset(), 0, 0
                     self.obs = torch.as_tensor(obs, dtype=torch.float32).to(device)
                     if use_rnn:
@@ -702,27 +655,13 @@ class PPOPolicy():
                                    'Red-Red-Damage': red_red_damage,
                                    'Blue-Red-Damage': blue_red_damage}, f, indent=True)
 
-                '''
-                if len(episode_lengths) > 0:
-                    episode_stats = {'Red-Blue-Damage': np.mean(episode_red_blue_damages),
-                                     'Red-Red-Damage': np.mean(episode_red_red_damages),
-                                     'Blue-Red-Damage': np.mean(episode_blue_red_damages)}
-
-                    if self.callback.policy_record:
-                        with open(os.path.join(self.callback.policy_record.data_dir, 'mean_statistics.json'),
-                                  'w+') as f:
-                            json.dump(episode_stats, f, indent=True)
-
-                        for idx in range(len(episode_lengths)):
-                            self.callback.policy_record.add_result(episode_returns[idx], episode_red_blue_damages[idx],
-                                                                   episode_red_red_damages[idx],
-                                                                   episode_blue_red_damages[idx],
-                                                                   episode_lengths[idx])
-                        self.callback.policy_record.save()
-                '''
-
                 episode_lengths = []
                 episode_returns = []
                 episode_red_blue_damages = []
                 episode_blue_red_damages = []
                 episode_red_red_damages = []
+
+            if step % 10000 == 0 or step == 4:
+
+                if self.callback:
+                    self.callback.evaluate_policy_modified(self.ac_model.state_dict(), device)

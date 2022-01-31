@@ -53,7 +53,7 @@ def evaluate_policy(eval_env, model, eval_steps):
 
 class EvalCallback:
 
-    def __init__(self, env, policy_record, eval_steps=1000, eval_env=None):
+    def __init__(self, env, policy_record, eval_steps=10, eval_env=None):
         self.env = env
         self.model = None
         self.policy_record = policy_record
@@ -67,6 +67,45 @@ class EvalCallback:
 
     def init_model(self, model):
         self.model = model
+
+    def evaluate_policy_modified(self, model_state_dict, device):
+
+        steps = 0
+        observation = self.eval_env.reset()
+
+        self.model.load_state_dict(model_state_dict, strict=True)
+        self.model.eval()
+
+        episode_red_blue_damages, episode_blue_red_damages = [], []
+        episode_red_red_damages = []
+
+        while steps < self.eval_steps:
+            with torch.no_grad():
+                action, _, _, _ = self.model.step(torch.as_tensor(observation, dtype=torch.float32).to(device))
+            observation, reward, done, info = self.eval_env.step(action.cpu().numpy())
+
+            if done[0]:
+                ep_rr_damage = info[0]['red_stats']['damage_inflicted_on']['ally']
+                ep_rb_damage = info[0]['red_stats']['damage_inflicted_on']['enemy']
+                ep_br_damage = info[0]['red_stats']['damage_taken_by']['enemy']
+
+                episode_red_red_damages.append(ep_rr_damage)
+                episode_blue_red_damages.append(ep_br_damage)
+                episode_red_blue_damages.append(ep_rb_damage)
+
+                steps += 1
+                observation = self.eval_env.reset()
+
+                if steps == self.eval_steps:
+                    avg_red_red_damages = np.mean(episode_red_red_damages)
+                    avg_red_blue_damages = np.mean(episode_red_blue_damages)
+                    avg_blue_red_damages = np.mean(episode_blue_red_damages)
+
+                    with open(os.path.join(self.policy_record.data_dir, 'mean_eval_statistics.json'), 'w+') as f:
+                        json.dump({'Number of games': steps,
+                                   'Red-Red-Damage': avg_red_red_damages.tolist(),
+                                   'Red-Blue Damage': avg_red_blue_damages.tolist(),
+                                   'Blue-Red Damage': avg_blue_red_damages.tolist()}, f, indent=4)
 
     def evaluate_policy(self):
 
