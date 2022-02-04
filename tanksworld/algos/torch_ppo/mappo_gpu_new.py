@@ -10,7 +10,8 @@ from torch.utils.tensorboard import SummaryWriter
 
 from .mappo_utils.valuenorm import ValueNorm
 
-from . import core
+#from . import core
+from . import core_new as core
 import os
 import json
 from matplotlib import pyplot as plt
@@ -51,10 +52,8 @@ class RolloutBuffer:
         """
 
         assert self.ptr < self.max_size  # buffer has to have room so you can store
-        try:
-            self.obs_buf[self.ptr] = obs.squeeze(2) if not self.use_rnn else obs
-        except:
-            pdb.set_trace()
+
+        self.obs_buf[self.ptr] = obs.squeeze(2) if not self.use_rnn else obs.squeeze(3)
         self.act_buf[self.ptr] = act
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
@@ -88,8 +87,13 @@ class RolloutBuffer:
         else:
             vals = self.val_buf[path_slice]
 
-        rews = torch.cat((self.rew_buf[path_slice], last_val), dim=0)
-        vals = torch.cat((vals, last_val), dim=0)
+        try:
+            rews = torch.cat((self.rew_buf[path_slice], last_val), dim=0)
+            vals = torch.cat((vals, last_val), dim=0)
+        except:
+            last_val = last_val.unsqueeze(0)
+            rews = torch.cat((self.rew_buf[path_slice], last_val), dim=0)
+            vals = torch.cat((vals, last_val), dim=0)
 
         # the next two lines implement GAE-Lambda advantage calculation
         deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
@@ -340,10 +344,10 @@ class PPOPolicy():
             ckpt = torch.load(model_path, map_location=device)
             self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
             if self.weight_sharing:
-                self.pi_optimizer.load_state_dict(ckpt['pi_optimizer_state_dict'], strict=True)
+                self.pi_optimizer.load_state_dict(ckpt['pi_optimizer_state_dict'])
             else:
-                self.pi_optimizer.load_state_dict(ckpt['pi_optimizer_state_dict'], strict=True)
-                self.vf_optimizer.load_state_dict(ckpt['vf_optimizer_state_dict'], strict=True)
+                self.pi_optimizer.load_state_dict(ckpt['pi_optimizer_state_dict'])
+                self.vf_optimizer.load_state_dict(ckpt['vf_optimizer_state_dict'])
             if self.scheduler_policy:
                 self.scheduler_policy.load_state_dict(ckpt['pi_scheduler_state_dict'])
             if self.scheduler_value:
@@ -401,11 +405,18 @@ class PPOPolicy():
         obs, act, adv, logp_old = data['obs'], data['act'], data['adv'], data['logp']
         size = data['obs'].shape[0]
         obs, act, adv, logp_old = obs.to(device), act.to(device), adv.to(device), logp_old.to(device)
-        obs = torch.flatten(obs, end_dim=2)
-        act = torch.flatten(act, end_dim=2)
+
+        if self.use_rnn:
+            obs = torch.flatten(obs, end_dim=1)
+            act = torch.flatten(act, end_dim=1)
+        else:
+            obs = torch.flatten(obs, end_dim=2)
+            act = torch.flatten(act, end_dim=2)
 
         # Policy loss
-        pi, logp = self.ac_model.pi(obs, act)
+        #pi, logp = self.ac_model.pi(obs, act)
+        pi = self.ac_model.pi(obs)
+        logp = self.ac_model.pi.get_loglikelihood(pi, act)
         logp = logp.reshape(size, -1, 5)
         ratio = torch.exp(logp - logp_old)
 
@@ -418,7 +429,8 @@ class PPOPolicy():
 
         # Useful extra info
         approx_kl = (logp_old - logp).mean().item()
-        ent = pi.entropy().mean().item() if pi.entropy() is not None else 0.0
+        #ent = pi.entropy().mean().item() if pi.entropy() is not None else 0.0
+        ent = 0.0
         clipped = ratio.gt(1 + clip_ratio) | ratio.lt(1 - clip_ratio)
         clipfrac = torch.as_tensor(clipped, dtype=torch.float32).mean().item()
         pi_info = dict(kl=approx_kl, ent=ent, cf=clipfrac)
@@ -430,13 +442,13 @@ class PPOPolicy():
     def compute_loss_v(self, data):
         obs, ret = data['obs'], data['ret']
         obs, ret = obs.to(device), ret.to(device)
-        obs = torch.flatten(obs, end_dim=2)
+        obs = torch.flatten(obs, end_dim=2) if not self.use_rnn else torch.flatten(obs, end_dim=1)
+        ret = torch.flatten(ret, end_dim=1) if self.use_rnn else torch.flatten(ret)
 
         if self.use_value_norm:
             self.value_normalizer.update(ret.squeeze(1))
             ret = self.value_normalizer.normalize(ret.squeeze(1))
 
-        ret = torch.flatten(ret)
         return ((self.ac_model.v(obs).squeeze(0) - ret) ** 2).mean()
 
 
@@ -476,6 +488,7 @@ class PPOPolicy():
             loss.backward()
             self.loss_p_index += 1
 
+            '''
             self.writer.add_scalar('loss/Policy_Loss', loss_pi, self.loss_p_index)
             if self.weight_sharing:
                 self.writer.add_scalar('loss/Value_Loss', loss_v, self.loss_v_index)
@@ -488,6 +501,7 @@ class PPOPolicy():
                 self.writer.add_scalar('std_dev/shoot', std[2].item(), self.loss_p_index)
             if self.use_rnn:
                 torch.nn.utils.clip_grad_norm(self.ac_model.parameters(), 0.5)
+            '''
 
             self.pi_optimizer.step()
 
@@ -498,7 +512,7 @@ class PPOPolicy():
                 loss_v = self.compute_loss_v(data)
                 loss_v.backward()
                 self.loss_v_index += 1
-                self.writer.add_scalar('loss/Value_Loss', loss_v, self.loss_v_index)
+                #self.writer.add_scalar('loss/Value_Loss', loss_v, self.loss_v_index)
                 self.vf_optimizer.step()
 
 
@@ -524,8 +538,7 @@ class PPOPolicy():
         self.use_adaptive_kl = kargs['use_adaptive_kl']
         self.weight_sharing = kargs['weight_sharing']
         self.kl_beta = kl_beta
-        self.setup_model(actor_critic, pi_lr, vf_lr, pi_scheduler, vf_scheduler, ac_kwargs, use_value_norm)
-        ac_kwargs['local_std'] = kargs['local_std']
+
         self.setup_model(actor_critic, pi_lr, vf_lr, pi_scheduler, vf_scheduler, ac_kwargs)
         self.load_model(kargs['model_path'], kargs['cnn_model_path'], freeze_rep, steps_per_epoch)
         if self.callback:
@@ -576,7 +589,10 @@ class PPOPolicy():
                 obs = torch.as_tensor(state_history, dtype=torch.float32).to(device)
             else:
                 obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
+
             a, v, logp, _ = self.ac_model.step(obs)
+            if use_rnn:
+                a, v, logp = a.squeeze(0), v.squeeze(0), logp.squeeze(0)
             next_obs, r, terminal, info = env.step(a.cpu().numpy())
 
             ep_ret += np.sum(r[0])
@@ -617,9 +633,10 @@ class PPOPolicy():
 
                 if epoch_ended:
                     if use_rnn:
-                        obs = [torch.as_tensor(obs, dtype=torch.float32).to(device) for obs in state_history]
-                        self.obs = torch.cat(obs, dim=2)
-                    _, v, _, _ = self.ac_model.step(torch.as_tensor(self.obs, dtype=torch.float32).to(device))
+                        _, v, _, _ = self.ac_model.step(state_history)
+                        v = v.squeeze(0)
+                    else:
+                        _, v, _, _ = self.ac_model.step(self.obs)
 
                 else:
                     v = torch.zeros((kargs['n_envs'], 5)).to(device)
@@ -664,4 +681,5 @@ class PPOPolicy():
             if step % 10000 == 0 or step == 4:
 
                 if self.callback:
-                    self.callback.evaluate_policy_modified(self.ac_model.state_dict(), device)
+                    pass
+                    #self.callback.evaluate_policy_modified(self.ac_model.state_dict(), device)

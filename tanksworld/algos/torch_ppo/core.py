@@ -239,6 +239,9 @@ class MLPGaussianActor(Actor):
                 nn.Linear(512, act_dim),
                 activation()
             )
+            self.local_std = local_std
+            if local_std:
+                self.local_std_scale = nn.Linear(512, act_dim)
 
         elif cnn_net is not None:
             dummy_img = torch.rand((1,) + observation_space.shape)
@@ -255,12 +258,10 @@ class MLPGaussianActor(Actor):
                     nn.Linear(cnn_net(dummy_img).shape[1], act_dim),
                     activation()
                 )
+
             self.local_std = local_std
             if local_std:
                 self.local_std_scale = nn.Linear(cnn_net(dummy_img).shape[1], act_dim)
-            #from torchinfo import summary
-            #summary(self.cnn_net)
-            #summary(self.mu_net)
 
         else:
             obs_dim = observation_space.shape[0]
@@ -270,7 +271,7 @@ class MLPGaussianActor(Actor):
 
         if len(obs.shape) == 4 and self.rnn_net is None:
             obs = obs.unsqueeze(0)
-        elif len(obs.shape) == 6:
+        elif len(obs.shape) == 6 and self.rnn_net is None:
             if obs.shape[1] == 1:
                 obs = obs.squeeze(1)
             elif obs.shape[2] == 1:
@@ -278,6 +279,18 @@ class MLPGaussianActor(Actor):
             else:
                 obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
                                   obs.shape[3], obs.shape[4], obs.shape[5])
+        elif self.rnn_net is not None:
+            if len(obs.shape) == 7 and obs.shape[3] == 1:
+                obs = obs.squeeze(3)
+            try:
+                num_rollouts = obs.shape[0]
+                num_agents = obs.shape[1]
+                obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
+                                  obs.shape[3], obs.shape[4], obs.shape[5])
+            except:
+                pdb.set_trace()
+        else:
+            pdb.set_trace()
 
         if self.cnn_net is not None:
             batch_size = obs.shape[0]
@@ -288,11 +301,13 @@ class MLPGaussianActor(Actor):
         if self.rnn_net is not None:
             hidden = self.rnn_net.init_hidden(batch_size)
             obs, _ = self.rnn_net(obs, hidden)
+            obs = obs.reshape(num_rollouts, num_agents, -1)
+
         mu = self.mu_net(obs)
         std = torch.exp(self.log_std)
         if self.local_std:
             local_scale = self.local_std_scale(obs)
-            local_scale = torch.clamp(local_scale, 0.5, 1.5)
+            local_scale = torch.clamp(local_scale, 0.1, 1.0)
             std = local_scale * std
 
         if self.rnn_net is not None: mu = mu.unsqueeze(0)
@@ -333,7 +348,7 @@ class MLPCritic(nn.Module):
 
         if len(obs.shape) == 4 and self.rnn_net is None:
             obs = obs.unsqueeze(0)
-        elif len(obs.shape) == 6:
+        elif len(obs.shape) == 6 and self.rnn_net is None:
             if obs.shape[1] == 1:
                 obs = obs.squeeze(1)
             elif obs.shape[2] == 1:
@@ -341,17 +356,27 @@ class MLPCritic(nn.Module):
             else:
                 obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
                                   obs.shape[3], obs.shape[4], obs.shape[5])
+        elif self.rnn_net is not None:
+            if len(obs.shape) == 7 and obs.shape[3] == 1:
+                obs = obs.squeeze(3)
+            num_rollouts = obs.shape[0]
+            num_agents = obs.shape[1]
+            obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
+                              obs.shape[3], obs.shape[4], obs.shape[5])
+        else:
+            pdb.set_trace()
 
         if self.cnn_net is not None:
             batch_size = obs.shape[0]
             seq_size = obs.shape[1]
             obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
-
             obs = self.cnn_net(obs)
             obs = obs.reshape(batch_size, seq_size, obs.shape[1])
         if self.rnn_net is not None:
             hidden = self.rnn_net.init_hidden(batch_size)
             obs, _ = self.rnn_net(obs, hidden)
+            obs = obs.reshape(num_rollouts, num_agents, -1)
+
         v_out = self.v_net(obs)
         if self.rnn_net is not None: v_out = v_out.unsqueeze(0)
         return torch.squeeze(v_out, -1) # Critical to ensure v has right shape.

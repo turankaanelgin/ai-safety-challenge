@@ -35,6 +35,7 @@ class Trainer:
             folder_name += '__FIXEDKL{}'.format(config['kl_beta'])
         elif config['adaptive_kl']:
             folder_name += '__ADAPTIVEKL{}'.format(config['kl_beta'])
+        if config['use_rnn']: folder_name += '__RNN'
         if config['local_std']: folder_name += '__LOCALSTD'
         if config['num_rollout_threads'] > 1: folder_name += '__ROLLOUT={}'.format(config['num_rollout_threads'])
         if config['save_tag'] != '': folder_name += '__{}'.format(config['save_tag'])
@@ -188,6 +189,7 @@ class Trainer:
             'n_envs': config['num_rollout_threads'],
             'freeze_rep': config['freeze_rep'],
             'use_rnn': config['use_rnn'],
+            'num_states': 4,
             'use_value_norm': config['valuenorm'],
             'use_beta': config['beta'],
             'use_fixed_kl': config['fixed_kl'],
@@ -281,6 +283,7 @@ if __name__=='__main__':
                 checkpoint_files = os.listdir(model_path)
                 checkpoint_files.sort(key=lambda f: int(f.split('.')[0]))
                 if len(checkpoint_files) > 0: model_path = os.path.join(model_path, checkpoint_files[-1])
+                pdb.set_trace()
 
             policy_params = trainer.get_policy_params()
             policy_params['model_path'] = model_path
