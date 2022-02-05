@@ -166,8 +166,6 @@ class GaussianActor(Actor):
         q_mean, q_std = q
         p_var = p_std.pow(2) + 1e-10
         q_var = q_std.pow(2) + 1e-10
-        assert shape_equal([-1, self.action_dim], p_mean, q_mean)
-        assert shape_equal([self.action_dim], p_var, q_var)
 
         d = q_mean.shape[1]
         logdetp = log_determinant(p_var)
@@ -366,7 +364,7 @@ class MLPActorCritic(nn.Module):
             logp_a = self.pi.get_loglikelihood((mean, std), a)
             entropy = self.pi.entropies((mean, std))
             v = self.v(obs)
-        return a, v, logp_a, entropy
+        return a, v, logp_a, entropy, mean, std
 
     def act(self, obs):
         return self.step(obs)[0]

@@ -23,7 +23,7 @@ device = torch.device('cuda')
 class RolloutBuffer:
 
     def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95, n_envs=1, use_sde=False,
-                 use_rnn=False, n_states=3, use_value_norm=False, value_normalizer=None):
+                 use_rnn=False, n_states=3, use_value_norm=False, value_normalizer=None, beta=False):
 
         if use_rnn:
             self.obs_buf = torch.zeros(core.combined_shape_v4(size, n_envs, 5, n_states, obs_dim)).to(device)
@@ -35,6 +35,12 @@ class RolloutBuffer:
         self.ret_buf = torch.zeros((size, n_envs, 5)).to(device)
         self.val_buf = torch.zeros((size, n_envs, 5)).to(device)
         self.logp_buf = torch.zeros((size, n_envs, 5)).to(device)
+        if beta:
+            self.alpha_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, act_dim)).to(device)
+            self.beta_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, act_dim)).to(device)
+        else:
+            self.mu_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, act_dim)).to(device)
+            self.sigma_buf = torch.zeros((size, 3)).to(device)
         #if not use_sde:
         #    self.entropy_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, act_dim)).to(device)
         #else:
@@ -45,8 +51,9 @@ class RolloutBuffer:
         self.use_rnn = use_rnn
         self.use_value_norm = use_value_norm
         self.value_normalizer = value_normalizer
+        self.beta = beta
 
-    def store(self, obs, act, rew, val, logp):
+    def store(self, obs, act, rew, val, logp, param1, param2):
         """
         Append one timestep of agent-environment interaction to the buffer.
         """
@@ -58,6 +65,12 @@ class RolloutBuffer:
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
         self.logp_buf[self.ptr] = logp
+        if self.beta:
+            self.alpha_buf[self.ptr] = param1
+            self.beta_buf[self.ptr] = param2
+        else:
+            self.mu_buf[self.ptr] = param1
+            self.sigma_buf[self.ptr] = param2
         #self.entropy_buf[self.ptr] = entropy if entropy is not None else torch.Tensor([0])
         self.ptr += 1
 
@@ -119,8 +132,12 @@ class RolloutBuffer:
         adv_std, adv_mean = torch.std_mean(adv_buf, dim=0)
         adv_buf = (adv_buf - adv_mean) / adv_std
         self.adv_buf = adv_buf.reshape(adv_buf.shape[0], self.n_envs, 5)
-        data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
-                    adv=self.adv_buf, logp=self.logp_buf)
+        if self.beta:
+            data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
+                        adv=self.adv_buf, logp=self.logp_buf, alpha=self.alpha_buf, beta=self.beta_buf)
+        else:
+            data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
+                        adv=self.adv_buf, logp=self.logp_buf, mu=self.mu_buf, sigma=self.sigma_buf)
         return {k: torch.as_tensor(v, dtype=torch.float32).to(device) for k, v in data.items()}
 
 
@@ -403,8 +420,11 @@ class PPOPolicy():
     def compute_loss_pi(self, data, clip_ratio):
 
         obs, act, adv, logp_old = data['obs'], data['act'], data['adv'], data['logp']
+        if self.use_beta:
+            alpha_old, beta_old = data['alpha'], data['beta']
+        else:
+            mu_old, sigma_old = data['mu'], data['sigma']
         size = data['obs'].shape[0]
-        obs, act, adv, logp_old = obs.to(device), act.to(device), adv.to(device), logp_old.to(device)
 
         if self.use_rnn:
             obs = torch.flatten(obs, end_dim=1)
@@ -412,24 +432,42 @@ class PPOPolicy():
         else:
             obs = torch.flatten(obs, end_dim=2)
             act = torch.flatten(act, end_dim=2)
+            if self.use_beta:
+                alpha_old = torch.flatten(alpha_old, end_dim=2)
+                beta_old = torch.flatten(beta_old, end_dim=2)
+            else:
+                mu_old = torch.flatten(mu_old, end_dim=2)
 
         # Policy loss
         #pi, logp = self.ac_model.pi(obs, act)
         pi = self.ac_model.pi(obs)
+        if self.use_beta:
+            alpha, beta = pi[0], pi[1]
+            alpha, beta = alpha.squeeze(0), beta.squeeze(0)
+        else:
+            mu, sigma = pi[0], pi[1]
+            mu = mu.squeeze(0)
+            sigma_old = sigma_old[-1]
         logp = self.ac_model.pi.get_loglikelihood(pi, act)
         logp = logp.reshape(size, -1, 5)
         ratio = torch.exp(logp - logp_old)
 
         if self.use_fixed_kl or self.use_adaptive_kl:
-            kl = (logp_old - logp).mean()
+            if self.use_beta:
+                kl = self.ac_model.pi.calc_kl((alpha_old, beta_old), (alpha, beta))
+            else:
+                kl = self.ac_model.pi.calc_kl((mu_old, sigma_old), (mu, sigma))
             loss_pi = -(ratio * adv).mean() + self.kl_beta * kl
         else:
             clip_adv = torch.clamp(ratio, 1 - clip_ratio, 1 + clip_ratio) * adv
             loss_pi = -(torch.min(ratio * adv, clip_adv)).mean()
 
         # Useful extra info
-        approx_kl = (logp_old - logp).mean().item()
         #ent = pi.entropy().mean().item() if pi.entropy() is not None else 0.0
+        if self.use_fixed_kl or self.use_adaptive_kl:
+            approx_kl = kl
+        else:
+            approx_kl = (logp_old - logp).mean().item()
         ent = 0.0
         clipped = ratio.gt(1 + clip_ratio) | ratio.lt(1 - clip_ratio)
         clipfrac = torch.as_tensor(clipped, dtype=torch.float32).mean().item()
@@ -441,7 +479,6 @@ class PPOPolicy():
     # Set up function for computing value loss
     def compute_loss_v(self, data):
         obs, ret = data['obs'], data['ret']
-        obs, ret = obs.to(device), ret.to(device)
         obs = torch.flatten(obs, end_dim=2) if not self.use_rnn else torch.flatten(obs, end_dim=1)
         ret = torch.flatten(ret, end_dim=1) if self.use_rnn else torch.flatten(ret)
 
@@ -453,8 +490,13 @@ class PPOPolicy():
 
 
     def compute_loss_entropy(self, data):
-        logp = data['logp']
-        return -torch.mean(-logp)
+        #logp = data['logp']
+        #return -torch.mean(-logp)
+        obs = data['obs']
+        obs = torch.flatten(obs, end_dim=2)
+        pi = self.ac_model.pi(obs)
+        entropy = self.ac_model.entropies(pi)
+        return entropy
 
 
     def update(self, buf, train_pi_iters, train_v_iters, target_kl, clip_ratio, entropy_coef):
@@ -555,7 +597,7 @@ class PPOPolicy():
 
         buf = RolloutBuffer(self.obs_dim, self.act_dim, steps_per_epoch, gamma, lam, n_envs=kargs['n_envs'],
                             use_sde=use_sde, use_rnn=use_rnn, n_states=num_states, use_value_norm=use_value_norm,
-                            value_normalizer=self.value_normalizer)
+                            value_normalizer=self.value_normalizer, beta=self.use_beta)
         self.use_sde = use_sde
         self.use_rnn = use_rnn
 
@@ -590,7 +632,7 @@ class PPOPolicy():
             else:
                 obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
 
-            a, v, logp, _ = self.ac_model.step(obs)
+            a, v, logp, _, mu, sigma = self.ac_model.step(obs)
             if use_rnn:
                 a, v, logp = a.squeeze(0), v.squeeze(0), logp.squeeze(0)
             next_obs, r, terminal, info = env.step(a.cpu().numpy())
@@ -608,7 +650,7 @@ class PPOPolicy():
                 state_history = torch.cat((state_history[:,:,1:,:,:,:], self.obs), dim=2)
                 buf.store(state_history, a, r, v, logp)
             else:
-                buf.store(obs, a, r, v, logp)
+                buf.store(obs, a, r, v, logp, mu, sigma)
 
             epoch_ended = step > 0 and step % steps_per_epoch == 0
 
@@ -633,10 +675,10 @@ class PPOPolicy():
 
                 if epoch_ended:
                     if use_rnn:
-                        _, v, _, _ = self.ac_model.step(state_history)
+                        _, v, _, _, _, _ = self.ac_model.step(state_history)
                         v = v.squeeze(0)
                     else:
-                        _, v, _, _ = self.ac_model.step(self.obs)
+                        _, v, _, _, _, _ = self.ac_model.step(self.obs)
 
                 else:
                     v = torch.zeros((kargs['n_envs'], 5)).to(device)
@@ -681,5 +723,4 @@ class PPOPolicy():
             if step % 10000 == 0 or step == 4:
 
                 if self.callback:
-                    pass
-                    #self.callback.evaluate_policy_modified(self.ac_model.state_dict(), device)
+                    self.callback.evaluate_policy_modified(self.ac_model.state_dict(), device)

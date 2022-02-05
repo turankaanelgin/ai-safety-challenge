@@ -283,7 +283,6 @@ if __name__=='__main__':
                 checkpoint_files = os.listdir(model_path)
                 checkpoint_files.sort(key=lambda f: int(f.split('.')[0]))
                 if len(checkpoint_files) > 0: model_path = os.path.join(model_path, checkpoint_files[-1])
-                pdb.set_trace()
 
             policy_params = trainer.get_policy_params()
             policy_params['model_path'] = model_path
