@@ -26,7 +26,6 @@ parser.add_argument('--num_iter', type=int, default=1000)
 parser.add_argument('--eval_checkpoint', type=int, default=999999)
 parser.add_argument('--save_tag', type=str, default='')
 parser.add_argument('--load_from_checkpoint', action='store_true', default=False)
-parser.add_argument('--seed_index', type=int, default=0)
 parser.add_argument('--freeze_rep', action='store_true', default=False)
 parser.add_argument('--use_rnn', action='store_true', default=False)
 parser.add_argument('--eval_logdir', type=str, default='')
@@ -42,7 +41,34 @@ parser.add_argument('--n_env_seeds', type=int, default=1)
 parser.add_argument('--n_policy_seeds', type=int, default=1)
 parser.add_argument('--cnn_path', type=str, default='./models/frozen-cnn-0.8/4000000.pth')
 parser.add_argument('--weight_sharing', action='store_true', default=False)
-# TODO this argument is temporary until fixing a bug
-parser.add_argument('--seed_idx', type=int)
+parser.add_argument('--cuda_idx', type=int, default=0)
+parser.add_argument('--appendix', type=str, default='')
 
 config = vars(parser.parse_args())
+
+cuda_idx = config['cuda_idx']
+
+command = []
+for arg_name in config:
+    if arg_name == 'cuda_idx': continue
+    if arg_name == 'appendix': continue
+    arg_value = config[arg_name]
+    if isinstance(arg_value, bool):
+        if arg_value:
+            command += ['--{}'.format(arg_name)]
+    else:
+        if arg_value != '':
+            command += ['--{}'.format(arg_name)]
+            command += ['{}'.format(arg_value)]
+
+for seed_idx in range(config['n_env_seeds']*config['n_policy_seeds']):
+    command_to_run = 'CUDA_VISIBLE_DEVICES={} python3.6 trainer.py '.format(cuda_idx)
+    command_to_run += ' '.join(command)
+    command_to_run += ' --seed_idx {}'.format(seed_idx)
+
+    with open('./tasks/task{}_cuda{}.sh'.format(seed_idx, cuda_idx), 'w+') as f:
+        f.write('TMUX='' tmux new-session -s task{}_cuda{}_{} '.format(seed_idx, cuda_idx, config['appendix']))
+        f.write('\'source ~/anaconda3/etc/profile.d/conda.sh\n')
+        f.write('conda activate tanksworld\n')
+        f.write(command_to_run)
+        f.write('\'')

@@ -11,7 +11,8 @@ from multiprocessing import Process
 import trainer_config
 from make_env import make_env
 from core.policy_record import PolicyRecord
-from algos.torch_ppo.mappo_gpu_new import PPOPolicy as TorchGPUMAPPOPolicyNew
+#from algos.torch_ppo.mappo_gpu_new import PPOPolicy as TorchGPUMAPPOPolicyNew
+from algos.torch_ppo.mappo_gpu_new_improved import PPOPolicy as TorchGPUMAPPOPolicyNew
 from algos.torch_ppo.vec_env import DummyVecEnv, SubprocVecEnv
 from algos.torch_ppo.callbacks import EvalCallback
 
@@ -182,7 +183,7 @@ class Trainer:
             'train_v_iters': config['num_epochs'],
             'pi_lr': config['policy_lr'],
             'vf_lr': config['value_lr'],
-            'ent_coef': config['entropy_coef'],
+            'entropy_coef': config['entropy_coef'],
             'pi_scheduler': config['policy_lr_schedule'],
             'vf_scheduler': config['value_lr_schedule'],
             'cnn_model_path': config['cnn_path'] if config['cnn_path'] != 'None' else None,
@@ -207,7 +208,7 @@ class Trainer:
         _MAX_INT = 2147483647  # Max int for Unity ML Seed
         n_policy_seeds = config['n_policy_seeds']
         n_rollout_threads = config['num_rollout_threads']
-        n_env_seeds = n_rollout_threads if n_rollout_threads > 0 else config['n_env_seeds']
+        n_env_seeds = n_rollout_threads if n_rollout_threads > 1 else config['n_env_seeds']
 
         # Create the log directory if not exists
         if not os.path.exists(os.path.join('./logs', config['logdir'])):
@@ -299,6 +300,11 @@ if __name__=='__main__':
         policies_to_run[0].run(num_steps=args['num_iter'])
         envs[0].close()
     else:
+        # TODO make this more clever
+        seed_idx_to_run = args['seed_idx']
+        policies_to_run[seed_idx_to_run].run(num_steps=args['num_iter'])
+        envs[seed_idx_to_run].close()
+        '''
         processes = []
         for env, policy in zip(envs, policies_to_run):
             proc = Process(target=run_policy, args=(policy, env))
@@ -306,3 +312,4 @@ if __name__=='__main__':
             processes.append(proc)
         for proc in processes:
             proc.join()
+        '''

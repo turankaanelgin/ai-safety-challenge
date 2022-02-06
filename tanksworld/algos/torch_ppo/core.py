@@ -289,8 +289,6 @@ class MLPGaussianActor(Actor):
                                   obs.shape[3], obs.shape[4], obs.shape[5])
             except:
                 pdb.set_trace()
-        else:
-            pdb.set_trace()
 
         if self.cnn_net is not None:
             batch_size = obs.shape[0]
@@ -363,8 +361,6 @@ class MLPCritic(nn.Module):
             num_agents = obs.shape[1]
             obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
                               obs.shape[3], obs.shape[4], obs.shape[5])
-        else:
-            pdb.set_trace()
 
         if self.cnn_net is not None:
             batch_size = obs.shape[0]
