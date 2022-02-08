@@ -42,6 +42,7 @@ parser.add_argument('--n_policy_seeds', type=int, default=1)
 parser.add_argument('--cnn_path', type=str, default='./models/frozen-cnn-0.8/4000000.pth')
 parser.add_argument('--weight_sharing', action='store_true', default=False)
 parser.add_argument('--cuda_idx', type=int, default=0)
+parser.add_argument('--appendix', type=str, default='')
 
 config = vars(parser.parse_args())
 
@@ -50,6 +51,7 @@ cuda_idx = config['cuda_idx']
 command = []
 for arg_name in config:
     if arg_name == 'cuda_idx': continue
+    if arg_name == 'appendix': continue
     arg_value = config[arg_name]
     if isinstance(arg_value, bool):
         if arg_value:
@@ -65,7 +67,7 @@ for seed_idx in range(config['n_env_seeds']*config['n_policy_seeds']):
     command_to_run += ' --seed_idx {}'.format(seed_idx)
 
     with open('./tasks/task{}_cuda{}.sh'.format(seed_idx, cuda_idx), 'w+') as f:
-        f.write('TMUX='' tmux new-session -s task{}_cuda{} '.format(seed_idx, cuda_idx))
+        f.write('TMUX='' tmux new-session -s task{}_cuda{}_{} '.format(seed_idx, cuda_idx, config['appendix']))
         f.write('\'source ~/anaconda3/etc/profile.d/conda.sh\n')
         f.write('conda activate tanksworld\n')
         f.write(command_to_run)
