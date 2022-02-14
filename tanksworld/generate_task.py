@@ -18,6 +18,7 @@ parser.add_argument('--value_lr_schedule', type=str, default='cons')
 parser.add_argument('--entropy_coef', type=float, default=0.0)
 parser.add_argument('--batch_size', type=int, default=64)
 parser.add_argument('--num_epochs', type=int, default=4)
+parser.add_argument('--clip_ratio', type=float, default=0.2)
 parser.add_argument('--death_penalty', action='store_true', default=False)
 parser.add_argument('--friendly_fire', action='store_true', default=True)
 parser.add_argument('--kill_bonus', action='store_true', default=False)
@@ -41,6 +42,7 @@ parser.add_argument('--n_env_seeds', type=int, default=1)
 parser.add_argument('--n_policy_seeds', type=int, default=1)
 parser.add_argument('--cnn_path', type=str, default='./models/frozen-cnn-0.8/4000000.pth')
 parser.add_argument('--weight_sharing', action='store_true', default=False)
+parser.add_argument('--curiosity', action='store_true', default=False)
 parser.add_argument('--cuda_idx', type=int, default=0)
 parser.add_argument('--appendix', type=str, default='')
 
@@ -62,7 +64,7 @@ for arg_name in config:
             command += ['{}'.format(arg_value)]
 
 for seed_idx in range(config['n_env_seeds']*config['n_policy_seeds']):
-    command_to_run = 'CUDA_VISIBLE_DEVICES={} python3.6 trainer.py '.format(cuda_idx)
+    command_to_run = 'CUDA_VISIBLE_DEVICES={} python trainer.py '.format(cuda_idx)
     command_to_run += ' '.join(command)
     command_to_run += ' --seed_idx {}'.format(seed_idx)
 
