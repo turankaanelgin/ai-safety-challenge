@@ -98,7 +98,7 @@ def plot_policy_records_damage(records, windows, alphas, filename, colors=None, 
 #averaging over windows and displaying with alphas
 #saving to filename
 def plot_policy_records(records, windows, alphas, filename, colors=None, offsets=None, 
-	episodic=False, fig=None, ax=None, return_figure=False):
+	episodic=False, fig=None, ax=None, return_figure=False, intrinsic=False):
 	
 	# get the main channels if these are record objects
 	if hasattr(records[0], "channels"):
@@ -135,7 +135,10 @@ def plot_policy_records(records, windows, alphas, filename, colors=None, offsets
 			ylabel = pol.ylabel
 
 			steps = pol.ep_cumlens
-			results = pol.ep_results
+			if intrinsic:
+				results = pol.ep_intrinsic
+			else:
+				results = pol.ep_results
 
 			for k in range(len(steps)):
 				steps[k] += offsets[pridx]
