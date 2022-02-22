@@ -464,6 +464,8 @@ class PPOPolicy():
             loss.backward()
             self.loss_p_index += 1
 
+            if self.use_sde:
+                self.ac_model.pi.reset_noise()
             '''
             self.writer.add_scalar('loss/Policy_Loss', loss_pi, self.loss_p_index)
             if self.weight_sharing:
@@ -493,12 +495,15 @@ class PPOPolicy():
                 #self.writer.add_scalar('loss/Value_Loss', loss_v, self.loss_v_index)
                 self.vf_optimizer.step()
 
+                if self.use_sde:
+                    self.ac_model.pi.reset_noise()
+
 
     def learn(self, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=-1,
               steps_per_epoch=800, steps_to_run=100000, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
               vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97,
               target_kl=0.01, use_value_norm=False, use_huber_loss=False, use_rnn=False, use_popart=False,
-              use_sde=False, sde_sample_freq=1, pi_scheduler='cons', vf_scheduler='cons', freeze_rep=True,
+              use_sde=False, sde_sample_freq=20, pi_scheduler='cons', vf_scheduler='cons', freeze_rep=True,
               entropy_coef=0.0, kl_beta=3.0, tb_writer=None, **kargs):
 
         env = self.env
@@ -624,7 +629,7 @@ class PPOPolicy():
                             _, v, _, _ = self.ac_model.step(self.obs)
 
                 else:
-                    if False:
+                    if self.central_critic:
                         with torch.no_grad():
                             v = torch.zeros((kargs['n_envs'],)).to(device)
                     else:
