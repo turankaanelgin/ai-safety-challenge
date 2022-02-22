@@ -14,6 +14,7 @@ from torch.distributions.categorical import Categorical
 from torch.distributions.beta import Beta
 from torch.distributions.bernoulli import Bernoulli
 from .distributions import StateDependentNoiseDistribution
+from .noisy import NoisyLinear
 
 from algos.torch_ppo import rnn
 
@@ -229,7 +230,7 @@ class MLPSDEActor(Actor):
     def __init__(self, observation_space, act_dim, hidden_sizes, activation, cnn_net=None):
         super().__init__()
         self.cnn_net = cnn_net
-        self.dist = StateDependentNoiseDistribution(act_dim, use_expln=False, squash_output=True)
+        self.dist = StateDependentNoiseDistribution(act_dim, use_expln=True, squash_output=True)
 
         if cnn_net is not None:
             dummy_img = torch.rand((1,) + observation_space.shape)
@@ -262,7 +263,7 @@ class MLPSDEActor(Actor):
 class MLPGaussianActor(Actor):
 
     def __init__(self, observation_space, act_dim, hidden_sizes, activation, cnn_net=None, rnn_net=None, two_fc_layers=False,
-                 local_std=False):
+                 local_std=False, noisy=False):
         super().__init__()
         log_std = -0.5 * np.ones(act_dim, dtype=np.float32)
         self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
@@ -289,10 +290,16 @@ class MLPGaussianActor(Actor):
                     activation()
                 )
             else:
-                self.mu_net = nn.Sequential(
-                    nn.Linear(cnn_net(dummy_img).shape[1], act_dim),
-                    activation()
-                )
+                if not noisy:
+                    self.mu_net = nn.Sequential(
+                        nn.Linear(cnn_net(dummy_img).shape[1], act_dim),
+                        activation()
+                    )
+                else:
+                    self.mu_net = nn.Sequential(
+                        NoisyLinear(cnn_net(dummy_img).shape[1], act_dim, factorized=False),
+                        activation()
+                    )
 
             self.local_std = local_std
             if local_std:
@@ -413,13 +420,13 @@ class MLPCentralCritic(nn.Module):
         features = features.flatten(start_dim=1)
         v_out = self.v_net(features)
         if self.rnn_net is not None: v_out = v_out.unsqueeze(0)
-        return torch.squeeze(v_out, -1) # Critical to ensure v has right shape.
+        return v_out # Critical to ensure v has right shape.
 
 
 class MLPCritic(nn.Module):
 
     def __init__(self, observation_space, hidden_sizes, activation, cnn_net=None, rnn_net=None,
-                 use_popart=False):
+                 use_popart=False, noisy=False):
         super().__init__()
         self.cnn_net = cnn_net
         self.rnn_net = rnn_net
@@ -433,10 +440,16 @@ class MLPCritic(nn.Module):
         elif self.cnn_net is not None:
             dummy_img = torch.rand((1,) + observation_space.shape)
             if not use_popart:
-                self.v_net = nn.Sequential(
-                    nn.Linear(cnn_net(dummy_img).shape[1], 1),
-                    activation()
-                )
+                if not noisy:
+                    self.v_net = nn.Sequential(
+                        nn.Linear(cnn_net(dummy_img).shape[1], 1),
+                        activation()
+                    )
+                else:
+                    self.v_net = nn.Sequential(
+                        NoisyLinear(cnn_net(dummy_img).shape[1], 1, factorized=False),
+                        activation()
+                    )
             else:
                 self.v_net = PopArt(cnn_net(dummy_img).shape[1], 1)
         else:
@@ -484,7 +497,7 @@ class MLPActorCritic(nn.Module):
     def __init__(self, observation_space, action_space,
                  hidden_sizes=(64, 64), activation=nn.Tanh, two_fc_layers=False,
                  use_rnn=False, use_popart=False, use_sde=False, use_beta=False, local_std=False,
-                 central_critic=False,):
+                 central_critic=False, noisy=False):
         super().__init__()
 
         use_cnn = len(observation_space.shape) == 3
@@ -504,7 +517,7 @@ class MLPActorCritic(nn.Module):
             else: # Default Gaussian
                 self.pi = MLPGaussianActor(observation_space, action_space.shape[0], hidden_sizes, activation,
                                            cnn_net=cnn_net, rnn_net=rnn_net, two_fc_layers=two_fc_layers,
-                                           local_std=local_std)
+                                           local_std=local_std, noisy=noisy)
         elif isinstance(action_space, Discrete):
             self.pi = MLPCategoricalActor(observation_space, action_space.n, hidden_sizes, activation, cnn_net=cnn_net)
 
@@ -514,7 +527,7 @@ class MLPActorCritic(nn.Module):
                                       use_popart=use_popart)
         else:
             self.v = MLPCritic(observation_space, hidden_sizes, activation, cnn_net=cnn_net, rnn_net=rnn_net,
-                               use_popart=use_popart)
+                               use_popart=use_popart, noisy=noisy)
         self.use_sde = use_sde
         self.use_beta = use_beta
         self.action_space_high = 1.0
@@ -542,6 +555,10 @@ class MLPActorCritic(nn.Module):
 
     def act(self, obs):
         return self.step(obs)[0]
+
+    def resample(self):
+        self.pi.mu_net[0].resample()
+        self.v.v_net[0].resample()
 
 
 
