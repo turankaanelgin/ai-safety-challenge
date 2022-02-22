@@ -12,6 +12,7 @@ import trainer_config
 from make_env import make_env
 from core.policy_record import PolicyRecord
 from algos.torch_ppo.mappo_gpu_new_improved import PPOPolicy as TorchGPUMAPPOPolicyNew
+from algos.torch_ppo.mappo_gpu_separate_env_new import PPOPolicy as TorchGPUMAPPOPolicySeparate
 from algos.torch_ppo.mappo_gpu_curiosity import PPOPolicy as MAPPOCuriosity
 from algos.torch_ppo.vec_env import DummyVecEnv, SubprocVecEnv
 from algos.torch_ppo.callbacks import EvalCallback
@@ -26,10 +27,10 @@ class Trainer:
         assert not (config['fixed_kl'] and config['adaptive_kl']), 'Fixed and adaptive KL cannot both be True'
 
         folder_name = 'lrp={}__lrv={}__r={}__p={}__H={}'.format(config['policy_lr'],
-                                                                    config['value_lr'],
-                                                                    config['reward_weight'],
-                                                                    config['penalty_weight'],
-                                                                    config['batch_size'])
+                                                                config['value_lr'],
+                                                                config['reward_weight'],
+                                                                config['penalty_weight'],
+                                                                config['batch_size'])
         if config['entropy_coef'] > 0.0: folder_name += '__ENT={}'.format(config['entropy_coef'])
         if config['beta']: folder_name += '__BETA'
         if config['fixed_kl']:
@@ -40,6 +41,7 @@ class Trainer:
         if config['curiosity']: folder_name += '__ICM'
         if config['use_rnn']: folder_name += '__RNN'
         if config['local_std']: folder_name += '__LOCALSTD'
+        if config['central_critic']: folder_name += '__CENT'
         if config['num_rollout_threads'] > 1: folder_name += '__ROLLOUT={}'.format(config['num_rollout_threads'])
         if config['save_tag'] != '': folder_name += '__{}'.format(config['save_tag'])
         return folder_name
@@ -64,8 +66,12 @@ class Trainer:
 
                         # Set folder name and policy record to plot the rewards
                         local_folder_name = folder_name + '/seed{}'.format(seed_idx)
-                        policy_record = PolicyRecord(local_folder_name, './logs/' + config['logdir'] + '/',
-                                                     intrinsic_reward=config['curiosity'])
+                        if config['eval_mode']:
+                            policy_record = PolicyRecord(local_folder_name, './logs/' + config['eval_logdir'] + '/',
+                                                         intrinsic_reward=config['curiosity'])
+                        else:
+                            policy_record = PolicyRecord(local_folder_name, './logs/' + config['logdir'] + '/',
+                                                        intrinsic_reward=config['curiosity'])
 
                         if not config['eval_mode']:
                             # Set TensorBoard writer
@@ -103,18 +109,22 @@ class Trainer:
                 os.makedirs(stats_dir, exist_ok=True)
                 tb_writer = SummaryWriter(stats_dir)
 
-                env_kwargs = []
-                for e_seed in self.env_seeds:
-                    env_kwargs.append({'exe': config['exe'],
+                env_kwargs = {'exe': config['exe'],
                                        'static_tanks': [], 'random_tanks': [5, 6, 7, 8, 9], 'disable_shooting': [],
                                        'friendly_fire': False, 'kill_bonus': False, 'death_penalty': False,
                                        'take_damage_penalty': True, 'tblogs': stats_dir,
                                        'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
-                                       'timeout': 500, 'seed': e_seed})
-                env_functions = []
-                for idx in range(len(env_kwargs)):
-                    env_functions.append(lambda: make_env(**env_kwargs[idx]))
-                env = SubprocVecEnv(env_functions)
+                                       'timeout': 500}
+                def make_env_(seed):
+                    def init_():
+                        env = make_env(**env_kwargs)
+                        env._seed = seed
+                        return env
+
+                    return init_
+
+                env = SubprocVecEnv([make_env_(seed) for seed in self.env_seeds])
+
                 all_training_envs.append(env)
                 all_policy_records.append(policy_record)
                 all_policy_seeds.append(p_seed)
@@ -125,25 +135,10 @@ class Trainer:
 
     def set_eval_env(self):
 
-        def construct_env():
-            env_kwargs = []
-            for e_seed in eval_env_seeds:
-                env_kwargs.append({'exe': config['exe'],
-                                   'static_tanks': [], 'random_tanks': [5,6,7,8,9], 'disable_shooting': [],
-                                   'friendly_fire': False, 'kill_bonus': False, 'death_penalty': False,
-                                   'take_damage_penalty': True, 'tblogs': None, 'tbwriter': None,
-                                   'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
-                                   'timeout': 500, 'seed': e_seed, })
-
-            env_functions = []
-            for idx in range(len(env_kwargs)):
-                env_functions.append(lambda: make_env(**env_kwargs[idx]))
-            env = SubprocVecEnv(env_functions)
-            return env
-
         config = self.config
         folder_name = self.get_folder_name()
         eval_folder_name = folder_name + '__EVAL/{}'.format(config['eval_checkpoint'])
+        #eval_folder_name = folder_name + '__EVAL'
 
         # Load or generate evaluation seeds
         eval_seed_folder = os.path.join('./logs', config['logdir'], 'eval_seeds.json')
@@ -167,7 +162,24 @@ class Trainer:
                     if seed_idx == config['seed_idx']:
                         local_eval_folder_name = eval_folder_name + '/seed{}'.format(seed_idx)
                         policy_record = PolicyRecord(local_eval_folder_name, './logs/' + config['logdir'] + '/')
-                        env = construct_env()
+                        stats_dir = './junk'
+
+                        env_kwargs = {'exe': config['exe'],
+                                      'static_tanks': [], 'random_tanks': [5, 6, 7, 8, 9], 'disable_shooting': [],
+                                      'friendly_fire': False, 'kill_bonus': False, 'death_penalty': False,
+                                      'take_damage_penalty': True, 'tblogs': stats_dir,
+                                      'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
+                                      'timeout': 500}
+
+                        def make_env_(seed):
+                            def init_():
+                                env = make_env(**env_kwargs)
+                                env._seed = seed
+                                return env
+
+                            return init_
+
+                        env = SubprocVecEnv([make_env_(seed) for seed in eval_env_seeds])
                         all_eval_envs.append(env)
                         all_policy_records.append(policy_record)
 
@@ -176,8 +188,24 @@ class Trainer:
             for p_seed_idx, _ in enumerate(self.policy_seeds):
                 seed_idx = p_seed_idx
                 local_eval_folder_name = eval_folder_name + '/seed{}'.format(seed_idx)
-                policy_record = PolicyRecord(local_eval_folder_name, './logs' + config['logdir'] + '/')
-                env = construct_env()
+                policy_record = PolicyRecord(local_eval_folder_name, './logs/' + config['logdir'] + '/')
+
+                env_kwargs = {'exe': config['exe'],
+                              'static_tanks': [], 'random_tanks': [5, 6, 7, 8, 9], 'disable_shooting': [],
+                              'friendly_fire': False, 'kill_bonus': False, 'death_penalty': False,
+                              'take_damage_penalty': True, 'tblogs': stats_dir,
+                              'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
+                              'timeout': 500}
+
+                def make_env_(seed):
+                    def init_():
+                        env = make_env(**env_kwargs)
+                        env._seed = seed
+                        return env
+
+                    return init_
+
+                env = SubprocVecEnv([make_env_(seed) for seed in self.env_seeds])
                 all_eval_envs.append(env)
                 all_policy_records.append(policy_record)
 
@@ -201,6 +229,7 @@ class Trainer:
             'n_envs': config['num_rollout_threads'],
             'freeze_rep': config['freeze_rep'],
             'use_rnn': config['use_rnn'],
+            'use_sde': config['use_sde'],
             'num_states': 4,
             'use_value_norm': config['valuenorm'],
             'use_beta': config['beta'],
@@ -209,6 +238,7 @@ class Trainer:
             'kl_beta': config['kl_beta'],
             'local_std': config['local_std'],
             'weight_sharing': config['weight_sharing'],
+            'central_critic': config['central_critic']
         }
 
         return policy_kwargs
@@ -270,7 +300,9 @@ if __name__=='__main__':
         for seed_idx, policy_record in enumerate(policy_records):
             model_path = os.path.join(train_policy_records[seed_idx].data_dir, 'checkpoints')
             model_path = os.path.join(model_path, '{}.pth'.format(args['eval_checkpoint']))
+            #model_path = os.path.join(model_path, 'best.pth')
             if not os.path.exists(model_path):
+                pdb.set_trace()
                 print('CHECKPOINT DOES NOT EXIST')
                 exit(0)
 
@@ -278,7 +310,10 @@ if __name__=='__main__':
             policy_params['model_path'] = model_path
 
             callback = EvalCallback(envs[seed_idx], policy_record, eval_env=None)
-            policy = TorchGPUMAPPOPolicyNew(envs[seed_idx], callback, True, **policy_params)
+            if args['curiosity']:
+                policy = MAPPOCuriosity(envs[seed_idx], callback, True, **policy_params)
+            else:
+                policy = TorchGPUMAPPOPolicyNew(envs[seed_idx], callback, True, **policy_params)
             policies_to_run.append(policy)
 
     else:
@@ -291,6 +326,8 @@ if __name__=='__main__':
             if args['load_from_checkpoint']:
                 model_path = os.path.join(policy_record.data_dir, 'checkpoints')
                 checkpoint_files = os.listdir(model_path)
+                if 'best.pth' in checkpoint_files:
+                    checkpoint_files.remove('best.pth')
                 checkpoint_files.sort(key=lambda f: int(f.split('.')[0]))
                 if len(checkpoint_files) > 0: model_path = os.path.join(model_path, checkpoint_files[-1])
 
@@ -304,6 +341,7 @@ if __name__=='__main__':
             if args['curiosity']:
                 policy = MAPPOCuriosity(envs[seed_idx], callback, False, **policy_params)
             else:
+                #policy = TorchGPUMAPPOPolicySeparate(envs[seed_idx], callback, False, **policy_params)
                 policy = TorchGPUMAPPOPolicyNew(envs[seed_idx], callback, False, **policy_params)
             policies_to_run.append(policy)
 
