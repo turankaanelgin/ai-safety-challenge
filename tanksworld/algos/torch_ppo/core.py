@@ -47,6 +47,7 @@ def mlp(sizes, activation, output_activation=nn.Identity):
     return nn.Sequential(*layers)
 
 
+
 def cnn(observation_space):
     model = nn.Sequential(
         nn.Conv2d(observation_space.shape[0], 32, 8, 4),
@@ -59,6 +60,17 @@ def cnn(observation_space):
     )
     return model
 
+
+'''
+def cnn(observation_space):
+    model = nn.Sequential(
+        nn.Conv2d(observation_space.shape[0], 32, 8, 4),
+        nn.ReLU(),
+        nn.AvgPool2d(2),
+        nn.Flatten()
+    )
+    return model
+'''
 
 def count_vars(module):
     return sum([np.prod(p.shape) for p in module.parameters()])
@@ -188,6 +200,29 @@ class MLPBetaActor(Actor):
             logp_a = self._log_prob_from_distribution(pi, act)
         return pi, logp_a
 
+    def get_params(self, obs):
+        if len(obs.shape) == 4:
+            obs = obs.unsqueeze(0)
+        elif len(obs.shape) == 6:
+            if obs.shape[1] == 1:
+                obs = obs.squeeze(1)
+            elif obs.shape[2] == 1:
+                obs = obs.squeeze(2)
+            else:
+                obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
+                                  obs.shape[3], obs.shape[4], obs.shape[5])
+
+        if self.cnn_net is not None:
+            batch_size = obs.shape[0]
+            seq_size = obs.shape[1]
+            obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
+            obs = self.cnn_net(obs)
+            obs = obs.reshape(batch_size, seq_size, obs.shape[1])
+
+        alpha = torch.add(self.alpha_net(obs), 1.)
+        beta = torch.add(self.beta_net(obs), 1.)
+        return alpha, beta
+
 
 class MLPSDEActor(Actor):
 
@@ -282,13 +317,10 @@ class MLPGaussianActor(Actor):
         elif self.rnn_net is not None:
             if len(obs.shape) == 7 and obs.shape[3] == 1:
                 obs = obs.squeeze(3)
-            try:
-                num_rollouts = obs.shape[0]
-                num_agents = obs.shape[1]
-                obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
-                                  obs.shape[3], obs.shape[4], obs.shape[5])
-            except:
-                pdb.set_trace()
+            num_rollouts = obs.shape[0]
+            num_agents = obs.shape[1]
+            obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
+                              obs.shape[3], obs.shape[4], obs.shape[5])
 
         if self.cnn_net is not None:
             batch_size = obs.shape[0]
@@ -313,6 +345,75 @@ class MLPGaussianActor(Actor):
 
     def _log_prob_from_distribution(self, pi, act):
         return pi.log_prob(act).sum(axis=-1)  # Last axis sum needed for Torch Normal distribution
+
+
+class MLPCentralCritic(nn.Module):
+
+    def __init__(self, observation_space, hidden_sizes, activation, cnn_net=None, rnn_net=None,
+                 use_popart=False, n_agents=5):
+        super().__init__()
+        self.cnn_net = cnn_net
+        self.rnn_net = rnn_net
+
+        if self.rnn_net is not None:
+            self.v_net = nn.Sequential(
+                nn.Linear(512, 1),
+                activation()
+            )
+
+        elif self.cnn_net is not None:
+            dummy_img = torch.rand((1,) + observation_space.shape)
+            if not use_popart:
+                self.v_net = nn.Sequential(
+                    nn.Linear(cnn_net(dummy_img).shape[1]*n_agents, 1),
+                    activation()
+                )
+            else:
+                self.v_net = PopArt(cnn_net(dummy_img).shape[1], 1)
+        else:
+            obs_dim = observation_space.shape[0]
+            self.v_net = mlp([obs_dim] + list(hidden_sizes) + [1], activation)
+
+    def extract_features(self, obs):
+
+        if len(obs.shape) == 4 and self.rnn_net is None:
+            obs = obs.unsqueeze(0)
+        elif len(obs.shape) == 6 and self.rnn_net is None:
+            if obs.shape[1] == 1:
+                obs = obs.squeeze(1)
+            elif obs.shape[2] == 1:
+                obs = obs.squeeze(2)
+            else:
+                obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
+                                  obs.shape[3], obs.shape[4], obs.shape[5])
+        elif self.rnn_net is not None:
+            if len(obs.shape) == 7 and obs.shape[3] == 1:
+                obs = obs.squeeze(3)
+            num_rollouts = obs.shape[0]
+            num_agents = obs.shape[1]
+            obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
+                              obs.shape[3], obs.shape[4], obs.shape[5])
+
+        if self.cnn_net is not None:
+            batch_size = obs.shape[0]
+            seq_size = obs.shape[1]
+            obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
+            obs = self.cnn_net(obs)
+            obs = obs.reshape(batch_size, seq_size, obs.shape[1])
+        if self.rnn_net is not None:
+            hidden = self.rnn_net.init_hidden(batch_size)
+            obs, _ = self.rnn_net(obs, hidden)
+            obs = obs.reshape(num_rollouts, num_agents, -1)
+
+        return obs
+
+    def forward(self, obs):
+
+        features = self.extract_features(obs)
+        features = features.flatten(start_dim=1)
+        v_out = self.v_net(features)
+        if self.rnn_net is not None: v_out = v_out.unsqueeze(0)
+        return torch.squeeze(v_out, -1) # Critical to ensure v has right shape.
 
 
 class MLPCritic(nn.Module):
@@ -382,7 +483,8 @@ class MLPActorCritic(nn.Module):
 
     def __init__(self, observation_space, action_space,
                  hidden_sizes=(64, 64), activation=nn.Tanh, two_fc_layers=False,
-                 use_rnn=False, use_popart=False, use_sde=False, use_beta=False, local_std=False):
+                 use_rnn=False, use_popart=False, use_sde=False, use_beta=False, local_std=False,
+                 central_critic=False,):
         super().__init__()
 
         use_cnn = len(observation_space.shape) == 3
@@ -407,8 +509,12 @@ class MLPActorCritic(nn.Module):
             self.pi = MLPCategoricalActor(observation_space, action_space.n, hidden_sizes, activation, cnn_net=cnn_net)
 
         # build value function
-        self.v = MLPCritic(observation_space, hidden_sizes, activation, cnn_net=cnn_net, rnn_net=rnn_net,
-                           use_popart=use_popart)
+        if central_critic:
+            self.v = MLPCentralCritic(observation_space, hidden_sizes, activation, cnn_net=cnn_net, rnn_net=rnn_net,
+                                      use_popart=use_popart)
+        else:
+            self.v = MLPCritic(observation_space, hidden_sizes, activation, cnn_net=cnn_net, rnn_net=rnn_net,
+                               use_popart=use_popart)
         self.use_sde = use_sde
         self.use_beta = use_beta
         self.action_space_high = 1.0

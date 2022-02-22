@@ -106,6 +106,8 @@ class EvalCallback:
                                    'Red-Red-Damage': avg_red_red_damages.tolist(),
                                    'Red-Blue Damage': avg_red_blue_damages.tolist(),
                                    'Blue-Red Damage': avg_blue_red_damages.tolist()}, f, indent=4)
+                    return avg_red_blue_damages - (avg_red_red_damages + avg_blue_red_damages)
+
 
     def evaluate_policy(self):
 
@@ -182,8 +184,35 @@ class EvalCallback:
             p.join()
         '''
 
+    def save_metrics_multienv(self, episode_returns, episode_lengths, episode_red_blue_damages, episode_red_red_damages,
+                              episode_blue_red_damages, eval_mode=False, episode_intrinsic_rewards=None):
+
+        if len(episode_lengths) == 0: return
+
+        episode_stats = {'Red-Blue-Damage': np.mean(episode_red_blue_damages),
+                         'Red-Red-Damage': np.mean(episode_red_red_damages),
+                         'Blue-Red-Damage': np.mean(episode_blue_red_damages)}
+        if self.policy_record:
+            if not eval_mode:
+                with open(os.path.join(self.policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
+                    json.dump(episode_stats, f, indent=True)
+
+                for idx in range(len(episode_lengths)):
+                    if episode_intrinsic_rewards:
+                        self.policy_record.add_result(episode_returns[idx], episode_red_blue_damages[idx],
+                                                  episode_red_red_damages[idx], episode_blue_red_damages[idx],
+                                                  episode_lengths[idx],
+                                                  intrinsic_reward=episode_intrinsic_rewards[idx])
+                    else:
+                        self.policy_record.add_result(np.average(episode_returns[idx]),
+                                                      np.average(episode_red_blue_damages[idx]),
+                                                      np.average(episode_red_red_damages[idx]),
+                                                      np.average(episode_blue_red_damages[idx]),
+                                                      episode_lengths[idx])
+                self.policy_record.save()
+
     def save_metrics_modified(self, episode_returns, episode_lengths, episode_red_blue_damages, episode_red_red_damages,
-                                episode_blue_red_damages, eval_mode=False):
+                                episode_blue_red_damages, eval_mode=False, episode_intrinsic_rewards=None):
 
         assert len(episode_lengths) == len(episode_returns) == len(episode_red_red_damages) == len(episode_red_blue_damages) \
                == len(episode_blue_red_damages)
@@ -199,9 +228,14 @@ class EvalCallback:
                     json.dump(episode_stats, f, indent=True)
 
                 for idx in range(len(episode_lengths)):
-                    self.policy_record.add_result(episode_returns[idx], episode_red_blue_damages[idx],
-                                                  episode_red_red_damages[idx], episode_blue_red_damages[idx],
-                                                  episode_lengths[idx])
+                    if episode_intrinsic_rewards:
+                        self.policy_record.add_result(episode_returns[idx], episode_red_blue_damages[idx],
+                                                      episode_red_red_damages[idx], episode_blue_red_damages[idx],
+                                                      episode_lengths[idx], intrinsic_reward=episode_intrinsic_rewards[idx])
+                    else:
+                        self.policy_record.add_result(episode_returns[idx], episode_red_blue_damages[idx],
+                                                      episode_red_red_damages[idx], episode_blue_red_damages[idx],
+                                                      episode_lengths[idx])
                 self.policy_record.save()
 
 
