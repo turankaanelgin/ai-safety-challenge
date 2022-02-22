@@ -518,6 +518,7 @@ class PPOPolicy():
         ac_kwargs['use_beta'] = kargs['use_beta']
         ac_kwargs['local_std'] = kargs['local_std']
         ac_kwargs['central_critic'] = kargs['central_critic']
+        ac_kwargs['noisy'] = kargs['noisy']
         self.use_beta = kargs['use_beta']
         self.use_fixed_kl = kargs['use_fixed_kl']
         self.use_adaptive_kl = kargs['use_adaptive_kl']
@@ -567,6 +568,9 @@ class PPOPolicy():
             if use_sde and sde_sample_freq > 0 and step % sde_sample_freq == 0:
                 # Sample a new noise matrix
                 self.ac_model.pi.reset_noise()
+
+            if kargs['noisy']:
+                self.ac_model.resample()
 
             step += 1
             if use_rnn:

@@ -42,6 +42,7 @@ class Trainer:
         if config['use_rnn']: folder_name += '__RNN'
         if config['local_std']: folder_name += '__LOCALSTD'
         if config['central_critic']: folder_name += '__CENT'
+        if config['param_noise']: folder_name += '__NOISE'
         if config['num_rollout_threads'] > 1: folder_name += '__ROLLOUT={}'.format(config['num_rollout_threads'])
         if config['save_tag'] != '': folder_name += '__{}'.format(config['save_tag'])
         return folder_name
@@ -238,7 +239,8 @@ class Trainer:
             'kl_beta': config['kl_beta'],
             'local_std': config['local_std'],
             'weight_sharing': config['weight_sharing'],
-            'central_critic': config['central_critic']
+            'central_critic': config['central_critic'],
+            'noisy': config['param_noise'],
         }
 
         return policy_kwargs
