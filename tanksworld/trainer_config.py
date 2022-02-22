@@ -30,6 +30,7 @@ parser.add_argument('--load_from_checkpoint', action='store_true', default=False
 parser.add_argument('--seed_index', type=int, default=0)
 parser.add_argument('--freeze_rep', action='store_true', default=False)
 parser.add_argument('--use_rnn', action='store_true', default=False)
+parser.add_argument('--use_sde', action='store_true', default=False)
 parser.add_argument('--eval_logdir', type=str, default='')
 parser.add_argument('--multiplayer', action='store_true', default=False)
 parser.add_argument('--valuenorm', action='store_true', default=False)
@@ -44,6 +45,7 @@ parser.add_argument('--n_policy_seeds', type=int, default=1)
 parser.add_argument('--cnn_path', type=str, default='./models/frozen-cnn-0.8/4000000.pth')
 parser.add_argument('--weight_sharing', action='store_true', default=False)
 parser.add_argument('--curiosity', action='store_true', default=False)
+parser.add_argument('--central_critic', action='store_true', default=False)
 # TODO this argument is temporary until fixing a bug
 parser.add_argument('--seed_idx', type=int)
 
