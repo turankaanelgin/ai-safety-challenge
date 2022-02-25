@@ -42,7 +42,11 @@ class Trainer:
         if config['use_rnn']: folder_name += '__RNN'
         if config['local_std']: folder_name += '__LOCALSTD'
         if config['central_critic']: folder_name += '__CENT'
+        if config['value_clip']: folder_name += '__VALCLIP'
         if config['param_noise']: folder_name += '__NOISE'
+        if config['rollback']: folder_name += '__ROLLBACK'
+        if config['trust_region']: folder_name += '__TR'
+        if config['reward_norm']: folder_name += '__REWNORM'
         if config['num_rollout_threads'] > 1: folder_name += '__ROLLOUT={}'.format(config['num_rollout_threads'])
         if config['save_tag'] != '': folder_name += '__{}'.format(config['save_tag'])
         return folder_name
@@ -194,7 +198,7 @@ class Trainer:
                 env_kwargs = {'exe': config['exe'],
                               'static_tanks': [], 'random_tanks': [5, 6, 7, 8, 9], 'disable_shooting': [],
                               'friendly_fire': False, 'kill_bonus': False, 'death_penalty': False,
-                              'take_damage_penalty': True, 'tblogs': stats_dir,
+                              'take_damage_penalty': True, 'tblogs': './junk',
                               'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
                               'timeout': 500}
 
@@ -241,6 +245,10 @@ class Trainer:
             'weight_sharing': config['weight_sharing'],
             'central_critic': config['central_critic'],
             'noisy': config['param_noise'],
+            'value_clip': config['value_clip'],
+            'rollback': config['rollback'],
+            'trust_region': config['trust_region'],
+            'reward_norm': config['reward_norm'],
         }
 
         return policy_kwargs
@@ -301,8 +309,11 @@ if __name__=='__main__':
         policies_to_run = []
         for seed_idx, policy_record in enumerate(policy_records):
             model_path = os.path.join(train_policy_records[seed_idx].data_dir, 'checkpoints')
-            model_path = os.path.join(model_path, '{}.pth'.format(args['eval_checkpoint']))
-            #model_path = os.path.join(model_path, 'best.pth')
+            checkpoint_files = os.listdir(model_path)
+            if 'best.pth' in checkpoint_files:
+                model_path = os.path.join(model_path, 'best.pth')
+            else:
+                model_path = os.path.join(model_path, '{}.pth'.format(args['eval_checkpoint']))
             if not os.path.exists(model_path):
                 pdb.set_trace()
                 print('CHECKPOINT DOES NOT EXIST')
@@ -339,7 +350,27 @@ if __name__=='__main__':
             policy_params['save_dir'] = os.path.join(policy_record.data_dir, 'checkpoints')
             policy_params['seed'] = policy_seeds[seed_idx]
 
-            callback = EvalCallback(envs[seed_idx], policy_record, eval_env=envs[seed_idx], eval_steps=100)
+            # Set validation environment
+            env_kwargs = {'exe': args['exe'],
+                          'static_tanks': [], 'random_tanks': [5, 6, 7, 8, 9], 'disable_shooting': [],
+                          'friendly_fire': False, 'kill_bonus': False, 'death_penalty': False,
+                          'take_damage_penalty': True, 'tblogs': './junk',
+                          'penalty_weight': args['penalty_weight'], 'reward_weight': 1.0,
+                          'timeout': 500}
+
+            def make_env_(seed):
+                def init_():
+                    env = make_env(**env_kwargs)
+                    env._seed = seed
+                    return env
+
+                return init_
+
+            _MAX_INT = 2147483647  # Max int for Unity ML Seed
+            val_seeds = [np.random.randint(_MAX_INT) for _ in range(3)]
+            val_env = SubprocVecEnv([make_env_(seed) for seed in val_seeds])
+
+            callback = EvalCallback(envs[seed_idx], policy_record, eval_env=val_env, eval_steps=100)
             if args['curiosity']:
                 policy = MAPPOCuriosity(envs[seed_idx], callback, False, **policy_params)
             else:
