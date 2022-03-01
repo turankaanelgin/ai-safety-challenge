@@ -48,11 +48,12 @@ parser.add_argument('--weight_sharing', action='store_true', default=False)
 parser.add_argument('--curiosity', action='store_true', default=False)
 parser.add_argument('--central_critic', action='store_true', default=False)
 parser.add_argument('--param_noise', action='store_true', default=False)
-parser.add_argument('--value_clip', action='store_true', default=False)
 parser.add_argument('--rollback', action='store_true', default=False)
 parser.add_argument('--trust_region', action='store_true', default=False)
 parser.add_argument('--reward_norm', action='store_true', default=False)
 parser.add_argument('--independent', action='store_true', default=False)
+parser.add_argument('--value_clip', type=float, default=-1)
+parser.add_argument('--heuristic', type=str, default=None)
 # TODO this argument is temporary until fixing a bug
 parser.add_argument('--seed_idx', type=int)
 
