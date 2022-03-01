@@ -45,7 +45,7 @@ class Trainer:
         if config['use_rnn']: folder_name += '__RNN'
         if config['local_std']: folder_name += '__LOCALSTD'
         if config['central_critic']: folder_name += '__CENT'
-        if config['value_clip']: folder_name += '__VALCLIP'
+        if config['value_clip'] > 0: folder_name += '__VALCLIP{}'.format(config['value_clip'])
         if config['param_noise']: folder_name += '__NOISE'
         if config['rollback']: folder_name += '__ROLLBACK'
         if config['trust_region']: folder_name += '__TR'
@@ -153,6 +153,7 @@ class Trainer:
         if os.path.exists(eval_seed_folder):
             with open(eval_seed_folder, 'r') as f:
                 eval_env_seeds = json.load(f)
+            eval_env_seeds = eval_env_seeds[:10]
         else:
             _MAX_INT = 2147483647  # Max int for Unity ML Seed
             eval_env_seeds = [np.random.randint(_MAX_INT) for _ in range(10)]
@@ -329,8 +330,10 @@ if __name__=='__main__':
             callback = EvalCallback(envs[seed_idx], policy_record, eval_env=None)
             if args['curiosity']:
                 policy = MAPPOCuriosity(envs[seed_idx], callback, True, **policy_params)
+            elif args['independent']:
+                policy = IPPOPolicy(envs[seed_idx], callback, True, **policy_params)
             else:
-                policy = TorchGPUMAPPOPolicyNew(envs[seed_idx], callback, True, **policy_params)
+                policy = TorchGPUMAPPOPolicySeparate(envs[seed_idx], callback, True, **policy_params)
             policies_to_run.append(policy)
 
     else:
@@ -380,8 +383,8 @@ if __name__=='__main__':
             elif args['independent']:
                 policy = IPPOPolicy(envs[seed_idx], callback, False, **policy_params)
             else:
-                #policy = TorchGPUMAPPOPolicySeparate(envs[seed_idx], callback, False, **policy_params)
-                policy = TorchGPUMAPPOPolicyNew(envs[seed_idx], callback, False, **policy_params)
+                policy = TorchGPUMAPPOPolicySeparate(envs[seed_idx], callback, False, **policy_params)
+                #policy = TorchGPUMAPPOPolicyNew(envs[seed_idx], callback, False, **policy_params)
             policies_to_run.append(policy)
 
 
