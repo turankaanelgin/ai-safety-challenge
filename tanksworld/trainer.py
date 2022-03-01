@@ -14,6 +14,7 @@ from core.policy_record import PolicyRecord
 from algos.torch_ppo.mappo_gpu_new_improved import PPOPolicy as TorchGPUMAPPOPolicyNew
 from algos.torch_ppo.mappo_gpu_separate_env_new import PPOPolicy as TorchGPUMAPPOPolicySeparate
 from algos.torch_ppo.mappo_gpu_curiosity import PPOPolicy as MAPPOCuriosity
+from algos.torch_ppo.ippo import PPOPolicy as IPPOPolicy
 from algos.torch_ppo.vec_env import DummyVecEnv, SubprocVecEnv
 from algos.torch_ppo.callbacks import EvalCallback
 
@@ -33,12 +34,14 @@ class Trainer:
                                                                 config['batch_size'])
         if config['entropy_coef'] > 0.0: folder_name += '__ENT={}'.format(config['entropy_coef'])
         if config['beta']: folder_name += '__BETA'
+        if config['laplace']: folder_name += '__LAPLACE'
         if config['fixed_kl']:
             folder_name += '__FIXEDKL{}'.format(config['kl_beta'])
         elif config['adaptive_kl']:
             folder_name += '__ADAPTIVEKL{}'.format(config['kl_beta'])
         if config['clip_ratio'] != 0.2: folder_name += '__CLIP{}'.format(config['clip_ratio'])
         if config['curiosity']: folder_name += '__ICM'
+        if config['independent']: folder_name += '__IND'
         if config['use_rnn']: folder_name += '__RNN'
         if config['local_std']: folder_name += '__LOCALSTD'
         if config['central_critic']: folder_name += '__CENT'
@@ -238,6 +241,7 @@ class Trainer:
             'num_states': 4,
             'use_value_norm': config['valuenorm'],
             'use_beta': config['beta'],
+            'use_laplace': config['laplace'],
             'use_fixed_kl': config['fixed_kl'],
             'use_adaptive_kl': config['adaptive_kl'],
             'kl_beta': config['kl_beta'],
@@ -373,6 +377,8 @@ if __name__=='__main__':
             callback = EvalCallback(envs[seed_idx], policy_record, eval_env=val_env, eval_steps=100)
             if args['curiosity']:
                 policy = MAPPOCuriosity(envs[seed_idx], callback, False, **policy_params)
+            elif args['independent']:
+                policy = IPPOPolicy(envs[seed_idx], callback, False, **policy_params)
             else:
                 #policy = TorchGPUMAPPOPolicySeparate(envs[seed_idx], callback, False, **policy_params)
                 policy = TorchGPUMAPPOPolicyNew(envs[seed_idx], callback, False, **policy_params)
