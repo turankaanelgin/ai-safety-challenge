@@ -153,6 +153,9 @@ class PPOPolicy():
         taken_stats = [False] * num_envs
         episode_red_blue_damages, episode_blue_red_damages = [], []
         episode_red_red_damages = []
+        all_episode_red_blue_damages = [[] for _ in range(num_envs)]
+        all_episode_blue_red_damages = [[] for _ in range(num_envs)]
+        all_episode_red_red_damages = [[] for _ in range(num_envs)]
 
         while steps < steps_to_run:
 
@@ -174,14 +177,21 @@ class PPOPolicy():
                 episode_red_red_damages.append(ep_rr_damage)
                 episode_blue_red_damages.append(ep_br_damage)
                 episode_red_blue_damages.append(ep_rb_damage)
+
+                for env_idx in range(num_envs):
+                    all_episode_red_blue_damages[env_idx].append(ep_rb_damage[env_idx])
+                    all_episode_blue_red_damages[env_idx].append(ep_br_damage[env_idx])
+                    all_episode_red_red_damages[env_idx].append(ep_rr_damage[env_idx])
+
                 ep_rr_damage = [0] * num_envs
                 ep_rb_damage = [0] * num_envs
                 ep_br_damage = [0] * num_envs
                 curr_done = [False] * num_envs
+                taken_stats = [False] * num_envs
                 steps += 1
                 observation = self.env.reset()
 
-                if steps % 5 == 0 and steps > 0:
+                if steps % 2 == 0 and steps > 0:
                     avg_red_red_damages = np.mean(episode_red_red_damages)
                     avg_red_blue_damages = np.mean(episode_red_blue_damages)
                     avg_blue_red_damages = np.mean(episode_blue_red_damages)
@@ -192,16 +202,22 @@ class PPOPolicy():
                                    'Red-Blue Damage': avg_red_blue_damages,
                                    'Blue-Red Damage': avg_blue_red_damages}, f, indent=4)
 
+                    with open(os.path.join(self.callback.policy_record.data_dir, 'all_statistics.json'), 'w+') as f:
+                        json.dump({'Number of games': steps,
+                                   'Red-Red Damage': all_episode_red_red_damages,
+                                   'Blue-Red Damage': all_episode_blue_red_damages,
+                                   'Red-Blue Damage': all_episode_red_blue_damages}, f, indent=4)
+                    '''
                     avg_red_red_damages_per_env = np.mean(episode_red_red_damages, axis=0)
                     avg_red_blue_damages_per_env = np.mean(episode_red_blue_damages, axis=0)
                     avg_blue_red_damages_per_env = np.mean(episode_blue_red_damages, axis=0)
-
+                    
                     with open(os.path.join(self.callback.policy_record.data_dir, 'all_statistics.json'), 'w+') as f:
                         json.dump({'Number of games': steps,
                                    'All-Red-Red-Damage': avg_red_red_damages_per_env.tolist(),
                                    'All-Red-Blue Damage': avg_red_blue_damages_per_env.tolist(),
                                    'All-Blue-Red Damage': avg_blue_red_damages_per_env.tolist()}, f, indent=4)
-
+                    '''
 
 
 

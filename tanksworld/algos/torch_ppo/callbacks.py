@@ -110,6 +110,7 @@ class EvalCallback:
                 curr_done = [False] * num_envs
                 taken_stats = [False] * num_envs
                 steps += 1
+                observation = self.eval_env.reset()
 
                 if steps % 10 == 0 and steps > 0:
                     avg_red_red_damages = np.mean(episode_red_red_damages)
@@ -246,15 +247,11 @@ class EvalCallback:
 
         if len(episode_lengths) == 0: return
 
-        episode_stats = {'Red-Blue-Damage': np.mean(episode_red_blue_damages),
-                         'Red-Red-Damage': np.mean(episode_red_red_damages),
-                         'Blue-Red-Damage': np.mean(episode_blue_red_damages)}
         if self.policy_record:
             if not eval_mode:
-                with open(os.path.join(self.policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
-                    json.dump(episode_stats, f, indent=True)
-
                 for idx in range(len(episode_lengths)):
+                    if episode_red_blue_damages[idx][0] is None:
+                        continue
                     if episode_intrinsic_rewards:
                         self.policy_record.add_result(episode_returns[idx], episode_red_blue_damages[idx],
                                                   episode_red_red_damages[idx], episode_blue_red_damages[idx],

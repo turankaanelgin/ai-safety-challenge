@@ -1,4 +1,5 @@
 # ©2020 Johns Hopkins University Applied Physics Laboratory LLC.
+import pdb
 import sys, time, random
 import gym
 from mlagents.envs import UnityEnvironment
@@ -119,8 +120,8 @@ class TanksWorldEnv(gym.Env):
         if seed == -1:
             self._seed = np.random.randint(TanksWorldEnv._MAX_INT)  # integer seed required, convert
         else:
-            if isinstance(seed, list) and len(seed) == 1:
-                seed = seed[0]
+            #if isinstance(seed, list) and len(seed) == 1:
+            #    seed = seed[0]
             self._seed = seed
 
         self.timeout = timeout
