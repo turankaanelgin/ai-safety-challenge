@@ -254,6 +254,7 @@ class Trainer:
             'rollback': config['rollback'],
             'trust_region': config['trust_region'],
             'reward_norm': config['reward_norm'],
+            'heuristic_policy': config['heuristic'],
         }
 
         return policy_kwargs

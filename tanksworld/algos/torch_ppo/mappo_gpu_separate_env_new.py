@@ -13,6 +13,9 @@ import os
 import json
 from matplotlib import pyplot as plt
 
+from .lambda_schedulers import TanhLS
+from minimap_util import displayable_rgb_map
+
 
 device = torch.device('cuda')
 
@@ -393,8 +396,8 @@ class PPOPolicy():
             self.pi_optimizer.step()
 
         # Value function learning
-        #if self.central_critic:
-        #    train_v_iters = int(2*train_v_iters)
+        if self.central_critic:
+            train_v_iters = int(2*train_v_iters)
         for i in range(train_v_iters):
             self.vf_optimizer.zero_grad()
             loss_v = self.compute_loss_v(data, value_clip=value_clip)
@@ -410,7 +413,7 @@ class PPOPolicy():
               target_kl=0.01, tsboard_freq=-1, curriculum_start=-1, curriculum_stop=-1, use_value_norm=False,
               use_huber_loss=False, use_rnn=False, use_popart=False, use_sde=False, sde_sample_freq=1,
               pi_scheduler='cons', vf_scheduler='cons', freeze_rep=True, entropy_coef=0.0,
-              tb_writer=None, **kargs):
+              tb_writer=None, heuristic_policy=None, **kargs):
 
         env = self.env
         self.writer = tb_writer
@@ -424,6 +427,11 @@ class PPOPolicy():
         num_envs = kargs['n_envs']
         if self.callback:
             self.callback.init_model(self.ac_model)
+
+        if heuristic_policy is not None:
+            heuristic_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
+            heuristic_model.load_state_dict(torch.load(heuristic_policy)['model_state_dict'])
+            heuristic_function = heuristic_model.v
 
         ep_ret = 0
         ep_len = 0
@@ -449,6 +457,7 @@ class PPOPolicy():
         last_hundred_red_red_damages = [[] for _ in range(num_envs)]
         last_hundred_blue_red_damages = [[] for _ in range(num_envs)]
         best_eval_score = 0
+        lambda_ = TanhLS(init_lambd=0.95, n_epochs=1000)
 
         while step < steps_to_run:
 
@@ -462,6 +471,15 @@ class PPOPolicy():
 
             ep_ret += np.average(np.sum(r, axis=1))
             ep_len += 1
+
+            if heuristic_policy is not None:
+                with torch.no_grad():
+                    heuristic = heuristic_function(obs)
+                gamma_ = gamma * lambda_()
+                r = r + (1-lambda_()) * gamma_ * heuristic.cpu().numpy()
+                buf.gamma = gamma_
+                if step + 1 % 100 == 0:
+                    lambda_.update()
 
             r = torch.as_tensor(r, dtype=torch.float32).to(device)
 

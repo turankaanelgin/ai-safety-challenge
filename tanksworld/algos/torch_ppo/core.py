@@ -61,6 +61,19 @@ def cnn(observation_space):
     )
     return model
 
+def cnn_pool(observation_space):
+    model = nn.Sequential(
+        nn.Conv2d(observation_space.shape[0], 32, 8, 4),
+        nn.ReLU(),
+        nn.Conv2d(32, 64, 4, 2),
+        nn.ReLU(),
+        nn.Conv2d(64, 64, 3, 1),
+        nn.ReLU(),
+        #nn.AvgPool2d(2),
+        nn.Flatten()
+    )
+    return model
+
 
 '''
 def cnn(observation_space):
@@ -372,7 +385,7 @@ class MLPCentralCritic(nn.Module):
             dummy_img = torch.rand((1,) + observation_space.shape)
             if not use_popart:
                 self.v_net = nn.Sequential(
-                    nn.Linear(cnn_net(dummy_img).shape[1]*n_agents, 1),
+                    nn.Linear(cnn_net(dummy_img).shape[1], 1),
                     activation()
                 )
             else:
@@ -417,7 +430,7 @@ class MLPCentralCritic(nn.Module):
     def forward(self, obs):
 
         features = self.extract_features(obs)
-        features = features.flatten(start_dim=1)
+        features = torch.mean(features, dim=1)
         v_out = self.v_net(features)
         if self.rnn_net is not None: v_out = v_out.unsqueeze(0)
         return v_out # Critical to ensure v has right shape.
@@ -504,7 +517,10 @@ class MLPActorCritic(nn.Module):
         cnn_net = None
         rnn_net = None
         if use_cnn:
-            cnn_net = cnn(observation_space)
+            if central_critic:
+                cnn_net = cnn_pool(observation_space)
+            else:
+                cnn_net = cnn(observation_space)
         if use_rnn:
             rnn_net = rnn.GRUNet(input_dim=9216, hidden_dim=1024, output_dim=512, n_layers=1)
 
