@@ -106,9 +106,93 @@ class PPOPolicy():
             ac_kwargs['use_beta'] = self.kargs['use_beta']
             ac_kwargs['local_std'] = self.kargs['local_std']
             ac_kwargs['central_critic'] = self.kargs['central_critic']
-            self.evaluate_modified(steps_to_run=num_steps, model_path=self.kargs['model_path'], ac_kwargs=ac_kwargs)
+            self.evaluate(steps_to_run=num_steps, model_path=self.kargs['model_path'], ac_kwargs=ac_kwargs)
         else:
             self.learn(**self.kargs)
+
+    def evaluate(self, steps_to_run, model_path, actor_critic=core.MLPActorCritic, ac_kwargs=dict()):
+
+        steps = 0
+        observation = self.env.reset()
+
+        self.ac_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
+        ckpt = torch.load(model_path)
+        self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
+        self.ac_model.eval()
+        num_envs = 10
+
+        ep_rr_damage = [0] * num_envs
+        ep_rb_damage = [0] * num_envs
+        ep_br_damage = [0] * num_envs
+        curr_done = [False] * num_envs
+        taken_stats = [False] * num_envs
+        episode_red_blue_damages, episode_blue_red_damages = [], []
+        episode_red_red_damages = []
+        all_episode_red_blue_damages = [[] for _ in range(num_envs)]
+        all_episode_blue_red_damages = [[] for _ in range(num_envs)]
+        all_episode_red_red_damages = [[] for _ in range(num_envs)]
+
+        while steps < steps_to_run:
+            with torch.no_grad():
+                observation = torch.as_tensor(observation, dtype=torch.float32).squeeze(2).to(device)
+                action, v, logp, _ = self.ac_model.step(observation)
+            action = action.squeeze(0).reshape(num_envs, 5, -1)
+            observation, reward, done, info = self.env.step(action.cpu().numpy())
+            curr_done = [done[idx] or curr_done[idx] for idx in range(num_envs)]
+
+            for env_idx, terminal in enumerate(curr_done):
+                if terminal and not taken_stats[env_idx]:
+                    ep_rr_damage[env_idx] = info[env_idx]['red_stats']['damage_inflicted_on']['ally']
+                    ep_rb_damage[env_idx] = info[env_idx]['red_stats']['damage_inflicted_on']['enemy']
+                    ep_br_damage[env_idx] = info[env_idx]['red_stats']['damage_taken_by']['enemy']
+                    taken_stats[env_idx] = True
+
+            if np.all(curr_done):
+                episode_red_red_damages.append(ep_rr_damage)
+                episode_blue_red_damages.append(ep_br_damage)
+                episode_red_blue_damages.append(ep_rb_damage)
+
+                for env_idx in range(num_envs):
+                    all_episode_red_blue_damages[env_idx].append(ep_rb_damage[env_idx])
+                    all_episode_blue_red_damages[env_idx].append(ep_br_damage[env_idx])
+                    all_episode_red_red_damages[env_idx].append(ep_rr_damage[env_idx])
+
+                ep_rr_damage = [0] * num_envs
+                ep_rb_damage = [0] * num_envs
+                ep_br_damage = [0] * num_envs
+                curr_done = [False] * num_envs
+                taken_stats = [False] * num_envs
+                steps += 1
+                observation = self.env.reset()
+
+                if steps % 2 == 0 and steps > 0:
+                    avg_red_red_damages = np.mean(episode_red_red_damages)
+                    avg_red_blue_damages = np.mean(episode_red_blue_damages)
+                    avg_blue_red_damages = np.mean(episode_blue_red_damages)
+
+                    with open(os.path.join(self.callback.policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
+                        json.dump({'Number of games': steps,
+                                   'Red-Red-Damage': avg_red_red_damages.tolist(),
+                                   'Red-Blue Damage': avg_red_blue_damages.tolist(),
+                                   'Blue-Red Damage': avg_blue_red_damages.tolist()}, f, indent=4)
+
+                    with open(os.path.join(self.callback.policy_record.data_dir, 'all_statistics.json'), 'w+') as f:
+                        json.dump({'Number of games': steps,
+                                   'Red-Red-Damage': all_episode_red_red_damages,
+                                   'Red-Blue Damage': all_episode_red_blue_damages,
+                                   'Blue-Red Damage': all_episode_blue_red_damages}, f, indent=4)
+
+                    avg_red_red_damages_per_env = np.mean(episode_red_red_damages, axis=0)
+                    avg_red_blue_damages_per_env = np.mean(episode_red_blue_damages, axis=0)
+                    avg_blue_red_damages_per_env = np.mean(episode_blue_red_damages, axis=0)
+
+                    with open(os.path.join(self.callback.policy_record.data_dir, 'mean_statistics_per_env.json'),
+                              'w+') as f:
+                        json.dump({'Number of games': steps,
+                                   'All-Red-Red-Damage': avg_red_red_damages_per_env.tolist(),
+                                   'All-Red-Blue Damage': avg_red_blue_damages_per_env.tolist(),
+                                   'All-Blue-Red Damage': avg_blue_red_damages_per_env.tolist()}, f, indent=4)
+
 
     def set_random_seed(self, seed):
         # Random seed
@@ -134,7 +218,17 @@ class PPOPolicy():
 
         self.start_step = 0
 
-        if cnn_model_path:
+        if model_path:
+            ckpt = torch.load(model_path)
+            self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
+            pi_ckpt = ckpt['pi_optimizer_state_dict']
+            for idx, pi_opt in enumerate(self.pi_optimizers):
+                pi_opt.load_state_dict(pi_ckpt[idx])
+            self.vf_optimizer.load_state_dict(ckpt['vf_optimizer_state_dict'])
+            self.start_step = ckpt['step']
+            self.start_step -= self.start_step % steps_per_epoch
+
+        elif cnn_model_path:
             state_dict = torch.load(cnn_model_path)
 
             temp_state_dict = {}
@@ -367,6 +461,7 @@ class PPOPolicy():
                     self.update(buf, train_pi_iters, train_v_iters, target_kl, clip_ratio, entropy_coef,
                                 kargs['value_clip'])
 
+            '''
             if step % 100 == 0 or step == 4:
 
                 if self.callback:
@@ -389,7 +484,7 @@ class PPOPolicy():
                 episode_red_blue_damages = []
                 episode_blue_red_damages = []
                 episode_red_red_damages = []
-
+            '''
             '''
             if step % 50000 == 0:
 

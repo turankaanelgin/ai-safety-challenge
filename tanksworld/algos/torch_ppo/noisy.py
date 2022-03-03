@@ -103,7 +103,6 @@ class NoisyLinear(Module):
                 self.bias_epsilon.normal_()
 
     def forward(self, input):
-        pdb.set_trace()
         if self.training:
             return F.linear(input,
                             self.weight_mu + self.weight_sigma.mul(Variable(self.weight_epsilon)),
