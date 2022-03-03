@@ -1,20 +1,14 @@
 import pdb
-import pprint
 import numpy as np
+import random
 import torch
-from torch import nn
 from torch.optim import Adam
-from torch.optim.lr_scheduler import ReduceLROnPlateau, ExponentialLR, CyclicLR
-from torch.optim.lr_scheduler import _LRScheduler
-from torch.utils.tensorboard import SummaryWriter
 
 from . import core
 import os
 import json
-from matplotlib import pyplot as plt
 
 from .lambda_schedulers import TanhLS
-from minimap_util import displayable_rgb_map
 
 
 device = torch.device('cuda')
@@ -254,7 +248,7 @@ class PPOPolicy():
         np.random.seed(seed)
 
 
-    def setup_model(self, actor_critic, pi_lr, vf_lr, ac_kwargs):
+    def setup_model(self, actor_critic, pi_lr, vf_lr, ac_kwargs, enemy_model_path=None):
         self.obs_dim = self.env.observation_space.shape
         self.act_dim = self.env.action_space.shape
         self.obs = self.env.reset()
@@ -262,6 +256,19 @@ class PPOPolicy():
         self.ac_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
         self.pi_optimizer = Adam(self.ac_model.pi.parameters(), lr=pi_lr)
         self.vf_optimizer = Adam(self.ac_model.v.parameters(), lr=vf_lr)
+
+        if enemy_model_path is not None:
+            num_enemy_models = len(enemy_model_path)
+            self.enemy_models = []
+            for idx in range(num_enemy_models):
+                if enemy_model_path[idx] is None:
+                    self.enemy_models.append(None)
+                    continue
+                enemy_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
+                enemy_model.load_state_dict(torch.load(enemy_model_path[idx])['model_state_dict'])
+                enemy_model.requires_grad = False
+                enemy_model.eval()
+                self.enemy_models.append(enemy_model)
 
 
     def load_model(self, model_path, cnn_model_path, freeze_rep, steps_per_epoch):
@@ -413,16 +420,17 @@ class PPOPolicy():
               target_kl=0.01, tsboard_freq=-1, curriculum_start=-1, curriculum_stop=-1, use_value_norm=False,
               use_huber_loss=False, use_rnn=False, use_popart=False, use_sde=False, sde_sample_freq=1,
               pi_scheduler='cons', vf_scheduler='cons', freeze_rep=True, entropy_coef=0.0,
-              tb_writer=None, heuristic_policy=None, **kargs):
+              tb_writer=None, heuristic_policy=None, enemy_model_paths=None, **kargs):
 
         env = self.env
         self.writer = tb_writer
         self.loss_p_index, self.loss_v_index = 0, 0
         self.set_random_seed(seed)
         ac_kwargs['central_critic'] = kargs['central_critic']
+        ac_kwargs['init_log_std'] = kargs['init_log_std']
         self.central_critic = kargs['central_critic']
 
-        self.setup_model(actor_critic, pi_lr, vf_lr, ac_kwargs)
+        self.setup_model(actor_critic, pi_lr, vf_lr, ac_kwargs, enemy_model_paths)
         self.load_model(kargs['model_path'], kargs['cnn_model_path'], freeze_rep, steps_per_epoch)
         num_envs = kargs['n_envs']
         if self.callback:
@@ -466,8 +474,32 @@ class PPOPolicy():
 
             step += 1
             obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
-            a, v, logp, entropy = self.ac_model.step(obs)
+            if enemy_model_paths is not None:
+                ally_obs = obs[:,:5,:,:,:]
+                ally_a, v, logp, entropy = self.ac_model.step(ally_obs)
+
+                num_enemy_models = len(enemy_model_paths)
+                all_enemy_a = []
+                for idx in range(num_enemy_models):
+                    if enemy_model_paths[idx] is None:
+                        enemy_a = 2*torch.rand((1,5,3))-1
+                        enemy_a = enemy_a.to(device)
+                        all_enemy_a.append(enemy_a)
+                    else:
+                        enemy_obs = obs[idx,5:,:,:,:]
+                        enemy_a, _, _, _ = self.enemy_models[idx].step(enemy_obs)
+                        enemy_a = enemy_a.squeeze(1).unsqueeze(0)
+                        all_enemy_a.append(enemy_a)
+                enemy_a = torch.cat(all_enemy_a, dim=0)
+                a = torch.cat((ally_a, enemy_a), dim=1)
+            else:
+                a, v, logp, entropy = self.ac_model.step(obs)
             next_obs, r, terminal, info = env.step(a.cpu().numpy())
+
+            if enemy_model_paths is not None:
+                r = r[:,:5]
+                a = ally_a
+                obs = ally_obs
 
             ep_ret += np.average(np.sum(r, axis=1))
             ep_len += 1
@@ -505,8 +537,9 @@ class PPOPolicy():
             if np.any(terminal) or epoch_ended:
 
                 with torch.no_grad():
+                    obs_input = self.obs[:,:5,:,:,:] if enemy_model_paths is not None else self.obs
                     _, v, _, _ = self.ac_model.step(
-                        torch.as_tensor(self.obs, dtype=torch.float32).to(device))
+                        torch.as_tensor(obs_input, dtype=torch.float32).to(device))
 
                 for env_idx, done in enumerate(terminal):
                     if done:

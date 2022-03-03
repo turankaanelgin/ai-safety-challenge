@@ -35,10 +35,12 @@ class Trainer:
         if config['entropy_coef'] > 0.0: folder_name += '__ENT={}'.format(config['entropy_coef'])
         if config['beta']: folder_name += '__BETA'
         if config['laplace']: folder_name += '__LAPLACE'
-        if config['fixed_kl']:
-            folder_name += '__FIXEDKL{}'.format(config['kl_beta'])
-        elif config['adaptive_kl']:
-            folder_name += '__ADAPTIVEKL{}'.format(config['kl_beta'])
+        if config['fixed_kl']: folder_name += '__FIXEDKL{}'.format(config['kl_beta'])
+        elif config['adaptive_kl']: folder_name += '__ADAPTIVEKL{}'.format(config['kl_beta'])
+        if config['curriculum_stop'] != -1: folder_name += '__CURR{}'.format(config['curriculum_stop'])
+        if config['init_log_std'] != -0.5: folder_name += '__STD{}'.format(config['init_log_std'])
+        if config['death_penalty']: folder_name += '__DP'
+        if config['async_enemy']: folder_name += '__ASYNC'
         if config['clip_ratio'] != 0.2: folder_name += '__CLIP{}'.format(config['clip_ratio'])
         if config['curiosity']: folder_name += '__ICM'
         if config['independent']: folder_name += '__IND'
@@ -93,11 +95,21 @@ class Trainer:
 
                         env_kwargs = {'exe': config['exe'],
                                       'static_tanks': [], 'random_tanks': [5,6,7,8,9], 'disable_shooting': [],
-                                      'friendly_fire': False, 'kill_bonus': False, 'death_penalty': False,
+                                      'friendly_fire': False, 'kill_bonus': False, 'death_penalty': config['death_penalty'],
                                       'take_damage_penalty': True, 'tblogs': stats_dir, 'tbwriter': tb_writer,
                                       'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
-                                      'timeout': 500, 'seed': e_seed, }
-                        env = DummyVecEnv([lambda: make_env(**env_kwargs)], 5)
+                                      'timeout': 500, 'seed': e_seed,
+                                      'curriculum_stop': config['curriculum_stop']}
+
+                        def make_env_(seed):
+                            def init_():
+                                env = make_env(**env_kwargs)
+                                env._seed = seed
+                                return env
+
+                            return init_
+
+                        env = DummyVecEnv([make_env_(e_seed)], 5)
                         all_training_envs.append(env)
                         all_policy_records.append(policy_record)
                         all_policy_seeds.append(p_seed)
@@ -117,12 +129,17 @@ class Trainer:
                 os.makedirs(stats_dir, exist_ok=True)
                 tb_writer = SummaryWriter(stats_dir)
 
+                if config['async_enemy']:
+                    random_tanks = []
+                else:
+                    random_tanks = [5,6,7,8,9]
                 env_kwargs = {'exe': config['exe'],
-                                       'static_tanks': [], 'random_tanks': [5, 6, 7, 8, 9], 'disable_shooting': [],
-                                       'friendly_fire': False, 'kill_bonus': False, 'death_penalty': False,
+                                       'static_tanks': [], 'random_tanks': random_tanks, 'disable_shooting': [],
+                                       'friendly_fire': False, 'kill_bonus': False, 'death_penalty': config['death_penalty'],
                                        'take_damage_penalty': True, 'tblogs': stats_dir,
                                        'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
-                                       'timeout': 500}
+                                       'timeout': 500,
+                                       'curriculum_stop': config['curriculum_stop']}
                 def make_env_(seed):
                     def init_():
                         env = make_env(**env_kwargs)
@@ -224,6 +241,19 @@ class Trainer:
     def get_policy_params(self):
         config = self.config
 
+        enemy_model_paths = None
+        if config['async_enemy']:
+            enemy_model_paths = [None,
+                                 None,
+                                 './logs/ashley-base-policy/lrp=0.0003__lrv=0.001__r=1.0__p=0.0__H=64/seed0/checkpoints/999999.pth',
+                                 './logs/ashley-base-policy/lrp=0.0003__lrv=0.001__r=1.0__p=0.0__H=64/seed0/checkpoints/999999.pth',
+                                 './logs/ashley-base-policy/lrp=0.0003__lrv=0.001__r=1.0__p=0.5__H=64/seed0/checkpoints/999999.pth',
+                                 './logs/ashley-base-policy/lrp=0.0003__lrv=0.001__r=1.0__p=0.5__H=64/seed0/checkpoints/999999.pth',
+                                 './logs/ashley-base-policy/lrp=0.0003__lrv=0.001__r=1.0__p=1.0__H=64/seed0/checkpoints/999999.pth',
+                                 './logs/ashley-base-policy/lrp=0.0003__lrv=0.001__r=1.0__p=1.0__H=64/seed0/checkpoints/999999.pth',
+                                 './logs/ashley-base-policy/lrp=0.0003__lrv=0.001__r=1.0__p=2.0__H=64/seed0/checkpoints/999999.pth',
+                                 './logs/ashley-base-policy/lrp=0.0003__lrv=0.001__r=1.0__p=2.0__H=64/seed0/checkpoints/999999.pth']
+
         policy_kwargs = {
             'steps_per_epoch': config['batch_size'],
             'train_pi_iters': config['num_epochs'],
@@ -255,6 +285,8 @@ class Trainer:
             'trust_region': config['trust_region'],
             'reward_norm': config['reward_norm'],
             'heuristic_policy': config['heuristic'],
+            'enemy_model_paths': enemy_model_paths,
+            'init_log_std': config['init_log_std'],
         }
 
         return policy_kwargs

@@ -276,9 +276,9 @@ class MLPSDEActor(Actor):
 class MLPGaussianActor(Actor):
 
     def __init__(self, observation_space, act_dim, hidden_sizes, activation, cnn_net=None, rnn_net=None, two_fc_layers=False,
-                 local_std=False, noisy=False):
+                 local_std=False, noisy=False, init_log_std=-0.5):
         super().__init__()
-        log_std = -0.5 * np.ones(act_dim, dtype=np.float32)
+        log_std = init_log_std * np.ones(act_dim, dtype=np.float32)
         self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
         self.cnn_net = cnn_net
         self.rnn_net = rnn_net
@@ -510,7 +510,7 @@ class MLPActorCritic(nn.Module):
     def __init__(self, observation_space, action_space,
                  hidden_sizes=(64, 64), activation=nn.Tanh, two_fc_layers=False,
                  use_rnn=False, use_popart=False, use_sde=False, use_beta=False, local_std=False,
-                 central_critic=False, noisy=False):
+                 central_critic=False, noisy=False, init_log_std=-0.5):
         super().__init__()
 
         use_cnn = len(observation_space.shape) == 3
@@ -533,7 +533,7 @@ class MLPActorCritic(nn.Module):
             else: # Default Gaussian
                 self.pi = MLPGaussianActor(observation_space, action_space.shape[0], hidden_sizes, activation,
                                            cnn_net=cnn_net, rnn_net=rnn_net, two_fc_layers=two_fc_layers,
-                                           local_std=local_std, noisy=noisy)
+                                           local_std=local_std, noisy=noisy, init_log_std=init_log_std)
         elif isinstance(action_space, Discrete):
             self.pi = MLPCategoricalActor(observation_space, action_space.n, hidden_sizes, activation, cnn_net=cnn_net)
 
