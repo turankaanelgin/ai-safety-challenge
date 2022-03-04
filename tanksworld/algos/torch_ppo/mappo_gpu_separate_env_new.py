@@ -427,6 +427,7 @@ class PPOPolicy():
         self.loss_p_index, self.loss_v_index = 0, 0
         self.set_random_seed(seed)
         ac_kwargs['central_critic'] = kargs['central_critic']
+        ac_kwargs['init_log_std'] = kargs['init_log_std']
         self.central_critic = kargs['central_critic']
 
         self.setup_model(actor_critic, pi_lr, vf_lr, ac_kwargs, enemy_model_paths)

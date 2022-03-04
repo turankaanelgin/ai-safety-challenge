@@ -37,6 +37,8 @@ class Trainer:
         if config['laplace']: folder_name += '__LAPLACE'
         if config['fixed_kl']: folder_name += '__FIXEDKL{}'.format(config['kl_beta'])
         elif config['adaptive_kl']: folder_name += '__ADAPTIVEKL{}'.format(config['kl_beta'])
+        if config['curriculum_stop'] != -1: folder_name += '__CURR{}'.format(config['curriculum_stop'])
+        if config['init_log_std'] != -0.5: folder_name += '__STD{}'.format(config['init_log_std'])
         if config['death_penalty']: folder_name += '__DP'
         if config['async_enemy']: folder_name += '__ASYNC'
         if config['clip_ratio'] != 0.2: folder_name += '__CLIP{}'.format(config['clip_ratio'])
@@ -96,8 +98,18 @@ class Trainer:
                                       'friendly_fire': False, 'kill_bonus': False, 'death_penalty': config['death_penalty'],
                                       'take_damage_penalty': True, 'tblogs': stats_dir, 'tbwriter': tb_writer,
                                       'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
-                                      'timeout': 500, 'seed': e_seed, }
-                        env = DummyVecEnv([lambda: make_env(**env_kwargs)], 5)
+                                      'timeout': 500, 'seed': e_seed,
+                                      'curriculum_stop': config['curriculum_stop']}
+
+                        def make_env_(seed):
+                            def init_():
+                                env = make_env(**env_kwargs)
+                                env._seed = seed
+                                return env
+
+                            return init_
+
+                        env = DummyVecEnv([make_env_(e_seed)], 5)
                         all_training_envs.append(env)
                         all_policy_records.append(policy_record)
                         all_policy_seeds.append(p_seed)
@@ -126,7 +138,8 @@ class Trainer:
                                        'friendly_fire': False, 'kill_bonus': False, 'death_penalty': config['death_penalty'],
                                        'take_damage_penalty': True, 'tblogs': stats_dir,
                                        'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
-                                       'timeout': 500}
+                                       'timeout': 500,
+                                       'curriculum_stop': config['curriculum_stop']}
                 def make_env_(seed):
                     def init_():
                         env = make_env(**env_kwargs)
@@ -273,6 +286,7 @@ class Trainer:
             'reward_norm': config['reward_norm'],
             'heuristic_policy': config['heuristic'],
             'enemy_model_paths': enemy_model_paths,
+            'init_log_std': config['init_log_std'],
         }
 
         return policy_kwargs
