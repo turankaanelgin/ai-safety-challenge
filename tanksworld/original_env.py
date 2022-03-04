@@ -105,6 +105,7 @@ class TanksWorldEnv(gym.Env):
         tblogs="runs/stats",
         tbwriter=None,
         seed=0,
+        curriculum_stop=-1,
     ):
 
         # call reset() to begin playing
@@ -115,13 +116,10 @@ class TanksWorldEnv(gym.Env):
         self.observation_space = None
         self.observation_space = gym.spaces.box.Box(0, 255, (4, 128, 128))
         self.action_space = gym.spaces.box.Box(-1, 1, (3,))
-        #self._seed = None
 
         if seed == -1:
             self._seed = np.random.randint(TanksWorldEnv._MAX_INT)  # integer seed required, convert
         else:
-            #if isinstance(seed, list) and len(seed) == 1:
-            #    seed = seed[0]
             self._seed = seed
 
         self.timeout = timeout
@@ -138,6 +136,9 @@ class TanksWorldEnv(gym.Env):
 
         self.reward_weight = reward_weight
         self.penalty_weight = penalty_weight
+        self.curriculum_stop = curriculum_stop
+        self.curriculum_period = int((self.curriculum_stop - self.penalty_weight) / 0.05)
+        self.curriculum_step = 0
 
         self.static_tanks = static_tanks
         self.random_tanks = random_tanks
@@ -542,6 +543,12 @@ class TanksWorldEnv(gym.Env):
         return [reward[i] for i in self.training_tanks]
 
     def step(self, action):
+
+        if self.curriculum_stop != -1:
+            change_period = int(1000000 / self.curriculum_period)
+            if (self.curriculum_step+1) % change_period == 0:
+                self.penalty_weight += 0.05
+            self.curriculum_step += 1
 
         action = action[:]
 
