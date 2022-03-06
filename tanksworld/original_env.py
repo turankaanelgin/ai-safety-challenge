@@ -210,6 +210,25 @@ class TanksWorldEnv(gym.Env):
 
         return ret_states
 
+    def get_state_vector(self):
+
+        state = self._env_info.vector_observations[0]
+        state_reformat = []
+        for i in range(12):
+            j = i * TanksWorldEnv._tank_data_len
+            refmt = [
+                state[j + 0],
+                state[j + 1],
+                state[j + 2] / 180 * 3.1415,
+                state[j + 3],
+                state[j + 7],
+                state[j + 8],
+            ]
+
+            state_reformat.append(refmt)
+
+        return state_reformat
+
     def reset(self, **kwargs):
 
         if self.red_team_stats is not None:
@@ -230,6 +249,7 @@ class TanksWorldEnv(gym.Env):
                     timeout_wait=500,
                 )
                 random.seed(self._seed)
+                print('ENVIRONMENT SEED', self._seed)
                 print("finished initializing environment")
                 TanksWorldEnv._env_params["filename"] = self._filename
                 TanksWorldEnv._env_params["workerid"] = self._workerid
@@ -599,6 +619,7 @@ class TanksWorldEnv(gym.Env):
 
             # get state
             self.state = self.get_state()
+            self.state_vector = self.get_state_vector()
 
             # add rewards
             new_rew = self.objectives()
@@ -614,7 +635,8 @@ class TanksWorldEnv(gym.Env):
         #info = [
         #    {"red_stats": self.red_team_stats, "blue_stats": self.blue_team_stats}
         #] * len(self.training_tanks)
-        info = {"red_stats": self.red_team_stats, "blue_stats": self.blue_team_stats}
+        info = {"red_stats": self.red_team_stats, "blue_stats": self.blue_team_stats,
+                "state_vector": self.state_vector}
 
         return (
             self.state,

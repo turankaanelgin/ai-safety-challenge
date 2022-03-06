@@ -38,6 +38,7 @@ class Trainer:
         if config['fixed_kl']: folder_name += '__FIXEDKL{}'.format(config['kl_beta'])
         elif config['adaptive_kl']: folder_name += '__ADAPTIVEKL{}'.format(config['kl_beta'])
         if config['curriculum_stop'] != -1: folder_name += '__CURR{}'.format(config['curriculum_stop'])
+        if config['selfplay']: folder_name += '__SELFPLAY'
         if config['init_log_std'] != -0.5: folder_name += '__STD{}'.format(config['init_log_std'])
         if config['death_penalty']: folder_name += '__DP'
         if config['async_enemy']: folder_name += '__ASYNC'
@@ -93,8 +94,15 @@ class Trainer:
                             os.makedirs(stats_dir, exist_ok=True)
                             tb_writer = SummaryWriter(stats_dir)
 
+                        if config['selfplay']:
+                            random_tanks = []
+                            num_agents = 10
+                        else:
+                            random_tanks = [5,6,7,8,9]
+                            num_agents = 5
+
                         env_kwargs = {'exe': config['exe'],
-                                      'static_tanks': [], 'random_tanks': [5,6,7,8,9], 'disable_shooting': [],
+                                      'static_tanks': [], 'random_tanks': random_tanks, 'disable_shooting': [],
                                       'friendly_fire': False, 'kill_bonus': False, 'death_penalty': config['death_penalty'],
                                       'take_damage_penalty': True, 'tblogs': stats_dir, 'tbwriter': tb_writer,
                                       'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
@@ -109,11 +117,12 @@ class Trainer:
 
                             return init_
 
-                        env = DummyVecEnv([make_env_(e_seed)], 5)
+                        env = DummyVecEnv([make_env_(e_seed)], num_agents)
                         all_training_envs.append(env)
                         all_policy_records.append(policy_record)
                         all_policy_seeds.append(p_seed)
                         all_tb_writers.append(tb_writer)
+
         else: # Multiple rollouts
 
             # Set one policy per multiple environments
@@ -129,7 +138,7 @@ class Trainer:
                 os.makedirs(stats_dir, exist_ok=True)
                 tb_writer = SummaryWriter(stats_dir)
 
-                if config['async_enemy']:
+                if config['async_enemy'] or config['selfplay']:
                     random_tanks = []
                 else:
                     random_tanks = [5,6,7,8,9]
@@ -287,6 +296,7 @@ class Trainer:
             'heuristic_policy': config['heuristic'],
             'enemy_model_paths': enemy_model_paths,
             'init_log_std': config['init_log_std'],
+            'selfplay': config['selfplay'],
         }
 
         return policy_kwargs

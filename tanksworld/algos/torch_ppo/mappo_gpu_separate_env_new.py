@@ -7,8 +7,12 @@ from torch.optim import Adam
 from . import core
 import os
 import json
+import math
+import pickle
 
 from .lambda_schedulers import TanhLS
+
+from tanksworld.minimap_util import *
 
 
 device = torch.device('cuda')
@@ -147,11 +151,63 @@ class PPOPolicy():
 
 
     def run(self, num_steps):
+        '''
         self.kargs.update({'steps_to_run': num_steps})
         if self.eval_mode:
             self.evaluate(steps_to_run=num_steps, model_path=self.kargs['model_path'])
         else:
             self.learn(**self.kargs)
+        '''
+        self.collect_data(steps_to_run=num_steps, model_path=self.kargs['model_path'])
+
+
+    def collect_data(self, steps_to_run, model_path, actor_critic=core.MLPActorCritic, ac_kwargs=dict()):
+
+        steps = 0
+        observation = self.env.reset()
+
+        self.ac_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
+        ckpt = torch.load(model_path)
+        self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
+        self.ac_model.eval()
+        num_envs = 10
+        all_obs = None
+        all_next_obs = None
+        all_actions = None
+        file_cnt = 0
+
+        while steps < steps_to_run:
+            with torch.no_grad():
+                action, v, logp, _ = self.ac_model.step(torch.as_tensor(observation, dtype=torch.float32).to(device))
+            next_observation, reward, done, info = self.env.step(action.cpu().numpy())
+
+            if all_obs is None:
+                all_obs = np.reshape(observation, (num_envs*5, 4, 128, 128))
+                all_next_obs = np.reshape(next_observation, (num_envs*5, 4, 128, 128))
+                all_actions = np.reshape(action.cpu().numpy(), (num_envs*5, 3))
+            else:
+                all_obs = np.concatenate((all_obs,
+                                          np.reshape(observation, (num_envs*5, 4, 128, 128))), axis=0)
+                all_next_obs = np.concatenate((all_next_obs,
+                                               np.reshape(next_observation, (num_envs*5, 4, 128, 128))), axis=0)
+                all_actions = np.concatenate((all_actions,
+                                              np.reshape(action.cpu().numpy(), (num_envs*5, 3))), axis=0)
+
+            if (steps + 1) % 50000 == 0:
+                dataset = {"obs": all_obs,
+                           "next_obs": all_next_obs,
+                           "action": all_actions}
+                with open('/scratch/users/telgin1@jhu.edu/dataset/data{}'.format(file_cnt), 'w+') as f:
+                    pickle.dump(dataset, f)
+
+            observation = next_observation
+
+            if np.any(done):
+                observation = self.env.reset()
+
+            steps += 1
+
+
 
 
     def evaluate(self, steps_to_run, model_path, actor_critic=core.MLPActorCritic, ac_kwargs=dict()):
@@ -274,6 +330,7 @@ class PPOPolicy():
     def load_model(self, model_path, cnn_model_path, freeze_rep, steps_per_epoch):
 
         self.start_step = 0
+        self.best_eval_score = -np.infty
         # Load from previous checkpoint
         if model_path:
             ckpt = torch.load(model_path)
@@ -282,6 +339,9 @@ class PPOPolicy():
             self.vf_optimizer.load_state_dict(ckpt['vf_optimizer_state_dict'])
             self.start_step = ckpt['step']
             self.start_step -= self.start_step % steps_per_epoch
+            if os.path.exists(os.path.join(self.callback.policy_record.data_dir, 'best_eval_score.json')):
+                with open(os.path.join(self.callback.policy_record.data_dir, 'best_eval_score.json'), 'r') as f:
+                    self.best_eval_score = json.load(f)
 
             if freeze_rep:
                 for name, param in self.ac_model.named_parameters():
@@ -414,13 +474,78 @@ class PPOPolicy():
             self.vf_optimizer.step()
 
 
+    def get_ally_heuristic(self, state_vector, obs, step):
+
+        import matplotlib.pyplot as plt
+
+        obs_to_display = (obs[0][0][0].cpu().numpy() * 255.0).astype(np.uint8)
+        imgplot = plt.imshow(obs_to_display, cmap='gray', vmin=0, vmax=255)
+        plt.savefig('obs_image.png')
+        plt.show()
+        plt.close()
+
+        heuristic_actions = []
+        for tank_idx in range(5):
+            state = state_vector[tank_idx]
+            x, y = state[0], state[1]
+            heading = state[2]
+            min_distance = np.infty
+            closest_ally = tank_idx
+            min_angle = 0
+            rel_pos = 1
+            for ally_idx in range(5):
+                if ally_idx != tank_idx:
+                    ally_state = state_vector[ally_idx]
+                    ally_x, ally_y = ally_state[0], ally_state[1]
+                    dx = x - ally_x
+                    dy = y - ally_y
+
+                    rel_ally_x, rel_ally_y = point_relative_point_heading([ally_x,ally_y], [x,y], heading)
+                    rel_ally_x = (rel_ally_x / UNITY_SZ) * SCALE + float(IMG_SZ) * 0.5
+                    rel_ally_y = (rel_ally_y / UNITY_SZ) * SCALE + float(IMG_SZ) * 0.5
+
+                    dist = math.sqrt(dx * dx + dy * dy)
+                    angle = math.atan2(dy, dx)
+                    if dist < min_distance:
+                        min_distance = dist
+                        closest_ally = ally_idx
+                        closest_relative_point = [rel_ally_x, rel_ally_y]
+                        min_angle = angle * 180 / 3.14
+                        if min_angle > 90: min_angle = 180 - min_angle
+                        min_angle = min_angle / 180 * 3.14
+                        if ally_x < x: rel_pos = -1
+                        else: rel_pos = 1
+
+            if min_angle > 0:
+                heuristic_action = np.asarray([[0.5, 2*rel_pos*abs(min_angle), -1.0]])
+            else:
+                heuristic_action = np.asarray([[-0.5, 2*rel_pos*abs(min_angle), -1.0]])
+            if tank_idx > 0:
+                heuristic_action = np.asarray([[0,0,0]])
+            heuristic_actions.append(heuristic_action)
+
+            if (step+1) % 10 == 0 and tank_idx == 0:
+                print('X, Y', [x,y])
+                print('CLOSEST X, Y', [state_vector[closest_ally][0], state_vector[closest_ally][1]])
+                rel_ally_x, rel_ally_y = point_relative_point_heading(state_vector[closest_ally][:2], [x, y], heading)
+                print('RELATIVE X Y', [rel_ally_x, rel_ally_y])
+                rel_ally_x = (rel_ally_x / UNITY_SZ) * SCALE + float(IMG_SZ) * 0.5
+                rel_ally_y = (rel_ally_y / UNITY_SZ) * SCALE + float(IMG_SZ) * 0.5
+                print('NORMALIZED X Y', [rel_ally_x, rel_ally_y])
+                pdb.set_trace()
+        return np.expand_dims(np.concatenate(heuristic_actions, axis=0), axis=0)
+
+
+
+
     def learn(self, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=-1,
               steps_per_epoch=800, steps_to_run=100000, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
               vf_lr=1e-3, ent_coef=0.0, train_pi_iters=80, train_v_iters=80, lam=0.97,
               target_kl=0.01, tsboard_freq=-1, curriculum_start=-1, curriculum_stop=-1, use_value_norm=False,
               use_huber_loss=False, use_rnn=False, use_popart=False, use_sde=False, sde_sample_freq=1,
               pi_scheduler='cons', vf_scheduler='cons', freeze_rep=True, entropy_coef=0.0,
-              tb_writer=None, heuristic_policy=None, enemy_model_paths=None, **kargs):
+              tb_writer=None, heuristic_policy=None, enemy_model_paths=None, selfplay=False,
+              ally_heuristic=False, **kargs):
 
         env = self.env
         self.writer = tb_writer
@@ -430,13 +555,15 @@ class PPOPolicy():
         ac_kwargs['init_log_std'] = kargs['init_log_std']
         self.central_critic = kargs['central_critic']
 
+        print('POLICY SEED', seed)
+
         self.setup_model(actor_critic, pi_lr, vf_lr, ac_kwargs, enemy_model_paths)
         self.load_model(kargs['model_path'], kargs['cnn_model_path'], freeze_rep, steps_per_epoch)
         num_envs = kargs['n_envs']
         if self.callback:
             self.callback.init_model(self.ac_model)
 
-        if heuristic_policy is not None:
+        if heuristic_policy is not None and heuristic_policy != '':
             heuristic_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
             heuristic_model.load_state_dict(torch.load(heuristic_policy)['model_state_dict'])
             heuristic_function = heuristic_model.v
@@ -464,17 +591,44 @@ class PPOPolicy():
         last_hundred_red_blue_damages = [[] for _ in range(num_envs)]
         last_hundred_red_red_damages = [[] for _ in range(num_envs)]
         last_hundred_blue_red_damages = [[] for _ in range(num_envs)]
-        best_eval_score = 0
+        best_eval_score = self.best_eval_score
         lambda_ = TanhLS(init_lambd=0.95, n_epochs=1000)
+        if ally_heuristic:
+            mixing_coeff = 0.8
+        prev_ckpt = None
+
+        if selfplay:
+            enemy_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
+            enemy_model.requires_grad = False
+            enemy_model.eval()
 
         while step < steps_to_run:
 
             if (step + 1) % 50000 == 0 or step == 0:
                 self.save_model(kargs['save_dir'], step)
 
+            if (step + 1) % 25000 == 0 and (step + 1) % 50000 != 0:
+                prev_ckpt = self.ac_model.state_dict()
+
+            if (step + 1) % 25000 == 0 and ally_heuristic:
+                mixing_coeff -= 0.05
+
+            if (step + 1) % 50000 == 0 and selfplay:
+                if prev_ckpt is not None:
+                    enemy_model.load_state_dict(prev_ckpt)
+
             step += 1
             obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
-            if enemy_model_paths is not None:
+
+            if selfplay:
+                ally_obs = obs[:, :5, :, :, :]
+                ally_a, v, logp, entropy = self.ac_model.step(ally_obs)
+                enemy_obs = obs[:,5:,:,:,:]
+                with torch.no_grad():
+                    enemy_a, _, _, _ = enemy_model.step(enemy_obs)
+                a = torch.cat((ally_a, enemy_a), dim=1)
+
+            elif enemy_model_paths is not None:
                 ally_obs = obs[:,:5,:,:,:]
                 ally_a, v, logp, entropy = self.ac_model.step(ally_obs)
 
@@ -487,16 +641,46 @@ class PPOPolicy():
                         all_enemy_a.append(enemy_a)
                     else:
                         enemy_obs = obs[idx,5:,:,:,:]
-                        enemy_a, _, _, _ = self.enemy_models[idx].step(enemy_obs)
+                        with torch.no_grad():
+                            enemy_a, _, _, _ = self.enemy_models[idx].step(enemy_obs)
                         enemy_a = enemy_a.squeeze(1).unsqueeze(0)
                         all_enemy_a.append(enemy_a)
                 enemy_a = torch.cat(all_enemy_a, dim=0)
                 a = torch.cat((ally_a, enemy_a), dim=1)
+
             else:
                 a, v, logp, entropy = self.ac_model.step(obs)
+
+            if step > 1 and ally_heuristic:
+                heuristic_action = self.get_ally_heuristic(self.state_vector, obs, step)
+
             next_obs, r, terminal, info = env.step(a.cpu().numpy())
 
-            if enemy_model_paths is not None:
+            '''
+            import matplotlib.pyplot as plt
+            obs_to_display = (np.asarray(obs[0][0][0]) * 255.0).astype(np.uint8)
+            imgplot = plt.imshow(obs_to_display, cmap='gray', vmin=0, vmax=255)
+            plt.savefig('obs_image.png')
+            plt.show()
+            plt.close()
+
+            if step == 1:
+                next_obs, r, terminal, info = env.step(a.cpu().numpy())
+            else:
+                next_obs, r, terminal, info = env.step(heuristic_action)
+            self.state_vector = info[0]['state_vector']
+
+            obs_to_display = (np.asarray(next_obs[0][0][0]) * 255.0).astype(np.uint8)
+            imgplot = plt.imshow(obs_to_display, cmap='gray', vmin=0, vmax=255)
+            plt.savefig('next_obs_image.png')
+            plt.show()
+            plt.close()
+
+            if (step+1) % 10 == 0:
+                pdb.set_trace()
+            '''
+
+            if enemy_model_paths is not None or selfplay:
                 r = r[:,:5]
                 a = ally_a
                 obs = ally_obs
@@ -504,7 +688,7 @@ class PPOPolicy():
             ep_ret += np.average(np.sum(r, axis=1))
             ep_len += 1
 
-            if heuristic_policy is not None:
+            if heuristic_policy is not None and heuristic_policy != '':
                 with torch.no_grad():
                     heuristic = heuristic_function(obs)
                 gamma_ = gamma * lambda_()
@@ -537,7 +721,7 @@ class PPOPolicy():
             if np.any(terminal) or epoch_ended:
 
                 with torch.no_grad():
-                    obs_input = self.obs[:,:5,:,:,:] if enemy_model_paths is not None else self.obs
+                    obs_input = self.obs[:,:5,:,:,:] if enemy_model_paths is not None or selfplay else self.obs
                     _, v, _, _ = self.ac_model.step(
                         torch.as_tensor(obs_input, dtype=torch.float32).to(device))
 
@@ -591,7 +775,7 @@ class PPOPolicy():
                 episode_red_blue_damages = []
                 episode_blue_red_damages = []
                 episode_red_red_damages = []
-
+            '''
             if step % 50000 == 0:# or step == 1:
 
                 if self.callback and self.callback.eval_env:
@@ -602,3 +786,4 @@ class PPOPolicy():
                         with open(os.path.join(self.callback.policy_record.data_dir, 'best_eval_score.json'),
                                   'w+') as f:
                             json.dump(best_eval_score, f)
+            '''
