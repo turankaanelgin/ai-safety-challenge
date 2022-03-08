@@ -11,6 +11,7 @@ from tanksworld.minimap_util import (
     minimap_for_player,
     displayable_rgb_map,
     display_cvimage,
+    overviewmap_for_player
 )
 import cv2
 import pathlib
@@ -207,6 +208,8 @@ class TanksWorldEnv(gym.Env):
 
         # The following line is added for Pytorch
         ret_states = [np.expand_dims(s.transpose((2, 0, 1)), 0) for s in ret_states]
+
+        self.overviewmap = overviewmap_for_player(state_reformat, barriers)
 
         return ret_states
 
@@ -636,7 +639,7 @@ class TanksWorldEnv(gym.Env):
         #    {"red_stats": self.red_team_stats, "blue_stats": self.blue_team_stats}
         #] * len(self.training_tanks)
         info = {"red_stats": self.red_team_stats, "blue_stats": self.blue_team_stats,
-                "state_vector": self.state_vector}
+                "state_vector": self.state_vector, "overview": self.overviewmap}
 
         return (
             self.state,

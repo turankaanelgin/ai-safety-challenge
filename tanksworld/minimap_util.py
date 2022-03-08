@@ -1,4 +1,6 @@
 # ©2020 Johns Hopkins University Applied Physics Laboratory LLC.
+import pdb
+
 import cv2
 import numpy as np
 import math, random, time
@@ -6,6 +8,9 @@ import math, random, time
 IMG_SZ = 128         #how big is the output image
 UNITY_SZ = 100.0     #what is the side length of the space in unity coordintaes
 SCALE = 120.0        #what is the side length of the space when drawn on our image
+
+cnt = 0
+
 
 def point_offset_point(p_origin, angle, radius):
     px = p_origin[0] + math.cos(angle)*radius
@@ -58,9 +63,9 @@ def draw_bullet(image, x, y):
 
 def draw_tanks_in_channel(tank_data, reference_tank):
 
+
     img = np.zeros((IMG_SZ, IMG_SZ, 1), np.uint8)
 
-    #draw tanks
     for td in tank_data:
 
         if td[3] <= 0.0:
@@ -87,7 +92,89 @@ def draw_tanks_in_channel(tank_data, reference_tank):
                 x = (rel_x/UNITY_SZ) * SCALE + float(IMG_SZ)*0.5
                 y = (rel_y/UNITY_SZ) * SCALE + float(IMG_SZ)*0.5
                 img = draw_bullet(img, x, y)
+    return img
 
+
+def draw_tanks_in_channel_v2(tank_data):
+
+    img = np.zeros((IMG_SZ, IMG_SZ, 1), np.uint8)
+
+    # draw tanks
+    for td in tank_data:
+
+        if td[3] <= 0.0:
+            continue
+
+        rel_x, rel_y = td[0], td[1]
+
+        x = (rel_x / UNITY_SZ) * SCALE + float(IMG_SZ) * 0.5
+        y = (rel_y / UNITY_SZ) * SCALE + float(IMG_SZ) * 0.5
+        heading = td[2]
+        health = td[3]
+
+        img = draw_arrow(img, x, y, heading, health)
+
+        # draw bullet if present
+        if len(td) > 4:
+            bx = td[4]
+            by = td[5]
+
+            if bx < 900:
+                x = (bx / UNITY_SZ) * SCALE + float(IMG_SZ) * 0.5
+                y = (by / UNITY_SZ) * SCALE + float(IMG_SZ) * 0.5
+                img = draw_bullet(img, x, y)
+
+    return img
+
+
+# expects state data chopped on a tank by tank basis
+# ie. for 5 red, 5 blue, 2 neutral, expects a length 12 array
+def overviewmap_for_player(tank_data_original, barriers):
+
+    global cnt
+
+    barriers = np.flipud(barriers)
+
+    tank_data = []
+    for td in tank_data_original:
+        tank_data.append([td[0], -td[1], td[2], td[3], td[4], -td[5]])
+
+    ally = tank_data[:5]
+    enemy = tank_data[5:10]
+    neutral = tank_data[10:]
+
+    ally_channel = draw_tanks_in_channel_v2(ally)
+    enemy_channel = draw_tanks_in_channel_v2(enemy)
+    neutral_channel = draw_tanks_in_channel_v2(neutral)
+    '''
+    import matplotlib.pyplot as plt
+    obs_to_display = (ally_channel[:,:,0]).astype(np.uint8)
+    imgplot = plt.imshow(obs_to_display, cmap='gray', vmin=0, vmax=255)
+    plt.savefig('ally.png')
+    plt.show()
+    plt.close()
+
+    obs_to_display = (enemy_channel).astype(np.uint8)
+    imgplot = plt.imshow(obs_to_display.squeeze(-1), cmap='gray', vmin=0, vmax=255)
+    plt.savefig('enemy.png')
+    plt.show()
+    plt.close()
+
+    obs_to_display = (neutral_channel).astype(np.uint8)
+    imgplot = plt.imshow(obs_to_display.squeeze(-1), cmap='gray', vmin=0, vmax=255)
+    plt.savefig('neutral.png')
+    plt.show()
+    plt.close()
+
+    cnt += 1
+    if cnt == 10:
+        pdb.set_trace()
+    '''
+
+    img = np.concatenate([ally_channel, neutral_channel, enemy_channel], axis=2)
+    barriers_pad = np.zeros((IMG_SZ, IMG_SZ, 3))
+    barriers_pad[1:, ...] = barriers
+    img = np.maximum(img, barriers_pad*255)
     return img
 
 def barriers_for_player(barriers, reference_tank):
