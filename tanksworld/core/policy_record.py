@@ -14,7 +14,8 @@ def get_dir_for_policy(policy_id, log_comms_dir):
 
 class RecordChannel():
     def __init__(self, data_dir, color='#eb0033', ylabel='Episodic Damage',
-                 windows=[20,50,100], alphas=[0.1,0.3,1.0], intrinsic_reward=False):
+                 windows=[20,50,100], alphas=[0.1,0.3,1.0], intrinsic_reward=False,
+                 std=False):
 
         self.data_dir = data_dir
         self.ep_results = []
@@ -30,11 +31,17 @@ class RecordChannel():
         self.windows = windows
         self.alphas = alphas
         self.intrinsic_reward = intrinsic_reward
+        self.std = std
+        if std:
+            self.ep_stds = [[], [], []]
 
     def save(self):
         if self.intrinsic_reward:
             data = [self.ep_results, self.ep_red_red_damages, self.ep_red_blue_damages, self.ep_blue_red_damages,
                     self.ep_intrinsic, self.ep_lengths, self.ep_cumlens]
+        elif self.std:
+            data = [self.ep_results, self.ep_red_red_damages, self.ep_red_blue_damages, self.ep_blue_red_damages,
+                    self.ep_stds, self.ep_lengths, self.ep_cumlens]
         else:
             data = [self.ep_results, self.ep_red_red_damages, self.ep_red_blue_damages, self.ep_blue_red_damages,
                     self.ep_lengths, self.ep_cumlens]
@@ -51,6 +58,10 @@ class RecordChannel():
             plot_policy_records([self], self.windows, self.alphas,
                                 self.data_dir + "plot_intrinsic_reward.png", colors=[self.color],
                                 episodic=False, intrinsic=True)
+        if self.std:
+            plot_policy_records_std([self], self.windows, self.alphas,
+                                    self.data_dir + "plot_std.png", colors=[self.color],
+                                    episodic=False)
 
     def load(self):
         path = self.data_dir + "policy_record.p"
@@ -59,6 +70,9 @@ class RecordChannel():
             if self.intrinsic_reward:
                 self.ep_results, self.ep_red_red_damages, self.ep_red_blue_damages, self.ep_blue_red_damages, \
                     self.ep_intrinsic, self.ep_lengths, self.ep_cumlens = data
+            elif self.std:
+                self.ep_results, self.ep_red_red_damages, self.ep_red_blue_damages, self.ep_blue_red_damages, \
+                    self.ep_stds, self.ep_lengths, self.ep_cumlens = data
             else:
                 self.ep_results, self.ep_red_red_damages, self.ep_red_blue_damages, self.ep_blue_red_damages, \
                     self.ep_lengths, self.ep_cumlens = data
@@ -78,18 +92,21 @@ class RecordChannel():
         rc.ep_cumlens = self.ep_cumlens[:]
         if self.intrinsic_reward:
             rc.ep_intrinsic = self.ep_intrinsic[:]
+        if self.std:
+            rc.ep_stds = self.ep_stds[:]
         return rc
 
 
 class PolicyRecord():
 
-    def __init__(self, policy_folder_name, log_comms_dir, plot_color="#eb0033", intrinsic_reward=False):
+    def __init__(self, policy_folder_name, log_comms_dir, plot_color="#eb0033", intrinsic_reward=False, std=False):
 
         self.plot_color = plot_color
 
         self.log_comms_dir = log_comms_dir
         self.data_dir = get_dir_for_policy(policy_folder_name, log_comms_dir)
-        self.channels = {'main': RecordChannel(self.data_dir, color=plot_color, intrinsic_reward=intrinsic_reward)}
+        self.channels = {'main': RecordChannel(self.data_dir, color=plot_color, intrinsic_reward=intrinsic_reward,
+                                               std=std)}
 
         if not os.path.exists(self.data_dir):
             os.makedirs(self.data_dir)
@@ -98,7 +115,7 @@ class PolicyRecord():
 
 
     def add_result(self, total_reward, red_blue_damage, red_red_damage, blue_red_damage, ep_len, channel="main",
-                   intrinsic_reward=None):
+                   intrinsic_reward=None, std=None):
 
         if channel not in self.channels:
             self.add_channel(channel)
@@ -116,6 +133,10 @@ class PolicyRecord():
             ch.ep_cumlens.append(ch.ep_cumlens[-1]+ep_len)
         if intrinsic_reward is not None:
             ch.ep_intrinsic.append(intrinsic_reward)
+        if std is not None:
+            ch.ep_stds[0].append(std[0])
+            ch.ep_stds[1].append(std[1])
+            ch.ep_stds[2].append(std[2])
 
 
     def add_channel(self, channel_name, **kwargs):

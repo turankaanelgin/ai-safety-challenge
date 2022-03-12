@@ -7,9 +7,9 @@ import numpy as np
 def take_first(elem):
     return elem[0]
 
-main_eval_folder = './logs/0.5'
+main_eval_folder = './logs/curriculum'
 for policy_folder in os.listdir(main_eval_folder):
-    if policy_folder[-4:] == 'json':
+    if policy_folder.endswith('json'):
         continue
     if not policy_folder.endswith('EVAL'):
         continue
@@ -23,7 +23,7 @@ for policy_folder in os.listdir(main_eval_folder):
     difference_mean = []
 
     for seed_folder in os.listdir(os.path.join(main_eval_folder, policy_folder, '999999')):
-        file_path = os.path.join(main_eval_folder, policy_folder, '999999', seed_folder, 'all_statistics.json')
+        file_path = os.path.join(main_eval_folder, policy_folder, '999999', seed_folder, 'mean_statistics_per_env.json')
         if not os.path.exists(file_path):
             continue
         with open(file_path) as f:
@@ -70,5 +70,5 @@ for policy_folder in os.listdir(main_eval_folder):
                   'Max Red-Red Damage': total_max_red_red,
                   'Max Red-Blue Damage': total_max_red_blue,
                   'Max Blue-Red Damage': total_max_blue_red,}
-    with open(os.path.join(main_eval_folder, policy_folder, '999999', 'accumulated_stats.json'), 'w+') as f:
+    with open(os.path.join(main_eval_folder, policy_folder, '999999', 'mean_statistics_per_env.json'), 'w+') as f:
         json.dump(stats_dict, f, indent=4)

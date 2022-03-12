@@ -67,7 +67,7 @@ commands = []
 for config in cfg.grid:
     for e_seed_idx, e_seed in enumerate(env_seeds):
         for p_seed_idx, p_seed in enumerate(policy_seeds):
-            command = ['python3.6', 'my_main_script_updated.py']
+            command = ['python', 'my_main_script_updated.py']
             command += ['--exe', args.exe]
             command += ['--logdir', args.logdir]
             for arg_name in config:
@@ -78,6 +78,7 @@ for config in cfg.grid:
                                     'eval_mode', 'local_std'] and arg_value:
                         command += ['--{}'.format(arg_name)]
                 else:
+                    if arg_value == '': continue
                     command += ['--{}'.format(arg_name)]
                     command += ['{}'.format(arg_value)]
             command += ['--env_seed', '{}'.format(e_seed)]
@@ -94,10 +95,27 @@ def call_func(command):
 for c in commands:
     print(' '.join(c))
 
+
+for seed_idx in range(len(commands)):
+    with open('./tasks/commands{}_marcc.sh'.format(seed_idx), 'a') as f:
+        f.write(' '.join(commands[seed_idx])+'\n')
+
+'''
+cuda_idx = 0
+for idx, command in enumerate(commands):
+    with open('./tasks/task{}_cuda{}.sh'.format(idx, cuda_idx), 'w+') as f:
+        f.write('TMUX='' tmux new-session -s task{}_cuda{}_eval '.format(idx, cuda_idx))
+        f.write('\'source ~/anaconda3/etc/profile.d/conda.sh\n')
+        f.write('conda activate tanksworld\n')
+        f.write('CUDA_VISIBLE_DEVICES={} '.format(cuda_idx))
+        f.write(' '.join(command))
+        f.write('\'')
+'''
+'''
 procs = [ Popen(c) for c in commands ]
 for p in procs:
    p.wait()
-
+'''
 '''
 processes = []
 for core_idx, c in enumerate(commands):

@@ -12,7 +12,8 @@ import numpy as np
 
 from make_env import make_env
 from core.policy_record import PolicyRecord
-from algos.torch_ppo.mappo_gpu_new import PPOPolicy as TorchGPUMAPPOPolicyNew
+#from algos.torch_ppo.mappo_gpu_new import PPOPolicy as TorchGPUMAPPOPolicyNew
+from algos.torch_ppo.mappo_gpu_new_improved import PPOPolicy as TorchGPUMAPPOPolicyNew
 from algos.torch_ppo.mappo_gpu_separate_env_new import PPOPolicy as MultiEnvMAPPOPolicy
 from algos.torch_ppo.mappo_gpu_multiplayer import PPOPolicy as MAPPOMultiPlayer
 from algos.torch_ppo.mappo_gpu_curiosity import PPOPolicy as MAPPOCuriosity
@@ -98,7 +99,10 @@ if __name__ == '__main__':
     else:
         env_seed = args.env_seed
 
-    stats_dir = os.path.join('./logs', args.logdir, folder_name, 'stats')
+    if not args.eval_mode:
+        stats_dir = os.path.join('./logs', args.logdir, folder_name, 'stats')
+    else:
+        stats_dir = './tmp'
     os.makedirs(stats_dir, exist_ok=True)
     tb_writer = SummaryWriter(stats_dir)
 
@@ -225,6 +229,7 @@ if __name__ == '__main__':
         'use_adaptive_kl': args.adaptive_kl,
         'kl_beta': args.kl_beta,
         'local_std': args.local_std,
+        'weight_sharing': False,
     }
 
     callback = EvalCallback(env, policy_record, eval_env=None)

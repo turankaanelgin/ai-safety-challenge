@@ -575,6 +575,7 @@ class PPOPolicy():
         episode_lengths = []
         episode_returns = []
         episode_red_blue_damages, episode_red_red_damages, episode_blue_red_damages = [], [], []
+        episode_stds = []
         last_hundred_red_blue_damages = [[] for _ in range(num_envs)]
         last_hundred_red_red_damages = [[] for _ in range(num_envs)]
         last_hundred_blue_red_damages = [[] for _ in range(num_envs)]
@@ -587,21 +588,23 @@ class PPOPolicy():
 
         self.overview = torch.zeros((num_envs, 3, 128, 128)).to(device)
 
+        self.overview = np.zeros((num_envs, 3, 128, 128))
+
         while step < steps_to_run:
 
             if (step + 1) % 50000 == 0 or step == 0:
                 self.save_model(kargs['save_dir'], step)
 
-            if (step + 1) % 25000 == 0 and (step + 1) % 50000 != 0:
+            if (step + 1) % 75000 == 0 and selfplay:
+                if prev_ckpt is not None:
+                    enemy_model.load_state_dict(prev_ckpt)
+
+            if (step + 1) % 50000 == 0:
                 prev_ckpt = self.ac_model.state_dict()
 
             if (step + 1) % 25000 == 0 and ally_heuristic:
                 if mixing_coeff >= 0.05:
                     mixing_coeff -= 0.05
-
-            if (step + 1) % 50000 == 0 and selfplay:
-                if prev_ckpt is not None:
-                    self.enemy_model.load_state_dict(prev_ckpt)
 
             step += 1
             obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
@@ -744,6 +747,8 @@ class PPOPolicy():
                 episode_red_red_damages.append(ep_rr_dmg)
                 episode_blue_red_damages.append(ep_br_dmg)
                 episode_red_blue_damages.append(ep_rb_dmg)
+                std = torch.exp(self.ac_model.pi.log_std).cpu().detach().numpy()
+                episode_stds.append(std)
 
                 if epoch_ended:
                     self.update(buf, train_pi_iters, train_v_iters, target_kl, clip_ratio, entropy_coef,
@@ -759,7 +764,8 @@ class PPOPolicy():
 
                 if self.callback:
                     self.callback.save_metrics_multienv(episode_returns, episode_lengths, episode_red_blue_damages,
-                                                        episode_red_red_damages, episode_blue_red_damages)
+                                                        episode_red_red_damages, episode_blue_red_damages,
+                                                        episode_stds=episode_stds)
 
                     with open(os.path.join(self.callback.policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
                         if last_hundred_red_blue_damages[0] is not None:
@@ -778,7 +784,8 @@ class PPOPolicy():
                 episode_red_blue_damages = []
                 episode_blue_red_damages = []
                 episode_red_red_damages = []
-            '''
+                episode_stds = []
+
             if step % 50000 == 0:# or step == 1:
 
                 if self.callback and self.callback.eval_env:
@@ -789,4 +796,3 @@ class PPOPolicy():
                         with open(os.path.join(self.callback.policy_record.data_dir, 'best_eval_score.json'),
                                   'w+') as f:
                             json.dump(best_eval_score, f)
-            '''

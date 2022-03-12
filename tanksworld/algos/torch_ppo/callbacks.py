@@ -243,7 +243,8 @@ class EvalCallback:
         '''
 
     def save_metrics_multienv(self, episode_returns, episode_lengths, episode_red_blue_damages, episode_red_red_damages,
-                              episode_blue_red_damages, eval_mode=False, episode_intrinsic_rewards=None):
+                              episode_blue_red_damages, eval_mode=False, episode_intrinsic_rewards=None,
+                              episode_stds=None):
 
         if len(episode_lengths) == 0: return
 
@@ -257,6 +258,13 @@ class EvalCallback:
                                                   episode_red_red_damages[idx], episode_blue_red_damages[idx],
                                                   episode_lengths[idx],
                                                   intrinsic_reward=episode_intrinsic_rewards[idx])
+                    elif episode_stds:
+                        self.policy_record.add_result(np.average(episode_returns[idx]),
+                                                      np.average(episode_red_blue_damages[idx]),
+                                                      np.average(episode_red_red_damages[idx]),
+                                                      np.average(episode_blue_red_damages[idx]),
+                                                      episode_lengths[idx],
+                                                      std=episode_stds[idx])
                     else:
                         self.policy_record.add_result(np.average(episode_returns[idx]),
                                                       np.average(episode_red_blue_damages[idx]),

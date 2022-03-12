@@ -1,6 +1,8 @@
 # ©2020 Johns Hopkins University Applied Physics Laboratory LLC.
 import pdb
 
+import matplotlib
+matplotlib.use('pdf')
 import matplotlib.pyplot as plt
 import numpy as np
 import random, colorsys
@@ -69,6 +71,89 @@ def plot_policy_records_damage(records, windows, alphas, filename, colors=None, 
 			ax.plot(rolling_avg_steps, rolling_avg_damages_red_blue, color=colors[0], alpha=alpha, label='Red-Blue')
 			ax.plot(rolling_avg_steps, rolling_avg_damages_red_red, color=colors[1], alpha=alpha, label='Red-Red')
 			ax.plot(rolling_avg_steps, rolling_avg_damages_blue_red, color=colors[2], alpha=alpha, label='Blue-Red')
+
+	if episodic:
+		ax.set_xlabel("Episodes")
+	else:
+		ax.set_xlabel("Steps")
+	ax.set_ylabel(ylabel)
+	ax.legend()
+
+	# change .png to _steps.png or _episodes.png
+	if ".png" not in filename:
+		filename = filename + ".png"
+
+	if episodic:
+		filename = filename.replace(".png", "_episodes.png")
+	else:
+		filename = filename.replace(".png", "_steps.png")
+
+	if return_figure:
+		return fig, ax
+	else:
+		plt.savefig(filename)
+		# clear the figure so we dont plot on top of other plots
+		plt.close(fig)
+
+
+def plot_policy_records_std(records, windows, alphas, filename, colors=None, offsets=None,
+							episodic=False, fig=None, ax=None, return_figure=False):
+
+	default_colors = []
+	hues = [1, 4, 7, 10, 3, 6, 9, 12, 2, 5, 8, 11]
+	for h in hues:
+		default_colors.append(randomRGBPure(float(h) / 12.0))
+
+	colors = default_colors[:3]
+
+	if offsets is None:
+		offsets = []
+		for _ in records:
+			offsets.append(0)
+
+	if fig is None:
+		fig, ax = plt.subplots(1, 1, figsize=(12, 6))
+
+	for widx, windowsize in enumerate(windows):
+
+		alpha = alphas[widx]
+
+		for pridx, pol in enumerate(records):
+
+			ylabel = pol.ylabel
+
+			steps = pol.ep_cumlens
+			ep_stds = pol.ep_stds
+
+			for k in range(len(steps)):
+				steps[k] += offsets[pridx]
+
+			rolling_avg_buffer = [[], [], []]
+			rolling_avg_stds = [[], [], []]
+			rolling_avg_steps = []
+
+			for i in range(len(steps)):
+				rolling_avg_buffer[0].append(ep_stds[0][i])
+				rolling_avg_buffer[1].append(ep_stds[1][i])
+				rolling_avg_buffer[2].append(ep_stds[2][i])
+
+				if len(rolling_avg_buffer[0]) > windowsize:
+					rolling_avg_buffer[0].pop(0)
+					rolling_avg_buffer[1].pop(0)
+					rolling_avg_buffer[2].pop(0)
+					rolling_avg_stds[0].append(np.mean(rolling_avg_buffer[0]))
+					rolling_avg_stds[1].append(np.mean(rolling_avg_buffer[1]))
+					rolling_avg_stds[2].append(np.mean(rolling_avg_buffer[2]))
+
+					if episodic:
+						rolling_avg_steps.append(i + 1)
+					else:
+						rolling_avg_steps.append(steps[i])
+
+			# plot
+			ax.plot(rolling_avg_steps, rolling_avg_stds[0], color=colors[0], alpha=alpha, label='Translate')
+			ax.plot(rolling_avg_steps, rolling_avg_stds[1], color=colors[1], alpha=alpha, label='Orient')
+			ax.plot(rolling_avg_steps, rolling_avg_stds[2], color=colors[2], alpha=alpha, label='Shoot')
 
 	if episodic:
 		ax.set_xlabel("Episodes")
