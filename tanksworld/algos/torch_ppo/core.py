@@ -61,30 +61,18 @@ def cnn(observation_space):
     )
     return model
 
-def cnn_pool(observation_space):
+def cnn3():
     model = nn.Sequential(
-        nn.Conv2d(observation_space.shape[0], 32, 8, 4),
+        nn.Conv2d(3, 32, 8, 4),
         nn.ReLU(),
         nn.Conv2d(32, 64, 4, 2),
         nn.ReLU(),
         nn.Conv2d(64, 64, 3, 1),
         nn.ReLU(),
-        #nn.AvgPool2d(2),
         nn.Flatten()
     )
     return model
 
-
-'''
-def cnn(observation_space):
-    model = nn.Sequential(
-        nn.Conv2d(observation_space.shape[0], 32, 8, 4),
-        nn.ReLU(),
-        nn.AvgPool2d(2),
-        nn.Flatten()
-    )
-    return model
-'''
 
 def count_vars(module):
     return sum([np.prod(p.shape) for p in module.parameters()])
@@ -367,12 +355,51 @@ class MLPGaussianActor(Actor):
         return pi.log_prob(act).sum(axis=-1)  # Last axis sum needed for Torch Normal distribution
 
 
+class MLPCentralCritic_v2(nn.Module):
+
+    def __init__(self, observation_space, hidden_sizes, activation, cnn_net=None, rnn_net=None,
+                 use_popart=False, n_agents=5):
+        super().__init__()
+        self.cnn_net = cnn3()
+        self.rnn_net = rnn_net
+
+        if self.rnn_net is not None:
+            self.v_net = nn.Sequential(
+                nn.Linear(512, 1),
+                activation()
+            )
+
+        elif self.cnn_net is not None:
+            dummy_img = torch.rand((1,) + observation_space.shape)
+            if not use_popart:
+                self.v_net = nn.Sequential(
+                    nn.Linear(cnn_net(dummy_img).shape[1], 1),
+                    activation()
+                )
+            else:
+                self.v_net = PopArt(cnn_net(dummy_img).shape[1], 1)
+        else:
+            obs_dim = observation_space.shape[0]
+            self.v_net = mlp([obs_dim] + list(hidden_sizes) + [1], activation)
+
+    def extract_features(self, obs):
+
+        obs = self.cnn_net(obs)
+        return obs
+
+    def forward(self, obs):
+
+        features = self.extract_features(obs)
+        v_out = self.v_net(features)
+        return v_out  # Critical to ensure v has right shape.
+
+
 class MLPCentralCritic(nn.Module):
 
     def __init__(self, observation_space, hidden_sizes, activation, cnn_net=None, rnn_net=None,
                  use_popart=False, n_agents=5):
         super().__init__()
-        self.cnn_net = cnn_net
+        self.cnn_net = cnn3()
         self.rnn_net = rnn_net
 
         if self.rnn_net is not None:
@@ -517,10 +544,7 @@ class MLPActorCritic(nn.Module):
         cnn_net = None
         rnn_net = None
         if use_cnn:
-            if central_critic:
-                cnn_net = cnn_pool(observation_space)
-            else:
-                cnn_net = cnn(observation_space)
+            cnn_net = cnn(observation_space)
         if use_rnn:
             rnn_net = rnn.GRUNet(input_dim=9216, hidden_dim=1024, output_dim=512, n_layers=1)
 
@@ -539,8 +563,10 @@ class MLPActorCritic(nn.Module):
 
         # build value function
         if central_critic:
-            self.v = MLPCentralCritic(observation_space, hidden_sizes, activation, cnn_net=cnn_net, rnn_net=rnn_net,
-                                      use_popart=use_popart)
+            #self.v = MLPCentralCritic(observation_space, hidden_sizes, activation, cnn_net=cnn_net, rnn_net=rnn_net,
+            #                          use_popart=use_popart)
+            self.v = MLPCentralCritic_v2(observation_space, hidden_sizes, activation, cnn_net=cnn_net, rnn_net=rnn_net,
+                                        use_popart=use_popart)
         else:
             self.v = MLPCritic(observation_space, hidden_sizes, activation, cnn_net=cnn_net, rnn_net=rnn_net,
                                use_popart=use_popart, noisy=noisy)
@@ -554,7 +580,7 @@ class MLPActorCritic(nn.Module):
         return beta_dist_samples * (self.action_space_high -
                                     self.action_space_low) + self.action_space_low
 
-    def step(self, obs):
+    def step(self, obs, overview=None):
         with torch.no_grad():
             pi = self.pi._distribution(obs)
             a = pi.sample()
@@ -562,7 +588,10 @@ class MLPActorCritic(nn.Module):
             if self.use_beta:
                 a = self.scale_by_action_bounds(a)
             entropy = pi.entropy()
-            v = self.v(obs)
+            if overview is not None:
+                v = self.v(overview)
+            else:
+                v = self.v(obs)
         if self.use_sde:
             a = a.reshape(a.shape[0]//5, 5, a.shape[1])
             entropy = entropy.reshape(entropy.shape[0]//5, 5, entropy.shape[1]) if not self.use_sde else entropy

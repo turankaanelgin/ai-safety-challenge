@@ -96,6 +96,7 @@ class RolloutBuffer:
         path_start = int(self.path_start_idx[env_idx])
 
         last_val = last_val.unsqueeze(0)
+        last_val = last_val[:,env_idx,:]
         if self.centralized_critic:
             last_rew = torch.tile(last_val, (1, 5))
             rews = torch.cat((self.rew_buf[path_start:self.ptr, env_idx], last_rew), dim=0)
@@ -208,55 +209,6 @@ class PPOPolicy():
             steps += 1
 
 
-    def collect_data(self, steps_to_run, model_path, actor_critic=core.MLPActorCritic, ac_kwargs=dict()):
-
-        steps = 0
-        observation = self.env.reset()
-
-        self.ac_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
-        ckpt = torch.load(model_path)
-        self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
-        self.ac_model.eval()
-        num_envs = 10
-        all_obs = None
-        all_next_obs = None
-        all_actions = None
-        file_cnt = 0
-
-        while steps < steps_to_run:
-            with torch.no_grad():
-                action, v, logp, _ = self.ac_model.step(torch.as_tensor(observation, dtype=torch.float32).to(device))
-            next_observation, reward, done, info = self.env.step(action.cpu().numpy())
-
-            if all_obs is None:
-                all_obs = np.reshape(observation, (num_envs*5, 4, 128, 128))
-                all_next_obs = np.reshape(next_observation, (num_envs*5, 4, 128, 128))
-                all_actions = np.reshape(action.cpu().numpy(), (num_envs*5, 3))
-            else:
-                all_obs = np.concatenate((all_obs,
-                                          np.reshape(observation, (num_envs*5, 4, 128, 128))), axis=0)
-                all_next_obs = np.concatenate((all_next_obs,
-                                               np.reshape(next_observation, (num_envs*5, 4, 128, 128))), axis=0)
-                all_actions = np.concatenate((all_actions,
-                                              np.reshape(action.cpu().numpy(), (num_envs*5, 3))), axis=0)
-
-            if (steps + 1) % 50000 == 0:
-                dataset = {"obs": all_obs,
-                           "next_obs": all_next_obs,
-                           "action": all_actions}
-                with open('/scratch/users/telgin1@jhu.edu/dataset/data{}'.format(file_cnt), 'w+') as f:
-                    pickle.dump(dataset, f)
-
-            observation = next_observation
-
-            if np.any(done):
-                observation = self.env.reset()
-
-            steps += 1
-
-
-
-
     def evaluate(self, steps_to_run, model_path, actor_critic=core.MLPActorCritic, ac_kwargs=dict()):
 
         steps = 0
@@ -358,7 +310,12 @@ class PPOPolicy():
         self.pi_optimizer = Adam(self.ac_model.pi.parameters(), lr=pi_lr)
         self.vf_optimizer = Adam(self.ac_model.v.parameters(), lr=vf_lr)
 
-        if enemy_model_path is not None:
+        if self.selfplay:
+            self.enemy_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
+            self.enemy_model.requires_grad = False
+            self.enemy_model.eval()
+
+        elif enemy_model_path is not None:
             num_enemy_models = len(enemy_model_path)
             self.enemy_models = []
             for idx in range(num_enemy_models):
@@ -393,6 +350,9 @@ class PPOPolicy():
                     if 'cnn_net' in name:
                         param.requires_grad = False
 
+            if self.selfplay:
+                self.enemy_model.load_state_dict(ckpt['enemy_model_state_dict'], strict=True)
+
         # Only load the representation part
         elif cnn_model_path:
             state_dict = torch.load(cnn_model_path)
@@ -423,6 +383,8 @@ class PPOPolicy():
                      'model_state_dict': self.ac_model.state_dict(),
                      'pi_optimizer_state_dict': self.pi_optimizer.state_dict(),
                      'vf_optimizer_state_dict': self.vf_optimizer.state_dict()}
+        if self.selfplay:
+            ckpt_dict['enemy_model_state_dict'] = self.enemy_model.state_dict()
         torch.save(ckpt_dict, model_path)
 
 
@@ -557,15 +519,6 @@ class PPOPolicy():
 
             heuristic_action = np.asarray(([[translate_coeff*0.5, orient_coeff*min_angle, -1.0]]))
             heuristic_actions.append(heuristic_action)
-            '''
-            if tank_idx == 0:
-                rel_x, rel_y = point_relative_point_heading([x, y], [x, y], heading)
-                rel_x = (rel_x / UNITY_SZ) * SCALE + float(IMG_SZ) * 0.5
-                rel_y = (rel_y / UNITY_SZ) * SCALE + float(IMG_SZ) * 0.5
-                print('X Y', rel_x, rel_y)
-                print('ALLY X Y', closest_relative_point)
-                print('ALL ALLY POINTS', all_ally_points)
-            '''
 
         return np.expand_dims(np.concatenate(heuristic_actions, axis=0), axis=0)
 
@@ -587,6 +540,7 @@ class PPOPolicy():
         ac_kwargs['central_critic'] = kargs['central_critic']
         ac_kwargs['init_log_std'] = kargs['init_log_std']
         self.central_critic = kargs['central_critic']
+        self.selfplay = selfplay
 
         print('POLICY SEED', seed)
 
@@ -630,10 +584,8 @@ class PPOPolicy():
             mixing_coeff = 0.8
         prev_ckpt = None
 
-        if selfplay:
-            enemy_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
-            enemy_model.requires_grad = False
-            enemy_model.eval()
+
+        self.overview = torch.zeros((num_envs, 3, 128, 128)).to(device)
 
         while step < steps_to_run:
 
@@ -649,7 +601,7 @@ class PPOPolicy():
 
             if (step + 1) % 50000 == 0 and selfplay:
                 if prev_ckpt is not None:
-                    enemy_model.load_state_dict(prev_ckpt)
+                    self.enemy_model.load_state_dict(prev_ckpt)
 
             step += 1
             obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
@@ -659,7 +611,7 @@ class PPOPolicy():
                 ally_a, v, logp, entropy = self.ac_model.step(ally_obs)
                 enemy_obs = obs[:,5:,:,:,:]
                 with torch.no_grad():
-                    enemy_a, _, _, _ = enemy_model.step(enemy_obs)
+                    enemy_a, _, _, _ = self.enemy_model.step(enemy_obs)
                 a = torch.cat((ally_a, enemy_a), dim=1)
 
             elif enemy_model_paths is not None:
@@ -683,7 +635,10 @@ class PPOPolicy():
                 a = torch.cat((ally_a, enemy_a), dim=1)
 
             else:
-                a, v, logp, entropy = self.ac_model.step(obs)
+                if not self.central_critic:
+                    a, v, logp, entropy = self.ac_model.step(obs)
+                else:
+                    a, v, logp, entropy = self.ac_model.step(obs, self.overview)
 
             if ally_heuristic:
                 heuristic_action = self.get_ally_heuristic(self.state_vector, obs)
@@ -706,8 +661,9 @@ class PPOPolicy():
                 else:
                     next_obs, r, terminal, info = env.step(a.cpu().numpy())
 
-            skip_heuristic = True
             self.state_vector = info[0]['state_vector']
+            self.overview = [info[env_idx]['overview'].transpose((2,0,1)) / 255.0 for env_idx in range(num_envs)]
+            self.overview = torch.as_tensor(self.overview, dtype=torch.float32, device=device)
 
             '''
             obs_to_display = (next_obs[0][0][0] * 255.0).astype(np.uint8)
@@ -761,8 +717,12 @@ class PPOPolicy():
 
                 with torch.no_grad():
                     obs_input = self.obs[:,:5,:,:,:] if enemy_model_paths is not None or selfplay else self.obs
-                    _, v, _, _ = self.ac_model.step(
-                        torch.as_tensor(obs_input, dtype=torch.float32).to(device))
+                    if not self.central_critic:
+                        _, v, _, _ = self.ac_model.step(
+                            torch.as_tensor(obs_input, dtype=torch.float32).to(device))
+                    else:
+                        _, v, _, _ = self.ac_model.step(torch.as_tensor(obs_input, dtype=torch.float32).to(device),
+                                                        self.overview)
 
                 for env_idx, done in enumerate(terminal):
                     if done:
@@ -774,7 +734,10 @@ class PPOPolicy():
 
                 if epoch_ended:
                     for env_idx in range(num_envs):
-                        buf.finish_path(v[env_idx], env_idx)
+                        try:
+                            buf.finish_path(v[env_idx], env_idx)
+                        except:
+                            pdb.set_trace()
 
                 episode_lengths.append(ep_len)
                 episode_returns.append(ep_ret)
@@ -815,7 +778,7 @@ class PPOPolicy():
                 episode_red_blue_damages = []
                 episode_blue_red_damages = []
                 episode_red_red_damages = []
-
+            '''
             if step % 50000 == 0:# or step == 1:
 
                 if self.callback and self.callback.eval_env:
@@ -826,3 +789,4 @@ class PPOPolicy():
                         with open(os.path.join(self.callback.policy_record.data_dir, 'best_eval_score.json'),
                                   'w+') as f:
                             json.dump(best_eval_score, f)
+            '''
