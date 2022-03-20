@@ -7,7 +7,7 @@ import numpy as np
 def take_first(elem):
     return elem[0]
 
-main_eval_folder = './logs/curriculum'
+main_eval_folder = './logs/final-baseline-eval-final'
 for policy_folder in os.listdir(main_eval_folder):
     if policy_folder.endswith('json'):
         continue
