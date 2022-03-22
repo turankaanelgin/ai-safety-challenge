@@ -9,6 +9,8 @@ import os
 import json
 import math
 import pickle
+import cv2
+import matplotlib.pyplot as plt
 
 from tanksworld.minimap_util import *
 
@@ -27,10 +29,7 @@ class RolloutBuffer:
         self.adv_buf = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
         self.rew_buf = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
         self.ret_buf = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
-        if centralized:
-            self.val_buf = torch.zeros((size, n_rollout_threads, 1)).to(device)
-        else:
-            self.val_buf = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
+        self.val_buf = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
         self.logp_buf = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
         self.episode_starts = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
         self.gamma, self.lam = gamma, lam
@@ -59,13 +58,8 @@ class RolloutBuffer:
         path_start = int(self.path_start_idx[env_idx])
 
         last_val = last_val[env_idx,:].unsqueeze(0)
-        if self.centralized:
-            rews = torch.cat((self.rew_buf[path_start:self.ptr, env_idx], torch.tile(last_val, (1, self.n_agents))), dim=0)
-        else:
-            rews = torch.cat((self.rew_buf[path_start:self.ptr, env_idx], last_val), dim=0)
+        rews = torch.cat((self.rew_buf[path_start:self.ptr, env_idx], last_val), dim=0)
         vals = torch.cat((self.val_buf[path_start:self.ptr, env_idx], last_val), dim=0)
-        if self.centralized:
-            vals = torch.tile(vals, (1, self.n_agents))
 
         # the next two lines implement GAE-Lambda advantage calculation
         deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
@@ -101,17 +95,20 @@ class RolloutBuffer:
 
 class PPOPolicy():
 
-    def __init__(self, env, callback, eval_mode=False, **kargs):
+    def __init__(self, env, callback, eval_mode=False, visual_mode=False, **kargs):
         self.kargs = kargs
         self.env = env
         self.callback = callback
         self.eval_mode = eval_mode
+        self.visual_mode = visual_mode
 
     def run(self, num_steps):
         self.kargs.update({'steps_to_run': num_steps})
         if self.eval_mode:
             self.evaluate(episodes_to_run=num_steps, model_path=self.kargs['model_path'],
                           num_envs=self.kargs['n_envs'])
+        elif self.visual_mode:
+            self.visualize(episodes_to_run=num_steps, model_path=self.kargs['model_path'])
         else:
             self.learn(**self.kargs)
 
@@ -126,17 +123,39 @@ class PPOPolicy():
         self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
         self.ac_model.eval()
 
+        observation_list = []
+        step = 0
         while episodes < episodes_to_run:
 
             with torch.no_grad():
                 action, v, logp, _ = self.ac_model.step(torch.as_tensor(observation, dtype=torch.float32).to(device))
             next_observation, reward, done, info = self.env.step(action.cpu().numpy())
+            overview = info[0]['overview'].astype(np.uint8)
+            fig, axes = plt.subplots(1, 1)
+            plt.imshow(overview)
+            fig.canvas.draw()
+            data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+            data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+            plt.close()
+            observation_list.append(data)
 
             observation = next_observation
 
-            if done:
+            if done[0]:
                 env.reset()
                 episodes += 1
+
+            step += 1
+            if step == 20:
+                out = cv2.VideoWriter(
+                    'out.mp4', cv2.VideoWriter_fourcc(*"MJPG"), 3, (640, 480), True
+                )
+                for img in observation_list:
+                    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                    out.write(img)
+                out.release()
+
+                pdb.set_trace()
 
 
     def evaluate(self, episodes_to_run, model_path, num_envs=10, actor_critic=core.ActorCritic, ac_kwargs=dict()):
@@ -365,10 +384,10 @@ class PPOPolicy():
 
             loss.backward()
             self.loss_p_index += 1
-            #self.writer.add_scalar('loss/Policy_Loss', loss_pi, self.loss_p_index)
+            self.writer.add_scalar('loss/Policy_Loss', loss_pi, self.loss_p_index)
             if entropy_coef > 0.0:
                 self.writer.add_scalar('loss/Entropy_Loss', loss_entropy, self.loss_p_index)
-            std = torch.exp(self.ac_model.pi.log_std)
+            #std = torch.exp(self.ac_model.pi.log_std)
             #self.writer.add_scalar('std_dev/move', std[0].item(), self.loss_p_index)
             #self.writer.add_scalar('std_dev/turn', std[1].item(), self.loss_p_index)
             #self.writer.add_scalar('std_dev/shoot', std[2].item(), self.loss_p_index)
@@ -380,7 +399,7 @@ class PPOPolicy():
             loss_v = self.compute_loss_v(data)
             loss_v.backward()
             self.loss_v_index += 1
-            #self.writer.add_scalar('loss/Value_Loss', loss_v, self.loss_v_index)
+            self.writer.add_scalar('loss/Value_Loss', loss_v, self.loss_v_index)
             self.vf_optimizer.step()
 
 
@@ -481,7 +500,8 @@ class PPOPolicy():
               steps_per_epoch=800, steps_to_run=100000, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
               vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97,
               target_kl=0.01, freeze_rep=True, entropy_coef=0.0, use_value_norm=False,
-              tb_writer=None, selfplay=False, ally_heuristic=False, centralized=False, **kargs):
+              tb_writer=None, selfplay=False, ally_heuristic=False, centralized=False,
+              local_std=False, **kargs):
 
         env = self.env
         self.writer = tb_writer
@@ -489,6 +509,8 @@ class PPOPolicy():
         self.set_random_seed(seed)
         ac_kwargs['init_log_std'] = kargs['init_log_std']
         ac_kwargs['centralized'] = centralized
+        ac_kwargs['local_std'] = local_std
+
         self.centralized = centralized
         self.selfplay = selfplay
 
@@ -617,8 +639,8 @@ class PPOPolicy():
                 episode_red_red_damages.append(ep_rr_dmg)
                 episode_blue_red_damages.append(ep_br_dmg)
                 episode_red_blue_damages.append(ep_rb_dmg)
-                std = torch.exp(self.ac_model.pi.log_std).cpu().detach().numpy()
-                episode_stds.append(std)
+                #std = torch.exp(self.ac_model.pi.log_std).cpu().detach().numpy()
+                episode_stds.append([0,0,0])
 
                 if epoch_ended:
                     self.update(buf, train_pi_iters, train_v_iters, target_kl, clip_ratio, entropy_coef)

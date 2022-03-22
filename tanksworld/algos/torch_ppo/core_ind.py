@@ -175,7 +175,8 @@ class ActorCritic(nn.Module):
             self.pi = nn.ModuleList([GaussianActor(observation_space, action_space.shape[0], activation,
                                                    cnn_net=cnn_net)] * self.num_agents)
 
-        self.v = nn.ModuleList([Critic(observation_space, activation, cnn_net=cnn_net)] * self.num_agents)
+        #self.v = nn.ModuleList([Critic(observation_space, activation, cnn_net=cnn_net)] * self.num_agents)
+        self.v = Critic(observation_space, activation, cnn_net=cnn_net)
 
         self.use_beta = use_beta
         self.action_space_high = 1.0
@@ -198,24 +199,26 @@ class ActorCritic(nn.Module):
 
                 if len(obs.shape) == 5:
                     pi = self.pi[idx]._distribution(obs[:,idx])
-                    v_ = self.v[idx](obs[:,idx])
+                    #v_ = self.v[idx](obs[:,idx])
                 elif len(obs.shape) == 6:
                     pi = self.pi[idx]._distribution(obs[:,:,idx])
-                    v_ = self.v[idx](obs[:,:,idx])
+                    #v_ = self.v[idx](obs[:,:,idx])
 
                 a = pi.sample()
                 logp_a_ = self.pi[idx]._log_prob_from_distribution(pi, a)
                 entropy_ = pi.entropy()
 
-                v.append(v_)
+                #v.append(v_)
                 logp_a.append(logp_a_)
                 entropy.append(entropy_)
                 action.append(a)
 
+            v = self.v(obs)
+
             action = torch.cat(action, dim=1)
             logp_a = torch.cat(logp_a, dim=1)
             entropy = torch.cat(entropy, dim=1)
-            v = torch.cat(v, dim=1)
+            #v = torch.cat(v, dim=1)
 
         return action, v, logp_a, entropy
 

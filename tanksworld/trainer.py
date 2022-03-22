@@ -38,6 +38,7 @@ class Trainer:
         if config['death_penalty']: folder_name += '__DP'
         if config['clip_ratio'] != 0.2: folder_name += '__CLIP{}'.format(config['clip_ratio'])
         if config['independent']: folder_name += '__IND'
+        if config['local_std']: folder_name += '__LOCSTD'
         if config['num_rollout_threads'] > 1: folder_name += '__ROLLOUT={}'.format(config['num_rollout_threads'])
         if config['save_tag'] != '': folder_name += '__{}'.format(config['save_tag'])
         return folder_name
@@ -253,6 +254,7 @@ class Trainer:
             'init_log_std': config['init_log_std'],
             'selfplay': config['selfplay'],
             'centralized': config['centralized'],
+            'local_std': config['local_std'],
         }
 
         return policy_kwargs
@@ -307,7 +309,7 @@ if __name__=='__main__':
     trainer = Trainer(args)
     trainer.set_seeds()
 
-    if args['eval_mode']:
+    if args['eval_mode'] or args['visual_mode']:
         envs, eval_policy_records = trainer.set_eval_env()
         _, train_policy_records, _, _ = trainer.set_training_env()
 
@@ -336,7 +338,8 @@ if __name__=='__main__':
             if args['independent']:
                 policy = IPPOPolicy(envs[seed_idx], callback, True, **policy_params)
             else:
-                policy = PPOPolicy(envs[seed_idx], callback, True, **policy_params)
+                policy = PPOPolicy(envs[seed_idx], callback, eval_mode=args['eval_mode'],
+                                   visual_mode=args['visual_mode'], **policy_params)
             policies_to_run.append(policy)
 
     else:

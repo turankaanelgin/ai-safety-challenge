@@ -30,9 +30,9 @@ def combined_shape_v3(length, batch_len, seq_len, shape=None):
     return (length, batch_len, seq_len, shape) if np.isscalar(shape) else (length, batch_len, seq_len, *shape)
 
 
-def cnn(observation_space):
+def cnn(n_channels):
     model = nn.Sequential(
-        nn.Conv2d(observation_space.shape[0], 32, 8, 4),
+        nn.Conv2d(n_channels, 32, 8, 4),
         nn.ReLU(),
         nn.Conv2d(32, 64, 4, 2),
         nn.ReLU(),
@@ -143,10 +143,9 @@ class BetaActor(Actor):
 
 class GaussianActor(Actor):
 
-    def __init__(self, observation_space, act_dim, activation, cnn_net, init_log_std=-0.5):
+    def __init__(self, observation_space, act_dim, activation, cnn_net, init_log_std=-0.5, local_std=False):
         super().__init__()
-        log_std = init_log_std * np.ones(act_dim, dtype=np.float32)
-        self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
+
         self.cnn_net = cnn_net
 
         dummy_img = torch.rand((1,) + observation_space.shape)
@@ -154,6 +153,17 @@ class GaussianActor(Actor):
             nn.Linear(cnn_net(dummy_img).shape[1], act_dim),
             activation()
         )
+
+        self.local_std = local_std
+        if local_std:
+            self.log_std_net = nn.Sequential(
+                nn.Linear(cnn_net(dummy_img).shape[1], act_dim),
+                nn.Softplus()
+            )
+            self.offset = init_log_std
+        else:
+            log_std = init_log_std * np.ones(act_dim, dtype=np.float32)
+            self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
 
     def _distribution(self, obs):
 
@@ -168,7 +178,11 @@ class GaussianActor(Actor):
         #obs = F.normalize(obs, dim=2)
 
         mu = self.mu_net(obs)
-        std = torch.exp(self.log_std)
+        if self.local_std:
+            std = self.log_std_net(obs) - 0.5
+            std = torch.exp(std)
+        else:
+            std = torch.exp(self.log_std)
         return Normal(mu, std)
 
     def _log_prob_from_distribution(self, pi, act):
@@ -200,6 +214,39 @@ class CentralizedGaussianActor(Actor):
         obs = obs.reshape(batch_size, n_agents*obs.shape[1])
 
         mu = self.mu_net(obs).reshape(-1, n_agents, 3)
+        std = torch.exp(self.log_std)
+        return Normal(mu, std)
+
+    def _log_prob_from_distribution(self, pi, act):
+        return pi.log_prob(act).sum(axis=-1)  # Last axis sum needed for Torch Normal distribution
+
+
+
+class CentralizedGaussianActor_v2(Actor):
+
+    def __init__(self, observation_space, act_dim, activation, cnn_net, init_log_std=-0.5):
+        super().__init__()
+        log_std = init_log_std * np.ones(act_dim, dtype=np.float32)
+        self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
+        self.cnn_net = cnn_net
+
+        dummy_img = [torch.rand((1,) + observation_space.shape)] * 5
+        dummy_img = torch.cat(dummy_img, dim=1)
+        self.mu_net = nn.Sequential(
+            nn.Linear(cnn_net(dummy_img).shape[1], act_dim*5),
+            activation()
+        )
+
+    def _distribution(self, obs):
+
+        if len(obs.shape) == 5:
+            obs = torch.flatten(obs, start_dim=1, end_dim=2)
+        else:
+            obs = torch.flatten(obs, start_dim=1, end_dim=3)
+
+        obs = self.cnn_net(obs)
+
+        mu = self.mu_net(obs).reshape(-1, 5, 3)
         std = torch.exp(self.log_std)
         return Normal(mu, std)
 
@@ -255,7 +302,7 @@ class CentralizedCritic(nn.Module):
 
         dummy_img = torch.rand((1,) + observation_space.shape)
         self.v_net = nn.Sequential(
-            nn.Linear(cnn_net(dummy_img).shape[1]*5, 1),
+            nn.Linear(cnn_net(dummy_img).shape[1]*5, 5),
             activation()
         )
 
@@ -284,29 +331,69 @@ class CentralizedCritic(nn.Module):
         obs = obs.reshape(batch_size, n_agents * obs.shape[1])
 
         v_out = self.v_net(obs)
-        #return torch.squeeze(v_out, -1)  # Critical to ensure v has right shape.
+        return v_out
+
+
+class CentralizedCritic_v2(nn.Module):
+
+    def __init__(self, observation_space, activation, cnn_net):
+        super().__init__()
+        self.cnn_net = cnn_net
+
+        dummy_img = [torch.rand((1,) + observation_space.shape)] * 5
+        dummy_img = torch.cat(dummy_img, dim=1)
+        self.v_net = nn.Sequential(
+            nn.Linear(cnn_net(dummy_img).shape[1], 5),
+            activation()
+        )
+
+    def reshape_obs(self, obs):
+        # Reshape observation for CNN
+        if len(obs.shape) == 4:
+            obs = obs.unsqueeze(0)
+        elif len(obs.shape) == 6:
+            if obs.shape[1] == 1:
+                obs = obs.squeeze(1)
+            elif obs.shape[2] == 1:
+                obs = obs.squeeze(2)
+            else:
+                obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
+                                  obs.shape[3], obs.shape[4], obs.shape[5])
+        return obs
+
+    def forward(self, obs):
+
+        if len(obs.shape) == 5:
+            obs = torch.flatten(obs, start_dim=1, end_dim=2)
+        else:
+            obs = torch.flatten(obs, start_dim=1, end_dim=3)
+
+        obs = self.cnn_net(obs)
+
+        v_out = self.v_net(obs)
         return v_out
 
 
 class ActorCritic(nn.Module):
 
     def __init__(self, observation_space, action_space, activation=nn.Tanh,
-                 use_beta=False, init_log_std=-0.5, centralized=False):
+                 use_beta=False, init_log_std=-0.5, centralized=False, local_std=False):
         super().__init__()
 
-        cnn_net = cnn(observation_space)
+        cnn_net = cnn(observation_space.shape[0])
 
         if centralized:
             self.pi = CentralizedGaussianActor(observation_space, action_space.shape[0], activation,
-                                               cnn_net=cnn_net, init_log_std=init_log_std)
+                                             cnn_net=cnn_net, init_log_std=init_log_std)
         elif use_beta:
             self.pi = BetaActor(observation_space, action_space.shape[0], cnn_net=cnn_net)
         else:
             self.pi = GaussianActor(observation_space, action_space.shape[0], activation, cnn_net=cnn_net,
-                                    init_log_std=init_log_std)
+                                    init_log_std=init_log_std, local_std=local_std)
 
         if centralized:
-            self.v = CentralizedCritic(observation_space, activation, cnn_net=cnn_net)
+            #self.v = CentralizedCritic(observation_space, activation, cnn_net=cnn_net)
+            self.v = Critic(observation_space, activation, cnn_net=cnn_net)
         else:
             self.v = Critic(observation_space, activation, cnn_net=cnn_net)
 

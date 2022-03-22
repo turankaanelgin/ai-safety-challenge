@@ -214,7 +214,8 @@ class PPOPolicy():
 
         self.ac_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
         self.pi_optimizers = [Adam(self.ac_model.pi[idx].parameters(), lr=pi_lr) for idx in range(self.ac_model.num_agents)]
-        self.vf_optimizers = [Adam(self.ac_model.v[idx].parameters(), lr=vf_lr) for idx in range(self.ac_model.num_agents)]
+        self.vf_optimizer = Adam(self.ac_model.v.parameters(), lr=vf_lr)
+        #self.vf_optimizers = [Adam(self.ac_model.v[idx].parameters(), lr=vf_lr) for idx in range(self.ac_model.num_agents)]
 
     def load_model(self, model_path, cnn_model_path, freeze_rep, steps_per_epoch):
 
@@ -228,8 +229,7 @@ class PPOPolicy():
             for idx, pi_opt in enumerate(self.pi_optimizers):
                 pi_opt.load_state_dict(pi_ckpt[idx])
             vf_ckpt = ckpt['vf_optimizer_state_dict']
-            for idx, vf_opt in enumerate(self.vf_optimizers):
-                vf_opt.load_state_dict(vf_ckpt[idx])
+            self.vf_optimizer.load_state_dict(vf_ckpt)
             self.start_step = ckpt['step']
             self.start_step -= self.start_step % steps_per_epoch
             if os.path.exists(os.path.join(self.callback.policy_record.data_dir, 'best_eval_score.json')):
@@ -263,7 +263,7 @@ class PPOPolicy():
         ckpt_dict = {'step': step,
                      'model_state_dict': self.ac_model.state_dict(),
                      'pi_optimizer_state_dict': [self.pi_optimizers[idx].state_dict() for idx in range(self.ac_model.num_agents)],
-                     'vf_optimizer_state_dict': [self.vf_optimizers[idx].state_dict() for idx in range(self.ac_model.num_agents)]}
+                     'vf_optimizer_state_dict': self.vf_optimizer.state_dict()}
         torch.save(ckpt_dict, model_path)
 
 
@@ -287,11 +287,11 @@ class PPOPolicy():
         return loss_pi, pi_info
 
     # Set up function for computing value loss
-    def compute_loss_v(self, data, agent_idx):
+    def compute_loss_v(self, data):
         obs, ret = data['obs'], data['ret']
-        obs, ret = obs[:,agent_idx], ret[:,agent_idx]
+        #obs, ret = obs[:,agent_idx], ret[:,agent_idx]
 
-        return ((self.ac_model.v[agent_idx](obs).squeeze(0) - ret) ** 2).mean()
+        return ((self.ac_model.v(obs) - ret) ** 2).mean()
 
     def update(self, buf, train_pi_iters, train_v_iters, target_kl, clip_ratio):
 
@@ -317,12 +317,18 @@ class PPOPolicy():
             self.writer.add_scalar('std_dev/shoot', std[2].item(), self.loss_p_index)
 
         for i in range(train_v_iters):
+            '''
             for agent_idx in range(len(self.vf_optimizers)):
                 self.vf_optimizers[agent_idx].zero_grad()
                 loss_v = self.compute_loss_v(data, agent_idx)
 
                 loss_v.backward()
                 self.vf_optimizers[agent_idx].step()
+            '''
+            self.vf_optimizer.zero_grad()
+            loss_v = self.compute_loss_v(data)
+            loss_v.backward()
+            self.vf_optimizer.step()
             self.loss_v_index += 1
             self.writer.add_scalar('loss/Value_Loss', loss_v, self.loss_v_index)
 
@@ -452,8 +458,8 @@ class PPOPolicy():
                 episode_red_red_damages = []
                 episode_stds = []
 
-
-            if step % 50000 == 0:
+            '''
+            if step % 50000 == 0 or step == 1:
 
                 if self.callback and self.callback.eval_env:
                     eval_score = self.callback.validate_independent_policy(self.ac_model.state_dict(), device)
@@ -462,4 +468,4 @@ class PPOPolicy():
                         best_eval_score = eval_score
                         with open(os.path.join(self.callback.policy_record.data_dir, 'best_eval_score.json'), 'w+') as f:
                             json.dump(best_eval_score, f)
-
+            '''

@@ -47,7 +47,7 @@ class EvalCallback:
         while episodes < self.eval_steps:
 
             with torch.no_grad():
-                action, _, _, _ = self.model.step(torch.as_tensor(observation, dtype=torch.float32).to(device))
+                action, _, _, _ = self.model.step(torch.as_tensor(observation, dtype=torch.float32).squeeze(2).to(device))
 
             observation, reward, done, info = self.eval_env.step(action.cpu().numpy())
             curr_done = [done[idx] or curr_done[idx] for idx in range(num_envs)]
