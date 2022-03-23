@@ -377,7 +377,8 @@ class CentralizedCritic_v2(nn.Module):
 class ActorCritic(nn.Module):
 
     def __init__(self, observation_space, action_space, activation=nn.Tanh,
-                 use_beta=False, init_log_std=-0.5, centralized=False, local_std=False):
+                 use_beta=False, init_log_std=-0.5, centralized_critic=False,
+                 centralized=False, local_std=False):
         super().__init__()
 
         cnn_net = cnn(observation_space.shape[0])
@@ -391,9 +392,9 @@ class ActorCritic(nn.Module):
             self.pi = GaussianActor(observation_space, action_space.shape[0], activation, cnn_net=cnn_net,
                                     init_log_std=init_log_std, local_std=local_std)
 
-        if centralized:
-            #self.v = CentralizedCritic(observation_space, activation, cnn_net=cnn_net)
-            self.v = Critic(observation_space, activation, cnn_net=cnn_net)
+        if centralized or centralized_critic:
+            self.v = CentralizedCritic(observation_space, activation, cnn_net=cnn_net)
+            #self.v = Critic(observation_space, activation, cnn_net=cnn_net)
         else:
             self.v = Critic(observation_space, activation, cnn_net=cnn_net)
 

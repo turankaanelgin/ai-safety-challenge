@@ -256,6 +256,7 @@ class PPOPolicy():
         self.obs_dim = self.env.observation_space.shape
         self.act_dim = self.env.action_space.shape
         self.obs = self.env.reset()
+        self.state_vector = np.zeros((5,6))
 
         self.ac_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
         self.pi_optimizer = Adam(self.ac_model.pi.parameters(), lr=pi_lr)
@@ -356,8 +357,10 @@ class PPOPolicy():
     def compute_loss_v(self, data):
 
         obs, ret = data['obs'], data['ret']
-        obs = torch.flatten(obs, end_dim=1) if self.centralized else torch.flatten(obs, end_dim=2)
-        ret = torch.flatten(ret, end_dim=1) if self.centralized else torch.flatten(ret)
+        obs = torch.flatten(obs, end_dim=1) if self.centralized or self.centralized_critic\
+                                            else torch.flatten(obs, end_dim=2)
+        ret = torch.flatten(ret, end_dim=1) if self.centralized or self.centralized_critic\
+                                            else torch.flatten(ret)
 
         values = self.ac_model.v(obs).squeeze(0)
         return ((values - ret) ** 2).mean()
@@ -407,6 +410,35 @@ class PPOPolicy():
             self.writer.add_scalar('loss/Value_Loss', loss_v, self.loss_v_index)
             self.vf_optimizer.step()
 
+
+    def distance_to_closest_enemy(self, state_vector, observation):
+
+        # Returns the distance to the closest enemy
+
+        if len(state_vector) == 1: state_vector = state_vector[0]
+
+        distances = []
+        for tank_idx in range(5):
+            state = state_vector[tank_idx]
+            x, y = state[0], -state[1]
+            min_distance = np.infty
+
+            for enemy_idx in range(5, 10):
+                enemy_state = state_vector[enemy_idx]
+                enemy_x, enemy_y = enemy_state[0], -enemy_state[1]
+                dx = x - enemy_x
+                dy = y - enemy_y
+
+                dist = math.sqrt(dx * dx + dy * dy)
+                if dist < min_distance:
+                    min_distance = dist
+
+            enemy_channel = observation[:,tank_idx,1]
+            if torch.any(enemy_channel).item():
+                distances.append(min_distance)
+            else:
+                distances.append(0.0)
+        return distances
 
 
     def get_ally_heuristic_2(self, state_vector):
@@ -505,8 +537,8 @@ class PPOPolicy():
               steps_per_epoch=800, steps_to_run=100000, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
               vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97,
               target_kl=0.01, freeze_rep=True, entropy_coef=0.0, use_value_norm=False,
-              tb_writer=None, selfplay=False, ally_heuristic=False, centralized=False,
-              local_std=False, enemy_model=None, **kargs):
+              tb_writer=None, selfplay=False, ally_heuristic=False, dense_reward=False, centralized=False,
+              centralized_critic=False, local_std=False, enemy_model=None, **kargs):
 
         env = self.env
         self.writer = tb_writer
@@ -514,9 +546,11 @@ class PPOPolicy():
         self.set_random_seed(seed)
         ac_kwargs['init_log_std'] = kargs['init_log_std']
         ac_kwargs['centralized'] = centralized
+        ac_kwargs['centralized_critic'] = centralized_critic
         ac_kwargs['local_std'] = local_std
 
         self.centralized = centralized
+        self.centralized_critic = centralized_critic
         self.selfplay = selfplay
 
         print('POLICY SEED', seed)
@@ -551,8 +585,8 @@ class PPOPolicy():
         last_hundred_red_red_damages = [[] for _ in range(num_envs)]
         last_hundred_blue_red_damages = [[] for _ in range(num_envs)]
         best_eval_score = self.best_eval_score
-        if ally_heuristic:
-            mixing_coeff = 0.8
+        if ally_heuristic or dense_reward:
+            mixing_coeff = 1.0
 
         while step < steps_to_run:
 
@@ -569,6 +603,9 @@ class PPOPolicy():
             if (step + 1) % 25000 == 0 and ally_heuristic: # Heuristic anneal mixing coefficient
                 if mixing_coeff >= 0.05:
                     mixing_coeff -= 0.05
+
+            if (step + 1) % 10000 == 0 and dense_reward:
+                if mixing_coeff >= 0.1: mixing_coeff -= 0.1
 
             step += 1
 
@@ -596,10 +633,17 @@ class PPOPolicy():
             else:
                 next_obs, r, terminal, info = env.step(a.cpu().numpy())
 
+            self.state_vector = [info[env_idx]['state_vector'] for env_idx in range(len(info))]
+
             if selfplay or enemy_model is not None:
                 r = r[:, :5]
                 a = ally_a
                 obs = ally_obs
+
+            if dense_reward:
+                distances = self.distance_to_closest_enemy(self.state_vector, obs)
+                distances = 0.1 * np.asarray(distances)
+                r = r - mixing_coeff * np.expand_dims(distances, axis=0)
 
             ep_ret += np.average(np.sum(r, axis=1))
             ep_len += 1
@@ -680,7 +724,7 @@ class PPOPolicy():
                 episode_blue_red_damages = []
                 episode_red_red_damages = []
                 episode_stds = []
-
+            '''
             if (step+1) % 50000 == 0:
 
                 if self.callback and self.callback.eval_env:
@@ -691,3 +735,4 @@ class PPOPolicy():
                         with open(os.path.join(self.callback.policy_record.data_dir, 'best_eval_score.json'),
                                     'w+') as f:
                             json.dump(best_eval_score, f)
+            '''
