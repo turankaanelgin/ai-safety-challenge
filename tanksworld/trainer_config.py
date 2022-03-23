@@ -25,6 +25,7 @@ parser.add_argument('--num_iter', type=int, help='number of training iterations'
 parser.add_argument('--num_eval_episodes', type=int, help='number of evaluation episodes', default=100)
 parser.add_argument('--save_tag', type=str, help='an additional tag on the training folder (optional)', default='')
 parser.add_argument('--load_from_checkpoint', action='store_true', help='load training from the last checkpoint', default=False)
+parser.add_argument('--enemy_model', type=str, help='enemy model checkpoint', default=None)
 parser.add_argument('--freeze_rep', action='store_true', help='freeze the CNN representation', default=False)
 parser.add_argument('--eval_logdir', type=str, help='Directory of policy to be evaluated', default='')
 parser.add_argument('--multiplayer', action='store_true', default=False)

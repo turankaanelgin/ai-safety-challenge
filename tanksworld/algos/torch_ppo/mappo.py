@@ -251,7 +251,7 @@ class PPOPolicy():
         np.random.seed(seed)
 
 
-    def setup_model(self, actor_critic, pi_lr, vf_lr, ac_kwargs):
+    def setup_model(self, actor_critic, pi_lr, vf_lr, ac_kwargs, enemy_model=None):
 
         self.obs_dim = self.env.observation_space.shape
         self.act_dim = self.env.action_space.shape
@@ -263,6 +263,11 @@ class PPOPolicy():
 
         if self.selfplay:
             self.enemy_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
+            self.enemy_model.requires_grad = False
+            self.enemy_model.eval()
+        elif enemy_model is not None:
+            self.enemy_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
+            self.enemy_model.load_state_dict(torch.load(enemy_model)['model_state_dict'], strict=True)
             self.enemy_model.requires_grad = False
             self.enemy_model.eval()
 
@@ -501,7 +506,7 @@ class PPOPolicy():
               vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97,
               target_kl=0.01, freeze_rep=True, entropy_coef=0.0, use_value_norm=False,
               tb_writer=None, selfplay=False, ally_heuristic=False, centralized=False,
-              local_std=False, **kargs):
+              local_std=False, enemy_model=None, **kargs):
 
         env = self.env
         self.writer = tb_writer
@@ -517,7 +522,7 @@ class PPOPolicy():
         print('POLICY SEED', seed)
 
         self.prev_ckpt = None
-        self.setup_model(actor_critic, pi_lr, vf_lr, ac_kwargs)
+        self.setup_model(actor_critic, pi_lr, vf_lr, ac_kwargs, enemy_model=enemy_model)
         self.load_model(kargs['model_path'], kargs['cnn_model_path'], freeze_rep, steps_per_epoch)
         num_envs = kargs['n_envs']
         if self.callback:
@@ -569,7 +574,7 @@ class PPOPolicy():
 
             obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
 
-            if selfplay:
+            if selfplay or enemy_model is not None:
                 ally_obs = obs[:, :5, :, :, :]
                 ally_a, v, logp, entropy = self.ac_model.step(ally_obs)
                 enemy_obs = obs[:, 5:, :, :, :]
@@ -591,7 +596,7 @@ class PPOPolicy():
             else:
                 next_obs, r, terminal, info = env.step(a.cpu().numpy())
 
-            if selfplay:
+            if selfplay or enemy_model is not None:
                 r = r[:, :5]
                 a = ally_a
                 obs = ally_obs
@@ -621,7 +626,7 @@ class PPOPolicy():
             if np.any(terminal) or epoch_ended:
 
                 with torch.no_grad():
-                    obs_input = self.obs[:, :5, :, :, :] if selfplay else self.obs
+                    obs_input = self.obs[:, :5, :, :, :] if selfplay or enemy_model is not None else self.obs
                     _, v, _, _ = self.ac_model.step(
                         torch.as_tensor(obs_input, dtype=torch.float32).to(device))
 
@@ -652,7 +657,6 @@ class PPOPolicy():
                 ep_rr_dmg = np.zeros(num_envs)
 
             if (step + 1) % 100 == 0:
-
                 if self.callback:
                     self.callback.save_metrics_multienv(episode_returns, episode_lengths, episode_red_blue_damages,
                                                         episode_red_red_damages, episode_blue_red_damages,
@@ -677,7 +681,7 @@ class PPOPolicy():
                 episode_red_red_damages = []
                 episode_stds = []
 
-            if step % 50000 == 0:
+            if (step+1) % 50000 == 0:
 
                 if self.callback and self.callback.eval_env:
                     eval_score = self.callback.validate_policy(self.ac_model.state_dict(), device)
