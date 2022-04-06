@@ -359,7 +359,6 @@ if __name__=='__main__':
                 if len(checkpoint_files) > 0: model_path = os.path.join(model_path, checkpoint_files[-1])
 
             policy_params = trainer.get_policy_params()
-            model_path = './logs/selfplay-ckpt/999999.pth'
             policy_params['model_path'] = model_path
             policy_params['tb_writer'] = tb_writers[seed_idx]
             policy_params['save_dir'] = os.path.join(policy_record.data_dir, 'checkpoints')
