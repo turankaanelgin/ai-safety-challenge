@@ -1,9 +1,7 @@
 import pdb
 
 import numpy as np
-import math
 import scipy.signal
-from gym.spaces import Box, Discrete
 
 import torch
 import torch.nn as nn
@@ -11,7 +9,6 @@ import torch.nn.functional as F
 from torch.distributions.normal import Normal
 from torch.distributions.categorical import Categorical
 from torch.distributions.beta import Beta
-from torch.distributions.bernoulli import Bernoulli
 
 
 def combined_shape(length, shape=None):
@@ -59,6 +56,40 @@ def discount_cumsum(x, discount):
          x2]
     """
     return scipy.signal.lfilter([1], [1, float(-discount)], x[::-1], axis=0)[::-1]
+
+
+class RNDNetwork(nn.Module):
+
+    def __init__(self):
+
+        super(RNDNetwork, self).__init__()
+        self.body = nn.Sequential(cnn(4),
+                                  nn.Linear(9216, 64))
+
+    def reshape_obs(self, obs):
+        # Reshape observation for CNN
+        if len(obs.shape) == 4:
+            obs = obs.unsqueeze(0)
+        elif len(obs.shape) == 6:
+            if obs.shape[1] == 1:
+                obs = obs.squeeze(1)
+            elif obs.shape[2] == 1:
+                obs = obs.squeeze(2)
+            else:
+                obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
+                                  obs.shape[3], obs.shape[4], obs.shape[5])
+        return obs
+
+    def forward(self, obs):
+
+        obs = self.reshape_obs(obs)
+        batch_size, n_agents = obs.shape[0], obs.shape[1]
+        obs = obs.reshape(batch_size * n_agents, obs.shape[2], obs.shape[3],
+                          obs.shape[4])
+        obs = self.body(obs)
+        obs = obs.reshape(batch_size, n_agents, obs.shape[1])
+        return obs
+
 
 
 class Actor(nn.Module):
@@ -183,10 +214,101 @@ class GaussianActor(Actor):
             std = torch.exp(std)
         else:
             std = torch.exp(self.log_std)
+        try:
+            return Normal(mu, std)
+        except: pdb.set_trace()
+
+    def _log_prob_from_distribution(self, pi, act):
+
+        return pi.log_prob(act).sum(axis=-1)  # Last axis sum needed for Torch Normal distribution
+
+
+class GaussianActor_v2(Actor):
+
+    def __init__(self, observation_space, act_dim, activation, cnn_net, init_log_std=-0.5, local_std=False):
+        super().__init__()
+
+        self.cnn_net = cnn_net
+
+        dummy_img = torch.rand((1,) + observation_space.shape)
+        self.mu_net = nn.Sequential(
+            nn.Linear(cnn_net(dummy_img).shape[1]*2, act_dim),
+            activation()
+        )
+
+        self.local_std = local_std
+        if local_std:
+            self.log_std_net = nn.Sequential(
+                nn.Linear(cnn_net(dummy_img).shape[1], act_dim),
+                nn.Softplus()
+            )
+            self.offset = init_log_std
+        else:
+            log_std = init_log_std * np.ones(act_dim, dtype=np.float32)
+            self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
+
+    def _distribution(self, obs):
+
+        obs = self.reshape_obs(obs)
+
+        batch_size = obs.shape[0]
+        seq_size = obs.shape[1]
+        obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
+        obs = self.cnn_net(obs)
+        obs = obs.reshape(batch_size, seq_size, obs.shape[1])
+
+        #obs = F.normalize(obs, dim=2)
+
+        modified_obs = []
+        sum_obs = torch.sum(obs, dim=1, keepdims=True)
+        for agent_idx in range(5):
+            this_obs = obs[:,agent_idx,:].unsqueeze(1)
+            other_obs = sum_obs - this_obs
+            other_avg_obs = other_obs / 4
+            modified_obs.append(torch.cat((this_obs, other_avg_obs), dim=-1))
+        obs = torch.cat(modified_obs, dim=1)
+
+        mu = self.mu_net(obs)
+        if self.local_std:
+            std = self.log_std_net(obs) - 0.5
+            std = torch.exp(std)
+        else:
+            std = torch.exp(self.log_std)
         return Normal(mu, std)
 
     def _log_prob_from_distribution(self, pi, act):
+
         return pi.log_prob(act).sum(axis=-1)  # Last axis sum needed for Torch Normal distribution
+
+
+class SoftmaxActor(Actor):
+
+    def __init__(self, observation_space, activation, cnn_net):
+        super().__init__()
+
+        self.cnn_net = cnn_net
+
+        dummy_img = torch.rand((1,) + observation_space.shape)
+        self.action = nn.Sequential(
+            nn.Linear(cnn_net(dummy_img).shape[1], 50*50*2),
+            activation(),
+        )
+
+    def _distribution(self, obs):
+
+        obs = self.reshape_obs(obs)
+
+        batch_size = obs.shape[0]
+        seq_size = obs.shape[1]
+        obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
+        obs = self.cnn_net(obs)
+        obs = obs.reshape(batch_size, seq_size, obs.shape[1])
+
+        logits = self.action(obs)
+        return Categorical(logits=logits)
+
+    def _log_prob_from_distribution(self, pi, act):
+        return pi.log_prob(act)
 
 
 class CentralizedGaussianActor(Actor):
@@ -219,7 +341,6 @@ class CentralizedGaussianActor(Actor):
 
     def _log_prob_from_distribution(self, pi, act):
         return pi.log_prob(act).sum(axis=-1)  # Last axis sum needed for Torch Normal distribution
-
 
 
 class CentralizedGaussianActor_v2(Actor):
@@ -378,7 +499,7 @@ class ActorCritic(nn.Module):
 
     def __init__(self, observation_space, action_space, activation=nn.Tanh,
                  use_beta=False, init_log_std=-0.5, centralized_critic=False,
-                 centralized=False, local_std=False):
+                 centralized=False, local_std=False, discrete_action=False,):
         super().__init__()
 
         cnn_net = cnn(observation_space.shape[0])
@@ -388,19 +509,22 @@ class ActorCritic(nn.Module):
                                              cnn_net=cnn_net, init_log_std=init_log_std)
         elif use_beta:
             self.pi = BetaActor(observation_space, action_space.shape[0], cnn_net=cnn_net)
+        elif discrete_action:
+            self.pi = SoftmaxActor(observation_space, activation, cnn_net=cnn_net)
         else:
             self.pi = GaussianActor(observation_space, action_space.shape[0], activation, cnn_net=cnn_net,
                                     init_log_std=init_log_std, local_std=local_std)
 
         if centralized or centralized_critic:
-            self.v = CentralizedCritic(observation_space, activation, cnn_net=cnn_net)
-            #self.v = Critic(observation_space, activation, cnn_net=cnn_net)
+            #self.v = CentralizedCritic(observation_space, activation, cnn_net=cnn_net)
+            self.v = Critic(observation_space, activation, cnn_net=cnn_net)
         else:
             self.v = Critic(observation_space, activation, cnn_net=cnn_net)
 
         self.action_space_high = 1.0
         self.action_space_low = -1.0
         self.use_beta = use_beta
+
 
     def scale_by_action_bounds(self, beta_dist_samples):
         # Scale [0, 1] back to action space.
