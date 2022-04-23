@@ -10,6 +10,8 @@ from torch.distributions.normal import Normal
 from torch.distributions.categorical import Categorical
 from torch.distributions.beta import Beta
 
+from .noisy import NoisyLinear
+
 
 def combined_shape(length, shape=None):
     if shape is None:
@@ -63,8 +65,8 @@ class RNDNetwork(nn.Module):
     def __init__(self):
 
         super(RNDNetwork, self).__init__()
-        self.body = nn.Sequential(cnn(4),
-                                  nn.Linear(9216, 64))
+        self.cnn_net = cnn(4)
+        self.head = nn.Linear(9216, 16)
 
     def reshape_obs(self, obs):
         # Reshape observation for CNN
@@ -86,9 +88,9 @@ class RNDNetwork(nn.Module):
         batch_size, n_agents = obs.shape[0], obs.shape[1]
         obs = obs.reshape(batch_size * n_agents, obs.shape[2], obs.shape[3],
                           obs.shape[4])
-        obs = self.body(obs)
+        obs = self.cnn_net(obs)
         obs = obs.reshape(batch_size, n_agents, obs.shape[1])
-        return obs
+        return self.head(obs)
 
 
 
@@ -174,16 +176,20 @@ class BetaActor(Actor):
 
 class GaussianActor(Actor):
 
-    def __init__(self, observation_space, act_dim, activation, cnn_net, init_log_std=-0.5, local_std=False):
+    def __init__(self, observation_space, act_dim, activation, cnn_net, init_log_std=-0.5, local_std=False,
+                 noisy=False):
         super().__init__()
 
         self.cnn_net = cnn_net
 
         dummy_img = torch.rand((1,) + observation_space.shape)
-        self.mu_net = nn.Sequential(
-            nn.Linear(cnn_net(dummy_img).shape[1], act_dim),
-            activation()
-        )
+        if noisy:
+            self.mu_net = NoisyLinear(cnn_net(dummy_img).shape[1], act_dim)
+        else:
+            self.mu_net = nn.Sequential(
+                nn.Linear(cnn_net(dummy_img).shape[1], act_dim),
+                activation()
+            )
 
         self.local_std = local_std
         if local_std:
@@ -221,6 +227,9 @@ class GaussianActor(Actor):
     def _log_prob_from_distribution(self, pi, act):
 
         return pi.log_prob(act).sum(axis=-1)  # Last axis sum needed for Torch Normal distribution
+
+    def resample(self):
+        self.mu_net.resample()
 
 
 class GaussianActor_v2(Actor):
@@ -313,7 +322,7 @@ class SoftmaxActor(Actor):
 
 class CentralizedGaussianActor(Actor):
 
-    def __init__(self, observation_space, act_dim, activation, cnn_net, init_log_std=-0.5):
+    def __init__(self, observation_space, act_dim, activation, cnn_net, init_log_std=-0.5, num_agents=5):
         super().__init__()
         log_std = init_log_std * np.ones(act_dim, dtype=np.float32)
         self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
@@ -321,7 +330,7 @@ class CentralizedGaussianActor(Actor):
 
         dummy_img = torch.rand((1,) + observation_space.shape)
         self.mu_net = nn.Sequential(
-            nn.Linear(cnn_net(dummy_img).shape[1]*5, act_dim*5),
+            nn.Linear(cnn_net(dummy_img).shape[1]*num_agents, act_dim*num_agents),
             activation()
         )
 
@@ -377,15 +386,18 @@ class CentralizedGaussianActor_v2(Actor):
 
 class Critic(nn.Module):
 
-    def __init__(self, observation_space, activation, cnn_net):
+    def __init__(self, observation_space, activation, cnn_net, noisy=False):
         super().__init__()
         self.cnn_net = cnn_net
 
         dummy_img = torch.rand((1,) + observation_space.shape)
-        self.v_net = nn.Sequential(
-            nn.Linear(cnn_net(dummy_img).shape[1], 1),
-            activation()
-        )
+        if noisy:
+            self.v_net = NoisyLinear(cnn_net(dummy_img).shape[1], 1)
+        else:
+            self.v_net = nn.Sequential(
+                nn.Linear(cnn_net(dummy_img).shape[1], 1),
+                activation()
+            )
 
     def reshape_obs(self, obs):
         # Reshape observation for CNN
@@ -414,16 +426,19 @@ class Critic(nn.Module):
         v_out = self.v_net(obs)
         return torch.squeeze(v_out, -1)  # Critical to ensure v has right shape.
 
+    def resample(self):
+        self.v_net.resample()
+
 
 class CentralizedCritic(nn.Module):
 
-    def __init__(self, observation_space, activation, cnn_net):
+    def __init__(self, observation_space, activation, cnn_net, num_agents=5):
         super().__init__()
         self.cnn_net = cnn_net
 
         dummy_img = torch.rand((1,) + observation_space.shape)
         self.v_net = nn.Sequential(
-            nn.Linear(cnn_net(dummy_img).shape[1]*5, 5),
+            nn.Linear(cnn_net(dummy_img).shape[1]*num_agents, num_agents),
             activation()
         )
 
@@ -499,27 +514,27 @@ class ActorCritic(nn.Module):
 
     def __init__(self, observation_space, action_space, activation=nn.Tanh,
                  use_beta=False, init_log_std=-0.5, centralized_critic=False,
-                 centralized=False, local_std=False, discrete_action=False,):
+                 centralized=False, local_std=False, discrete_action=False, noisy=False):
         super().__init__()
 
         cnn_net = cnn(observation_space.shape[0])
 
         if centralized:
             self.pi = CentralizedGaussianActor(observation_space, action_space.shape[0], activation,
-                                             cnn_net=cnn_net, init_log_std=init_log_std)
+                                             cnn_net=cnn_net, init_log_std=init_log_std, num_agents=5)
         elif use_beta:
             self.pi = BetaActor(observation_space, action_space.shape[0], cnn_net=cnn_net)
         elif discrete_action:
             self.pi = SoftmaxActor(observation_space, activation, cnn_net=cnn_net)
         else:
             self.pi = GaussianActor(observation_space, action_space.shape[0], activation, cnn_net=cnn_net,
-                                    init_log_std=init_log_std, local_std=local_std)
+                                    init_log_std=init_log_std, local_std=local_std, noisy=noisy)
 
         if centralized or centralized_critic:
-            #self.v = CentralizedCritic(observation_space, activation, cnn_net=cnn_net)
-            self.v = Critic(observation_space, activation, cnn_net=cnn_net)
+            self.v = CentralizedCritic(observation_space, activation, cnn_net=cnn_net, num_agents=5)
+            #self.v = Critic(observation_space, activation, cnn_net=cnn_net, noisy=noisy)
         else:
-            self.v = Critic(observation_space, activation, cnn_net=cnn_net)
+            self.v = Critic(observation_space, activation, cnn_net=cnn_net, noisy=noisy)
 
         self.action_space_high = 1.0
         self.action_space_low = -1.0
@@ -544,3 +559,7 @@ class ActorCritic(nn.Module):
 
     def act(self, obs):
         return self.step(obs)[0]
+
+    def resample(self):
+        self.pi.resample()
+        self.v.resample()

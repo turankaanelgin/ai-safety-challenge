@@ -1,18 +1,20 @@
 import pdb
-import pprint
 import numpy as np
+import random
 import torch
-from torch import nn
 from torch.optim import Adam
-from torch.optim.lr_scheduler import ReduceLROnPlateau, ExponentialLR
-from torch.optim.lr_scheduler import _LRScheduler
-from torch.utils.tensorboard import SummaryWriter
 
-from .mappo_utils.valuenorm import ValueNorm
-
-from . import core_ind as core
 import os
 import json
+import math
+import pickle
+import cv2
+import matplotlib
+import matplotlib.pyplot as plt
+
+from tanksworld.minimap_util import *
+from .heuristics import *
+from . import core_ind as core
 
 
 device = torch.device('cuda')
@@ -93,6 +95,7 @@ class RolloutBuffer:
         return {k: torch.as_tensor(v, dtype=torch.float32).to(device) for k, v in data.items()}
 
 
+
 class PPOPolicy():
 
     def __init__(self, env, callback, eval_mode=False, **kargs):
@@ -103,97 +106,22 @@ class PPOPolicy():
 
     def run(self, num_steps):
         self.kargs.update({'steps_to_run': num_steps})
+
+        ac_kwargs = {}
+        ac_kwargs['init_log_std'] = self.kargs['init_log_std']
+        ac_kwargs['centralized'] = self.kargs['centralized']
+        ac_kwargs['centralized_critic'] = self.kargs['centralized_critic']
+        ac_kwargs['local_std'] = self.kargs['local_std']
+
         if self.eval_mode:
-            ac_kwargs = {}
-            self.evaluate(steps_to_run=num_steps, model_path=self.kargs['model_path'], ac_kwargs=ac_kwargs)
+            self.evaluate(episodes_to_run=num_steps, model_path=self.kargs['model_path'],
+                          num_envs=self.kargs['n_envs'], ac_kwargs=ac_kwargs)
         else:
             self.learn(**self.kargs)
 
-    def evaluate(self, steps_to_run, model_path, actor_critic=core.ActorCritic, ac_kwargs=dict()):
-
-        steps = 0
-        observation = self.env.reset()
-
-        self.ac_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
-        ckpt = torch.load(model_path)
-        self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
-        self.ac_model.eval()
-        num_envs = 1
-
-        ep_rr_damage = [0] * num_envs
-        ep_rb_damage = [0] * num_envs
-        ep_br_damage = [0] * num_envs
-        curr_done = [False] * num_envs
-        taken_stats = [False] * num_envs
-        episode_red_blue_damages, episode_blue_red_damages = [], []
-        episode_red_red_damages = []
-        all_episode_red_blue_damages = [[] for _ in range(num_envs)]
-        all_episode_blue_red_damages = [[] for _ in range(num_envs)]
-        all_episode_red_red_damages = [[] for _ in range(num_envs)]
-
-        while steps < steps_to_run:
-            with torch.no_grad():
-                observation = torch.as_tensor(observation, dtype=torch.float32).squeeze(2).to(device)
-                action, v, logp, _ = self.ac_model.step(observation)
-            action = action.squeeze(0).reshape(num_envs, 5, -1)
-            observation, reward, done, info = self.env.step(action.cpu().numpy())
-            curr_done = [done[idx] or curr_done[idx] for idx in range(num_envs)]
-
-            for env_idx, terminal in enumerate(curr_done):
-                if terminal and not taken_stats[env_idx]:
-                    ep_rr_damage[env_idx] = info[env_idx]['red_stats']['damage_inflicted_on']['ally']
-                    ep_rb_damage[env_idx] = info[env_idx]['red_stats']['damage_inflicted_on']['enemy']
-                    ep_br_damage[env_idx] = info[env_idx]['red_stats']['damage_taken_by']['enemy']
-                    taken_stats[env_idx] = True
-
-            if np.all(curr_done):
-                episode_red_red_damages.append(ep_rr_damage)
-                episode_blue_red_damages.append(ep_br_damage)
-                episode_red_blue_damages.append(ep_rb_damage)
-
-                for env_idx in range(num_envs):
-                    all_episode_red_blue_damages[env_idx].append(ep_rb_damage[env_idx])
-                    all_episode_blue_red_damages[env_idx].append(ep_br_damage[env_idx])
-                    all_episode_red_red_damages[env_idx].append(ep_rr_damage[env_idx])
-
-                ep_rr_damage = [0] * num_envs
-                ep_rb_damage = [0] * num_envs
-                ep_br_damage = [0] * num_envs
-                curr_done = [False] * num_envs
-                taken_stats = [False] * num_envs
-                steps += 1
-                observation = self.env.reset()
-
-                if steps % 2 == 0 and steps > 0:
-                    avg_red_red_damages = np.mean(episode_red_red_damages)
-                    avg_red_blue_damages = np.mean(episode_red_blue_damages)
-                    avg_blue_red_damages = np.mean(episode_blue_red_damages)
-
-                    with open(os.path.join(self.callback.policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
-                        json.dump({'Number of games': steps,
-                                   'Red-Red-Damage': avg_red_red_damages.tolist(),
-                                   'Red-Blue Damage': avg_red_blue_damages.tolist(),
-                                   'Blue-Red Damage': avg_blue_red_damages.tolist()}, f, indent=4)
-
-                    with open(os.path.join(self.callback.policy_record.data_dir, 'all_statistics.json'), 'w+') as f:
-                        json.dump({'Number of games': steps,
-                                   'Red-Red-Damage': all_episode_red_red_damages,
-                                   'Red-Blue Damage': all_episode_red_blue_damages,
-                                   'Blue-Red Damage': all_episode_blue_red_damages}, f, indent=4)
-
-                    avg_red_red_damages_per_env = np.mean(episode_red_red_damages, axis=0)
-                    avg_red_blue_damages_per_env = np.mean(episode_red_blue_damages, axis=0)
-                    avg_blue_red_damages_per_env = np.mean(episode_blue_red_damages, axis=0)
-
-                    with open(os.path.join(self.callback.policy_record.data_dir, 'mean_statistics_per_env.json'),
-                              'w+') as f:
-                        json.dump({'Number of games': steps,
-                                   'All-Red-Red-Damage': avg_red_red_damages_per_env.tolist(),
-                                   'All-Red-Blue Damage': avg_red_blue_damages_per_env.tolist(),
-                                   'All-Blue-Red Damage': avg_blue_red_damages_per_env.tolist()}, f, indent=4)
-
 
     def set_random_seed(self, seed):
+
         # Random seed
         if seed == -1:
             MAX_INT = 2147483647
@@ -203,36 +131,39 @@ class PPOPolicy():
         torch.cuda.manual_seed(seed)
         np.random.seed(seed)
 
+
     def setup_model(self, actor_critic, pi_lr, vf_lr, ac_kwargs):
 
         self.obs_dim = self.env.observation_space.shape
         self.act_dim = self.env.action_space.shape
         self.obs = self.env.reset()
+        self.state_vector = np.zeros((5, 6))
 
         self.ac_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
-        self.pi_optimizers = [Adam(self.ac_model.pi[idx].parameters(), lr=pi_lr) for idx in range(self.ac_model.num_agents)]
+        pi_parameters = []
+        for agent_idx in range(5):
+            pi_parameters += list(self.ac_model.pi[agent_idx].parameters())
+        self.pi_optimizer = Adam(pi_parameters, lr=pi_lr)
         self.vf_optimizer = Adam(self.ac_model.v.parameters(), lr=vf_lr)
-        #self.vf_optimizers = [Adam(self.ac_model.v[idx].parameters(), lr=vf_lr) for idx in range(self.ac_model.num_agents)]
+
 
     def load_model(self, model_path, cnn_model_path, freeze_rep, steps_per_epoch):
 
         self.start_step = 0
         self.best_eval_score = -np.infty
-
+        # Load from previous checkpoint
         if model_path:
             ckpt = torch.load(model_path)
             self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
-            pi_ckpt = ckpt['pi_optimizer_state_dict']
-            for idx, pi_opt in enumerate(self.pi_optimizers):
-                pi_opt.load_state_dict(pi_ckpt[idx])
-            vf_ckpt = ckpt['vf_optimizer_state_dict']
-            self.vf_optimizer.load_state_dict(vf_ckpt)
+            self.pi_optimizer.load_state_dict(ckpt['pi_optimizer_state_dict'])
+            self.vf_optimizer.load_state_dict(ckpt['vf_optimizer_state_dict'])
             self.start_step = ckpt['step']
             self.start_step -= self.start_step % steps_per_epoch
             if os.path.exists(os.path.join(self.callback.policy_record.data_dir, 'best_eval_score.json')):
                 with open(os.path.join(self.callback.policy_record.data_dir, 'best_eval_score.json'), 'r') as f:
                     self.best_eval_score = json.load(f)
 
+        # Only load the representation part
         elif cnn_model_path:
             state_dict = torch.load(cnn_model_path)
 
@@ -251,6 +182,7 @@ class PPOPolicy():
         from torchinfo import summary
         summary(self.ac_model)
 
+
     def save_model(self, save_dir, step, is_best=False):
 
         if is_best:
@@ -259,90 +191,99 @@ class PPOPolicy():
             model_path = os.path.join(save_dir, str(step) + '.pth')
         ckpt_dict = {'step': step,
                      'model_state_dict': self.ac_model.state_dict(),
-                     'pi_optimizer_state_dict': [self.pi_optimizers[idx].state_dict() for idx in range(self.ac_model.num_agents)],
+                     'pi_optimizer_state_dict': self.pi_optimizer.state_dict(),
                      'vf_optimizer_state_dict': self.vf_optimizer.state_dict()}
-                     #'vf_optimizer_state_dict': [self.vf_optimizers[idx].state_dict() for idx in range(self.ac_model.num_agents)]}
         torch.save(ckpt_dict, model_path)
 
 
     # Set up function for computing PPO policy loss
-    def compute_loss_pi(self, data, clip_ratio, agent_idx):
+    def compute_loss_pi(self, data, clip_ratio_1, clip_ratio_2):
 
         obs, act, adv, logp_old = data['obs'], data['act'], data['adv'], data['logp']
-        obs, act, adv, logp_old = obs[:,agent_idx], act[:,agent_idx], adv[:,agent_idx], logp_old[:,agent_idx]
 
-        pi, logp = self.ac_model.pi[agent_idx](obs, act)
-        ratio = torch.exp(logp - logp_old)
-        clip_adv = torch.clamp(ratio, 1 - clip_ratio, 1 + clip_ratio) * adv
-        loss_pi = -(torch.min(ratio * adv, clip_adv)).mean()
+        num_agents = 5
+        logp = []
+        for agent_idx in range(num_agents):
+            pi, logp_ = self.ac_model.pi[agent_idx](obs[:,agent_idx], act[:,agent_idx])
+            logp.append(logp_)
+        logp = torch.transpose(torch.cat(logp, dim=0), 1, 0)
 
+        imp_weights = torch.exp(logp - logp_old)
+        ratio = torch.prod(imp_weights, dim=-1, keepdim=True).repeat(1, num_agents)
+
+        prod_ratios_for_surr2 = []
+        for agent_idx in range(num_agents):
+            ratios = imp_weights.clone()
+            ratios[:,agent_idx] = torch.ones_like(ratios[:,agent_idx])
+            prod_others_ratio_i = torch.prod(ratios, dim=-1).squeeze()
+            inner_eps = clip_ratio_2
+            prod_others_ratio_i_for_surr2 = torch.clamp(prod_others_ratio_i, 1-inner_eps, 1+inner_eps)
+            prod_others_i_for_surr2 = prod_others_ratio_i_for_surr2 * imp_weights[:,agent_idx].squeeze()
+            prod_ratios_for_surr2.append(prod_others_i_for_surr2)
+        ratio_for_surr2 = torch.stack(prod_ratios_for_surr2, dim=-1)
+        clipped_ratio = torch.clamp(ratio_for_surr2, 1.0-clip_ratio_1, 1.0+clip_ratio_1)
+
+        # Policy loss
+        surr1 = ratio * adv
+        surr2 = clipped_ratio * adv
+        loss_pi = -torch.min(surr1, surr2).mean()
+
+        # Useful extra info
         approx_kl = (logp_old - logp).mean().item()
-        ent = 0.0
-        clipped = ratio.gt(1 + clip_ratio) | ratio.lt(1 - clip_ratio)
-        clipfrac = torch.as_tensor(clipped, dtype=torch.float32).mean().item()
-        pi_info = dict(kl=approx_kl, ent=ent, cf=clipfrac)
+        pi_info = dict(kl=approx_kl)
 
         return loss_pi, pi_info
+
 
     # Set up function for computing value loss
     def compute_loss_v(self, data):
         obs, ret = data['obs'], data['ret']
-        #obs, ret = obs[:,agent_idx], ret[:,agent_idx]
+
         return ((self.ac_model.v(obs) - ret) ** 2).mean()
 
-    def update(self, buf, train_pi_iters, train_v_iters, target_kl, clip_ratio):
+
+    def update(self, buf, train_pi_iters, train_v_iters, target_kl, clip_ratio_1, clip_ratio_2):
 
         data = buf.get()
 
         # Train policy with multiple steps of gradient descent
         for i in range(train_pi_iters):
-            for agent_idx in range(len(self.pi_optimizers)):
-                self.pi_optimizers[agent_idx].zero_grad()
-                loss_pi, pi_info = self.compute_loss_pi(data, clip_ratio, agent_idx)
-                kl = pi_info['kl']
+            self.pi_optimizer.zero_grad()
+            loss_pi, pi_info = self.compute_loss_pi(data, clip_ratio_1, clip_ratio_2)
 
-                if kl > 1.5 * target_kl:
-                    break
+            kl = pi_info['kl']
+            if kl > 1.5 * target_kl:
+                break
 
-                loss_pi.backward()
-                self.pi_optimizers[agent_idx].step()
+            loss = loss_pi
+            loss.backward()
             self.loss_p_index += 1
             self.writer.add_scalar('loss/Policy_Loss', loss_pi, self.loss_p_index)
             std = torch.exp(self.ac_model.pi[0].log_std)
             self.writer.add_scalar('std_dev/move', std[0].item(), self.loss_p_index)
             self.writer.add_scalar('std_dev/turn', std[1].item(), self.loss_p_index)
             self.writer.add_scalar('std_dev/shoot', std[2].item(), self.loss_p_index)
+            self.pi_optimizer.step()
 
+        # Value function learning
         for i in range(train_v_iters):
-            '''
-            for agent_idx in range(len(self.vf_optimizers)):
-                self.vf_optimizers[agent_idx].zero_grad()
-                loss_v = self.compute_loss_v(data, agent_idx)
-
-                loss_v.backward()
-                self.vf_optimizers[agent_idx].step()
-            '''
-
             self.vf_optimizer.zero_grad()
             loss_v = self.compute_loss_v(data)
             loss_v.backward()
-            self.vf_optimizer.step()
             self.loss_v_index += 1
             self.writer.add_scalar('loss/Value_Loss', loss_v, self.loss_v_index)
-
-
+            self.vf_optimizer.step()
 
 
     def learn(self, actor_critic=core.ActorCritic, ac_kwargs=dict(), seed=-1,
               steps_per_epoch=800, steps_to_run=100000, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
               vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97,
-              target_kl=0.01, use_value_norm=False, freeze_rep=True,
-              entropy_coef=0.0, tb_writer=None, **kargs):
+              target_kl=0.01, freeze_rep=True, entropy_coef=0.0, use_value_norm=False,
+              tb_writer=None, **kargs):
 
         env = self.env
         self.writer = tb_writer
         self.loss_p_index, self.loss_v_index = 0, 0
-        self.action_dim = 3
         self.set_random_seed(seed)
         print('POLICY SEED', seed)
 
@@ -392,7 +333,6 @@ class PPOPolicy():
             epoch_ended = step > 0 and step % steps_per_epoch == 0
 
             if np.any(terminal) or epoch_ended:
-
                 stats = info[0]['red_stats']
                 ep_rr_dmg = stats['damage_inflicted_on']['ally']
                 ep_rb_dmg = stats['damage_inflicted_on']['enemy']
@@ -428,7 +368,7 @@ class PPOPolicy():
                 ep_ret, ep_len, ep_rr_dmg, ep_rb_dmg, ep_br_dmg = 0, 0, 0, 0, 0
 
                 if epoch_ended:
-                    self.update(buf, train_pi_iters, train_v_iters, target_kl, clip_ratio)
+                    self.update(buf, train_pi_iters, train_v_iters, target_kl, clip_ratio, clip_ratio//2)
 
 
             if (step + 1) % 100 == 0:
@@ -466,4 +406,3 @@ class PPOPolicy():
                         best_eval_score = eval_score
                         with open(os.path.join(self.callback.policy_record.data_dir, 'best_eval_score.json'), 'w+') as f:
                             json.dump(best_eval_score, f)
-

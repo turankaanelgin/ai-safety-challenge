@@ -26,6 +26,12 @@ def combined_shape_v2(length, seq_len, shape=None):
         return (length, seq_len,)
     return (length, seq_len, shape) if np.isscalar(shape) else (length, seq_len, *shape)
 
+def combined_shape_v3(length, batch_len, seq_len, shape=None):
+    if shape is None:
+        return (length, batch_len, seq_len,)
+    return (length, batch_len, seq_len, shape) if np.isscalar(shape) else (length, batch_len, seq_len, *shape)
+
+
 def cnn(observation_space):
     model = nn.Sequential(
         nn.Conv2d(observation_space.shape[0], 32, 8, 4),

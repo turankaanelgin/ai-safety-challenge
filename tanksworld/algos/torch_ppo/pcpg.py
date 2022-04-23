@@ -232,6 +232,9 @@ class PCPGPolicy():
 
         self.uniform_prob = self.continuous_uniform_prob()
 
+        if self.callback:
+            self.callback.init_model(self.network['exploit'])
+
     def load_representation(self):
 
         state_dict = torch.load(self.config['cnn_model_path'])
@@ -259,6 +262,24 @@ class PCPGPolicy():
         reward_bonus = torch.sqrt((torch.mm(phi, self.density_model) * phi).sum(1)).detach()
         return reward_bonus
 
+    def validate(self):
+
+        if (self.total_steps + 1) % 50000 == 0:
+
+            if self.callback and self.callback.val_env:
+
+                eval_score = self.callback.validate_policy(self.network['exploit'].state_dict(), device)
+                if eval_score > self.best_eval_score:
+                    self.save(self.config['save_dir'], self.total_steps, is_best=True)
+                    self.best_eval_score = eval_score
+                    with open(os.path.join(self.callback.policy_record.data_dir, 'best_eval_score.json'),
+                              'w+') as f:
+                        json.dump(self.best_eval_score, f)
+
+                    # If it is best checkpoint so far, evaluate it
+                    if self.callback.eval_env:
+                        self.callback.evaluate_policy(self.network['exploit'].state_dict(), device)
+
     def gather_trajectories(self, roll_in=True, add_bonus_reward=True, mode=None, record_return=False):
 
         states = self.states
@@ -280,6 +301,8 @@ class PCPGPolicy():
                 next_states, rewards, terminals, info = self.env.step(actions.cpu().numpy())
                 states = next_states
                 self.total_steps += 1
+
+                self.validate()
 
         for i in range(roll_out_length):
             if i == 0 and roll_in:
@@ -391,21 +414,7 @@ class PCPGPolicy():
             states = next_states
             self.total_steps += 1
 
-        if (self.total_steps + 1) % 50000 == 0:
-
-            if self.callback and self.callback.val_env:
-
-                eval_score = self.callback.validate_policy(self.network['exploit'].state_dict(), device)
-                if eval_score > self.best_eval_score:
-                    self.save(self.config['save_dir'], self.total_steps, is_best=True)
-                    self.best_eval_score = eval_score
-                    with open(os.path.join(self.callback.policy_record.data_dir, 'best_eval_score.json'),
-                              'w+') as f:
-                        json.dump(self.best_eval_score, f)
-
-                    # If it is best checkpoint so far, evaluate it
-                    if self.callback.eval_env:
-                        self.callback.evaluate_policy(self.network['exploit'].state_dict(), device)
+            self.validate()
 
         self.states = states
         with torch.no_grad():
@@ -477,8 +486,6 @@ class PCPGPolicy():
                 for n in range(N):
                     sigma_weighted_sum += F.softmax(self.log_alphas, dim=0)[n].cuda() * covariance_matrices[n]
                 loss = -torch.logdet(sigma_weighted_sum)
-                if torch.any(torch.isnan(loss)):
-                    pdb.set_trace()
                 loss.backward()
                 opt.step()
             with torch.no_grad():
@@ -504,6 +511,10 @@ class PCPGPolicy():
             actions = [a.cpu() for a in actions]
             self.replay_buffer_actions[mode].append(actions)
 
+            if len(self.replay_buffer[mode]) > 15:
+                self.replay_buffer[mode].pop(0)
+                self.replay_buffer_actions[mode].pop(0)
+
     def optimize_policy(self):
 
         for mode in ['explore-exploit']:
@@ -514,6 +525,10 @@ class PCPGPolicy():
 
         self.policy_mixture.append(copy.deepcopy(self.network['explore-exploit'].state_dict()))
         self.policy_mixture_optimizers.append(copy.deepcopy(self.optimizer['explore-exploit'].state_dict()))
+
+        if len(self.policy_mixture) > 20:
+            self.policy_mixture.pop(0)
+            self.policy_mixture_optimizers.pop(0)
 
     def initialize_new_policy(self, mode):
 

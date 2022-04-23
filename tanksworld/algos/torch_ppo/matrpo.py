@@ -1,19 +1,19 @@
 import pdb
-import pprint
 import numpy as np
 import torch
-from torch import nn
 from torch.optim import Adam
-from torch.optim.lr_scheduler import ReduceLROnPlateau, ExponentialLR
-from torch.optim.lr_scheduler import _LRScheduler
-from torch.utils.tensorboard import SummaryWriter
+import torch.nn.functional as F
 
-from .mappo_utils.valuenorm import ValueNorm
-
-from . import core_new
 import os
 import json
-from matplotlib import pyplot as plt
+import pickle
+import cv2
+import matplotlib
+import matplotlib.pyplot as plt
+
+from tanksworld.minimap_util import *
+from .heuristics import *
+from . import core
 
 
 device = torch.device('cuda')
@@ -21,90 +21,60 @@ device = torch.device('cuda')
 
 class RolloutBuffer:
 
-    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95, n_envs=1, use_sde=False,
-                 use_rnn=False, n_states=3, use_value_norm=False, value_normalizer=None):
+    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95,
+                 n_rollout_threads=1, centralized=False, n_agents=5, discrete_action=False):
 
-        if use_rnn:
-            self.obs_buf = torch.zeros(core.combined_shape_v4(size, n_envs, 5, n_states, obs_dim)).to(device)
+        self.n_agents = n_agents
+        self.obs_buf = torch.zeros(core.combined_shape_v3(size, n_rollout_threads, self.n_agents, obs_dim)).to(device)
+        if discrete_action:
+            self.act_buf = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
         else:
-            self.obs_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, obs_dim)).to(device)
-        self.act_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, act_dim)).to(device)
-        self.adv_buf = torch.zeros((size, n_envs, 5)).to(device)
-        self.rew_buf = torch.zeros((size, n_envs, 5)).to(device)
-        self.ret_buf = torch.zeros((size, n_envs, 5)).to(device)
-        self.val_buf = torch.zeros((size, n_envs, 5)).to(device)
-        self.mu_buf = torch.zeros((size, n_envs, 5)).to(device)
-        self.sigma_buf = torch.zeros((size, n_envs, 5)).to(device)
-        self.logp_buf = torch.zeros((size, n_envs, 5)).to(device)
-        #if not use_sde:
-        #    self.entropy_buf = torch.zeros(core.combined_shape_v3(size, n_envs, 5, act_dim)).to(device)
-        #else:
-        #    self.entropy_buf = torch.zeros(core.combined_shape_v2(size, n_envs, 5)).to(device)
+            self.act_buf = torch.zeros(core.combined_shape_v3(size, n_rollout_threads, self.n_agents, act_dim)).to(device)
+        self.adv_buf = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
+        self.rew_buf = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
+        self.ret_buf = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
+        self.val_buf = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
+        self.logp_buf = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
+        self.episode_starts = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
         self.gamma, self.lam = gamma, lam
-        self.ptr, self.path_start_idx, self.max_size = 0, 0, size
-        self.n_envs = n_envs
-        self.use_rnn = use_rnn
-        self.use_value_norm = use_value_norm
-        self.value_normalizer = value_normalizer
+        self.ptr, self.max_size = 0, size
+        self.path_start_idx = np.zeros(n_rollout_threads,)
+        self.n_rollout_threads = n_rollout_threads
+        self.buffer_size = size
+        self.centralized = centralized
 
-    def store(self, obs, act, rew, val, logp, mu, sigma):
+    def store(self, obs, act, rew, val, logp, dones):
         """
         Append one timestep of agent-environment interaction to the buffer.
         """
 
-        assert self.ptr < self.max_size  # buffer has to have room so you can store
-        try:
-            self.obs_buf[self.ptr] = obs.squeeze(2) if not self.use_rnn else obs
-        except:
-            pdb.set_trace()
+        assert self.ptr < self.max_size
+        self.obs_buf[self.ptr] = obs.squeeze(2)
         self.act_buf[self.ptr] = act
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
         self.logp_buf[self.ptr] = logp
-        self.mu_buf[self.ptr] = mu
-        self.sigma_buf[self.ptr] = sigma
-        # self.entropy_buf[self.ptr] = entropy if entropy is not None else torch.Tensor([0])
+        self.episode_starts[self.ptr] = torch.FloatTensor(dones).unsqueeze(1).tile((1, self.n_agents))
         self.ptr += 1
 
-    def finish_path(self, last_val=[0, 0, 0, 0, 0]):
-        """
-        Call this at the end of a trajectory, or when one gets cut off
-        by an epoch ending. This looks back in the buffer to where the
-        trajectory started, and uses rewards and value estimates from
-        the whole trajectory to compute advantage estimates with GAE-Lambda,
-        as well as compute the rewards-to-go for each state, to use as
-        the targets for the value function.
+    def finish_path(self, last_val, env_idx):
 
-        The "last_val" argument should be 0 if the trajectory ended
-        because the agent reached a terminal state (died), and otherwise
-        should be V(s_T), the value function estimated for the last state.
-        This allows us to bootstrap the reward-to-go calculation to account
-        for timesteps beyond the arbitrary episode horizon (or epoch cutoff).
-        """
+        path_start = int(self.path_start_idx[env_idx])
 
-        path_slice = slice(self.path_start_idx, self.ptr)
-
-        last_val = last_val.unsqueeze(0)
-        if self.use_rnn and len(last_val.shape) == 2:
-            last_val = last_val.unsqueeze(0)
-        if self.use_value_norm:
-            vals = self.value_normalizer.denormalize(self.val_buf[path_slice].squeeze(1)).unsqueeze(1)
-        else:
-            vals = self.val_buf[path_slice]
-
-        rews = torch.cat((self.rew_buf[path_slice], last_val), dim=0)
-        vals = torch.cat((vals, last_val), dim=0)
+        last_val = last_val[env_idx,:].unsqueeze(0)
+        rews = torch.cat((self.rew_buf[path_start:self.ptr, env_idx], last_val), dim=0)
+        vals = torch.cat((self.val_buf[path_start:self.ptr, env_idx], last_val), dim=0)
 
         # the next two lines implement GAE-Lambda advantage calculation
         deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
-        discount_delta = core_new.discount_cumsum(deltas.cpu().numpy(), self.gamma * self.lam)
-        self.adv_buf[path_slice] = torch.as_tensor(discount_delta.copy(), dtype=torch.float32).to(device)
+        discount_delta = core.discount_cumsum(deltas.cpu().numpy(), self.gamma * self.lam)
+        self.adv_buf[path_start:self.ptr, env_idx] = torch.as_tensor(discount_delta.copy(), dtype=torch.float32).to(device)
 
-        # the next line computes rewards-to-go, to be targets for the value function
-        discount_rews = core_new.discount_cumsum(rews.cpu().numpy(), self.gamma)[:-1]
-        self.ret_buf[path_slice] = torch.as_tensor(discount_rews.copy(), dtype=torch.float32).to(device)
+        discount_rews = core.discount_cumsum(rews.cpu().numpy(), self.gamma)[:-1]
+        self.ret_buf[path_start:self.ptr, env_idx] = torch.as_tensor(discount_rews.copy(), dtype=torch.float32).to(
+            device)
 
-        self.path_start_idx = self.ptr
+        self.path_start_idx[env_idx] = self.ptr
 
     def get(self):
         """
@@ -113,15 +83,18 @@ class RolloutBuffer:
         mean zero and std one). Also, resets some pointers in the buffer.
         """
         assert self.ptr == self.max_size  # buffer has to be full before you can get
-        self.ptr, self.path_start_idx = 0, 0
+        # self.ptr, self.path_start_idx = 0, 0
+        self.ptr = 0
+        self.path_start_idx = np.zeros(self.n_rollout_threads, )
         # the next two lines implement the advantage normalization trick
         adv_buf = self.adv_buf.flatten(start_dim=1)
         adv_std, adv_mean = torch.std_mean(adv_buf, dim=0)
         adv_buf = (adv_buf - adv_mean) / adv_std
-        self.adv_buf = adv_buf.reshape(adv_buf.shape[0], self.n_envs, 5)
+        self.adv_buf = adv_buf.reshape(adv_buf.shape[0], self.n_rollout_threads, self.n_agents)
         data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
-                    adv=self.adv_buf, logp=self.logp_buf, mu=self.mu_buf, sigma=self.sigma_buf)
+                    adv=self.adv_buf, logp=self.logp_buf, val=self.val_buf)
         return {k: torch.as_tensor(v, dtype=torch.float32).to(device) for k, v in data.items()}
+
 
 
 class TRPOPolicy():
@@ -207,6 +180,7 @@ class TRPOPolicy():
                                    'All-Blue-Red Damage': avg_blue_red_damages_per_env.tolist()}, f, indent=4)
 
     def set_random_seed(self, seed):
+
         # Random seed
         if seed == -1:
             MAX_INT = 2147483647
@@ -215,69 +189,41 @@ class TRPOPolicy():
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
         np.random.seed(seed)
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+
 
     def setup_model(self, actor_critic, pi_lr, vf_lr, pi_scheduler, vf_scheduler, ac_kwargs, use_value_norm=False):
 
         self.obs_dim = self.env.observation_space.shape
         self.act_dim = self.env.action_space.shape
         self.obs = self.env.reset()
+        self.state_vector = np.zeros((12,6))
 
         self.ac_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
-        if self.weight_sharing:
-            self.pi_optimizer = Adam(self.ac_model.parameters(), lr=pi_lr)
-        else:
-            self.pi_optimizer = Adam(self.ac_model.pi.parameters(), lr=pi_lr)
-            self.vf_optimizer = Adam(self.ac_model.v.parameters(), lr=vf_lr)
-        if use_value_norm:
-            self.value_normalizer = ValueNorm((5), device=torch.device('cuda'))
-        else:
-            self.value_normalizer = None
-        self.use_value_norm = use_value_norm
+        self.pi_optimizer = Adam(self.ac_model.pi.parameters(), lr=pi_lr)
+        self.vf_optimizer = Adam(self.ac_model.v.parameters(), lr=vf_lr)
 
-        self.scheduler_policy = None
-        if pi_scheduler == 'smart':
-            self.scheduler_policy = ReduceLROnPlateau(self.pi_optimizer, mode='max', factor=0.5, patience=1000)
-        elif pi_scheduler == 'linear':
-            self.scheduler_policy = LinearLR(self.pi_optimizer, start_factor=0.5, end_factor=1.0, total_iters=5000)
-        elif pi_scheduler == 'cyclic':
-            self.scheduler_policy = CyclicLR(self.pi_optimizer, base_lr=pi_lr, max_lr=3e-4, mode='triangular2',
-                                             cycle_momentum=False)
-
-        self.scheduler_value = None
-        if vf_scheduler == 'smart':
-            self.scheduler_value = ReduceLROnPlateau(self.vf_optimizer, mode='max', factor=0.5, patience=1000)
-        elif vf_scheduler == 'linear':
-            self.scheduler_value = LinearLR(self.vf_optimizer, start_factor=0.5, end_factor=1.0, total_iters=5000)
-        elif vf_scheduler == 'cyclic':
-            self.scheduler_value = CyclicLR(self.vf_optimizer, base_lr=vf_lr, max_lr=1e-3, mode='triangular2',
-                                            cycle_momentum=False)
-
-        assert pi_scheduler != 'cons' and self.scheduler_policy or not self.scheduler_policy
-        assert vf_scheduler != 'cons' and self.scheduler_value or not self.scheduler_value
 
     def load_model(self, model_path, cnn_model_path, freeze_rep, steps_per_epoch):
 
         self.start_step = 0
+        self.best_eval_score = -np.infty
         # Load from previous checkpoint
         if model_path:
-            ckpt = torch.load(model_path, map_location=device)
+            ckpt = torch.load(model_path)
             self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
-            if self.weight_sharing:
-                self.pi_optimizer.load_state_dict(ckpt['pi_optimizer_state_dict'], strict=True)
-            else:
-                self.pi_optimizer.load_state_dict(ckpt['pi_optimizer_state_dict'], strict=True)
-                self.vf_optimizer.load_state_dict(ckpt['vf_optimizer_state_dict'], strict=True)
-            if self.scheduler_policy:
-                self.scheduler_policy.load_state_dict(ckpt['pi_scheduler_state_dict'])
-            if self.scheduler_value:
-                self.scheduler_value.load_state_dict(ckpt['vf_scheduler_state_dict'])
+            self.pi_optimizer.load_state_dict(ckpt['pi_optimizer_state_dict'])
+            self.vf_optimizer.load_state_dict(ckpt['vf_optimizer_state_dict'])
             self.start_step = ckpt['step']
             self.start_step -= self.start_step % steps_per_epoch
+            if os.path.exists(os.path.join(self.callback.policy_record.data_dir, 'best_eval_score.json')):
+                with open(os.path.join(self.callback.policy_record.data_dir, 'best_eval_score.json'), 'r') as f:
+                    self.best_eval_score = json.load(f)
 
-            if freeze_rep:
-                for name, param in self.ac_model.named_parameters():
-                    if 'cnn_net' in name:
-                        param.requires_grad = False
+            if self.selfplay:
+                self.enemy_model.load_state_dict(ckpt['enemy_model_state_dict'], strict=True)
+                self.prev_ckpt = ckpt['model_state_dict']
 
         # Only load the representation part
         elif cnn_model_path:
@@ -290,98 +236,118 @@ class TRPOPolicy():
 
             self.ac_model.load_state_dict(temp_state_dict, strict=False)
 
+            if self.rnd:
+                rnd_state_dict = {}
+                for key in temp_state_dict:
+                    if key.startswith('pi'):
+                        rnd_state_dict[key[3:]] = temp_state_dict[key]
+
+                self.rnd_network.load_state_dict(rnd_state_dict, strict=False)
+                self.rnd_pred_network.load_state_dict(rnd_state_dict, strict=False)
+
         if freeze_rep:
             for name, param in self.ac_model.named_parameters():
                 if 'cnn_net' in name:
                     param.requires_grad = False
+            if self.rnd:
+                for name, param in self.rnd_pred_network.named_parameters():
+                    if 'cnn_net' in name:
+                        param.requires_grad = False
 
         from torchinfo import summary
         summary(self.ac_model)
 
+
     def save_model(self, save_dir, model_id, step):
 
-        model_path = os.path.join(save_dir, model_id, str(step) + '.pth')
-        if self.weight_sharing:
-            ckpt_dict = {'step': step,
-                         'model_state_dict': self.ac_model.state_dict(),
-                         'pi_optimizer_state_dict': self.pi_optimizer.state_dict()}
+        if is_best:
+            model_path = os.path.join(save_dir, 'best.pth')
         else:
-            ckpt_dict = {'step': step,
-                         'model_state_dict': self.ac_model.state_dict(),
-                         'pi_optimizer_state_dict': self.pi_optimizer.state_dict(),
-                         'vf_optimizer_state_dict': self.vf_optimizer.state_dict()}
-        if self.scheduler_policy:
-            ckpt_dict['pi_scheduler_state_dict'] = self.scheduler_policy.state_dict()
-        if self.scheduler_value:
-            ckpt_dict['vf_scheduler_state_dict'] = self.scheduler_value.state_dict()
+            model_path = os.path.join(save_dir, str(step) + '.pth')
+        ckpt_dict = {'step': step,
+                     'model_state_dict': self.ac_model.state_dict(),
+                     'pi_optimizer_state_dict': self.pi_optimizer.state_dict(),
+                     'vf_optimizer_state_dict': self.vf_optimizer.state_dict()}
         torch.save(ckpt_dict, model_path)
 
 
-    def surrogate_reward(self, adv, *, new, old, clip_eps=None):
+    def conjugate_gradients(Avp, b, nsteps, residual_tol=1e-10):
+        x = torch.zeros(b.size())
+        r = b.clone()
+        p = b.clone()
+        rdotr = torch.dot(r, r)
+        for i in range(nsteps):
+            _Avp = Avp(p)
+            alpha = rdotr / torch.dot(p, _Avp)
+            x += alpha * p
+            r -= alpha * _Avp
+            new_rdotr = torch.dot(r, r)
+            betta = new_rdotr / rdotr
+            p = r + betta * p
+            rdotr = new_rdotr
+            if rdotr < residual_tol:
+                break
+        return x
 
-        log_ps_new, log_ps_old = new, old
 
-        assert shape_equal_cmp(log_ps_new, log_ps_old, adv)
+    def linesearch(model,
+                   f,
+                   x,
+                   fullstep,
+                   expected_improve_rate,
+                   max_backtracks=10,
+                   accept_ratio=.1):
+        fval = f(True).data
+        print("fval before", fval.item())
+        for (_n_backtracks, stepfrac) in enumerate(.5 ** np.arange(max_backtracks)):
+            xnew = x + stepfrac * fullstep
+            set_flat_params_to(model, xnew)
+            newfval = f(True).data
+            actual_improve = fval - newfval
+            expected_improve = expected_improve_rate * stepfrac
+            ratio = actual_improve / expected_improve
+            print("a/e/r", actual_improve.item(), expected_improve.item(), ratio.item())
 
-        ratio_new_old = torch.exp(log_ps_new - log_ps_old)
+            if ratio.item() > accept_ratio and actual_improve.item() > 0:
+                print("fval after", newfval.item())
+                return True, xnew
+        return False, x
 
-        if clip_eps is not None:
-            ratio_new_old = torch.clamp(ratio_new_old, 1-clip_eps, 1+clip_eps)
-        return ratio_new_old * adv
 
-    # Set up function for computing TRPO policy loss
-    def compute_loss_pi(self, data):
+    def trpo_step(model, get_loss, get_kl, max_kl, damping):
+        loss = get_loss()
+        grads = torch.autograd.grad(loss, model.parameters())
+        loss_grad = torch.cat([grad.view(-1) for grad in grads]).data
 
-        obs, act, adv, logp_old = data['obs'], data['act'], data['adv'], data['logp']
-        size = data['obs'].shape[0]
-        obs, act, adv, logp_old = obs.to(device), act.to(device), adv.to(device), logp_old.to(device)
-        obs = torch.flatten(obs, end_dim=2)
-        act = torch.flatten(act, end_dim=2)
+        def Fvp(v):
+            kl = get_kl()
+            kl = kl.mean()
 
-        net = self.ac_model.pi
+            grads = torch.autograd.grad(kl, model.parameters(), create_graph=True)
+            flat_grad_kl = torch.cat([grad.view(-1) for grad in grads])
 
-        initial_parameters = flatten(net.parameters()).clone()
-        pds = net(obs)
-        action_log_probs = net.get_loglikelihood(pds, act)
+            kl_v = (flat_grad_kl * Variable(v)).sum()
+            grads = torch.autograd.grad(kl_v, model.parameters())
+            flat_grad_grad_kl = torch.cat([grad.contiguous().view(-1) for grad in grads]).data
 
-        surr_rew = self.surrogate_reward(adv, new=action_log_probs, old=logp_old).mean()
-        grad = torch.autograd.grad(surr_rew, net.parameters(), retain_graph=True)
-        flat_grad = flatten(grad)
+            return flat_grad_grad_kl + v * damping
 
-        num_samples = size
-        selected = np.random.choice(range(size), num_samples, replace=False)
+        stepdir = conjugate_gradients(Fvp, -loss_grad, 10)
 
-        detached_selected_pds = select_prob_dists(pds, selected, detach=True)
-        selected_pds = select_prob_dists(pds, selected, detach=False)
+        shs = 0.5 * (stepdir * Fvp(stepdir)).sum(0, keepdim=True)
 
-        kl = net.calc_kl(detached_selected_pds, selected_pds).mean()
-        g = flatten(torch.autograd.grad(kl, net.parameters(), create_graph=True))
-        def fisher_product(x, damp_coef=1.):
-            contig_flat = lambda q: torch.cat([y.contiguous().view(-1) for y in q])
-            z = g @ x
-            hv = ch.autograd.grad(z, net.parameters(), retain_graph=True)
-            return contig_flat(hv).detach() + x * 1e-3 * damp_coef
+        lm = torch.sqrt(shs / max_kl)
+        fullstep = stepdir / lm[0]
 
-        step = cg_solve(fisher_product, flat_grad, 10)
-        max_step_coeff = (2 * 1e-2 / (step @ fisher_product(step))) ** (0.5)
-        max_trpo_step = max_step_coeff * step
+        neggdotstepdir = (-loss_grad * stepdir).sum(0, keepdim=True)
+        print(("lagrange multiplier:", lm[0], "grad_norm:", loss_grad.norm()))
 
-        with torch.no_grad():
-            def backtrack_fn(s):
-                assign(initial_parameters + s.data, net.parameters())
-                test_pds = net(obs)
-                test_action_log_probs = net.get_loglikelihood(test_pds, act)
-                new_reward = self.surrogate_reward(adv, new=test_action_log_probs, old=old_log_ps).mean()
-                if new_reward <= surr_rew or net.calc_kl(pds, test_pds).mean() > 1e-2:
-                    return -float('inf')
-                return new_reward - surr_rew
-            expected_improve = flat_grad @ max_trpo_step
-            final_step = backtracking_line_search(backtrack_fn, max_trpo_step,
-                                                  expected_improve,
-                                                  num_tries=100)
-            assign(initial_parameters + final_step, net.parameters())
+        prev_params = get_flat_params_from(model)
+        success, new_params = linesearch(model, get_loss, prev_params, fullstep,
+                                         neggdotstepdir / lm[0])
+        set_flat_params_to(model, new_params)
 
-        return surr_rew, kl
+        return loss
 
 
     # Set up function for computing value loss
