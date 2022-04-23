@@ -35,7 +35,7 @@ parser.add_argument('--beta', action='store_true', help='use beta distribution f
 parser.add_argument('--num_rollout_threads', type=int, help='number of asynchronous environments', default=1)
 parser.add_argument('--n_env_seeds', type=int, help='number of different env seeds to train on', default=1)
 parser.add_argument('--n_policy_seeds', type=int, help='number of different policy seeds to train on', default=1)
-parser.add_argument('--cnn_path', type=str, help='path to load CNN model', default='./models/frozen-cnn-0.8/4000000.pth')
+parser.add_argument('--cnn_path', type=str, help='path to load CNN model')
 parser.add_argument('--independent', action='store_true', help='use independent training', default=False)
 parser.add_argument('--centralized', action='store_true', help='use centralized training', default=False)
 parser.add_argument('--heuristic', type=str, help='use heuristics', default='')
