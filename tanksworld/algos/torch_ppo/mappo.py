@@ -11,6 +11,8 @@ import math
 import pickle
 import cv2
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('AGG')
 
 from tanksworld.minimap_util import *
 
@@ -108,12 +110,14 @@ class PPOPolicy():
             self.evaluate(episodes_to_run=num_steps, model_path=self.kargs['model_path'],
                           num_envs=self.kargs['n_envs'])
         elif self.visual_mode:
-            self.visualize(episodes_to_run=num_steps, model_path=self.kargs['model_path'])
+            self.visualize(episodes_to_run=num_steps, **self.kargs)
         else:
             self.learn(**self.kargs)
 
 
-    def visualize(self, episodes_to_run, model_path, actor_critic=core.ActorCritic, ac_kwargs=dict()):
+    def visualize(self, episodes_to_run, model_path, actor_critic=core.ActorCritic, centralized=False, ac_kwargs=dict(), **kargs):
+
+        ac_kwargs['centralized'] = centralized
 
         episodes = 0
         observation = self.env.reset()
@@ -142,21 +146,16 @@ class PPOPolicy():
             observation = next_observation
 
             if done[0]:
-                env.reset()
+                self.env.reset()
                 episodes += 1
 
             step += 1
-            if step == 20:
-                out = cv2.VideoWriter(
-                    'out.mp4', cv2.VideoWriter_fourcc(*"MJPG"), 3, (640, 480), True
-                )
-                for img in observation_list:
-                    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                    out.write(img)
-                out.release()
-
-                pdb.set_trace()
-
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter('out.mp4', fourcc, 3, (640, 480), True)
+        for img in observation_list:
+            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            out.write(img)
+        out.release()
 
     def evaluate(self, episodes_to_run, model_path, num_envs=10, actor_critic=core.ActorCritic, ac_kwargs=dict()):
 
