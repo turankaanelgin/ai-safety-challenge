@@ -530,7 +530,7 @@ class ActorCritic(nn.Module):
             self.pi = GaussianActor(observation_space, action_space.shape[0], activation, cnn_net=cnn_net,
                                     init_log_std=init_log_std, local_std=local_std, noisy=noisy)
 
-        if centralized or centralized_critic:
+        if centralized_critic:
             self.v = CentralizedCritic(observation_space, activation, cnn_net=cnn_net, num_agents=5)
             #self.v = Critic(observation_space, activation, cnn_net=cnn_net, noisy=noisy)
         else:
@@ -563,3 +563,4 @@ class ActorCritic(nn.Module):
     def resample(self):
         self.pi.resample()
         self.v.resample()
+
