@@ -254,6 +254,7 @@ class Trainer:
             'init_log_std': config['init_log_std'],
             'selfplay': config['selfplay'],
             'centralized': config['centralized'],
+            'centralized_critic': config['centralized_critic'],
             'local_std': config['local_std'],
             'enemy_model': config['enemy_model'],
         }
