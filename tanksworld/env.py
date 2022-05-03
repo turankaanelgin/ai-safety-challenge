@@ -107,6 +107,7 @@ class TanksWorldEnv(gym.Env):
         tbwriter=None,
         seed=0,
         curriculum_stop=-1,
+        use_state_vector=False
     ):
 
         # call reset() to begin playing
@@ -114,7 +115,10 @@ class TanksWorldEnv(gym.Env):
             MPI.COMM_WORLD.Get_rank()
         )  # int(os.environ['L2EXPLORER_WORKER_ID'])
         self._filename = exe  #'/home/rivercg1/projects/aisafety/build/aisafetytanks_0.1.2/TanksWorld.x86_64'
+        self.use_state_vector = use_state_vector
         self.observation_space = gym.spaces.box.Box(0, 255, (4, 128, 128))
+        if self.use_state_vector:
+            self.observation_space = gym.spaces.box.Box(0, 255, (72,))
         #self.observation_space = gym.spaces.box.Box(0, 255, (3, 128, 128))
         self.action_space = gym.spaces.box.Box(-1, 1, (3,))
 
@@ -194,6 +198,7 @@ class TanksWorldEnv(gym.Env):
             self.barrier_img / 255.0
         )  # np.array(self._env_info.visual_observations[1][0])
 
+
         ret_states = [
             minimap_for_player(state_reformat, i, barriers) for i in self.training_tanks
         ]
@@ -234,6 +239,9 @@ class TanksWorldEnv(gym.Env):
             state_reformat.append(refmt)
 
         return state_reformat
+
+    def get_state_vector_flatten(self):
+        return np.array(self.get_state_vector()).flatten()
 
     def reset(self, **kwargs):
 
@@ -282,7 +290,10 @@ class TanksWorldEnv(gym.Env):
         self.red_team_stats = team_stats_dict(self)
         self.blue_team_stats = team_stats_dict(self)
 
-        state = self.get_state()
+        if self.use_state_vector:
+            state = self.get_state_vector_flatten()
+        else:
+            state = self.get_state()
 
         return state
 
@@ -624,8 +635,12 @@ class TanksWorldEnv(gym.Env):
             self._env_info = self._env.step(new_action)[self._default_brain]
 
             # get state
-            self.state = self.get_state()
-            self.state_vector = self.get_state_vector()
+            if self.use_state_vector:
+                self.state = self.get_state_vector_flatten()
+                self.state_vector = np.copy(self.state)
+            else:
+                self.state = self.get_state()
+                self.state_vector = self.get_state_vector()
 
             # add rewards
             new_rew = self.objectives()
@@ -712,7 +727,10 @@ class TanksWorldStackedEnv(TanksWorldEnv):
             self._default_brain
         ]
 
-        state = self.get_state()
+        if self.use_state_vector:
+            state = self.get_state_vector_flatten()
+        else:
+            state = self.get_state()
 
         return state
 

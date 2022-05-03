@@ -97,7 +97,9 @@ class Trainer:
                                       'take_damage_penalty': True, 'tblogs': stats_dir, 'tbwriter': tb_writer,
                                       'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
                                       'timeout': 500, 'seed': e_seed,
-                                      'curriculum_stop': config['curriculum_stop']}
+                                      'curriculum_stop': config['curriculum_stop'],
+                                      'use_state_vector': config['use_state_vector'],
+                                      }
 
                         def make_env_(seed):
                             def init_():
@@ -135,7 +137,9 @@ class Trainer:
                                   'friendly_fire': False, 'kill_bonus': False, 'death_penalty': config['death_penalty'],
                                   'take_damage_penalty': True, 'tblogs': stats_dir,
                                   'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
-                                  'timeout': 500, 'curriculum_stop': config['curriculum_stop']}
+                                  'timeout': 500, 'curriculum_stop': config['curriculum_stop'],
+                                  'use_state_vector': config['use_state_vector'],
+                                  }
 
                     def make_env_(seed):
                         def init_():
