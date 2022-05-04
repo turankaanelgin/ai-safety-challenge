@@ -109,7 +109,7 @@ class Trainer:
 
                             return init_
 
-                        env = DummyVecEnv([make_env_(e_seed)], num_agents)
+                        env = DummyVecEnv([make_env_(e_seed)], config['use_state_vector'], num_agents)
                         all_training_envs.append(env)
                         all_policy_records.append(policy_record)
                         all_policy_seeds.append(p_seed)
@@ -259,6 +259,7 @@ class Trainer:
             'selfplay': config['selfplay'],
             'centralized': config['centralized'],
             'centralized_critic': config['centralized_critic'],
+            'use_state_vector': config['use_state_vector'],
             'local_std': config['local_std'],
             'enemy_model': config['enemy_model'],
         }
