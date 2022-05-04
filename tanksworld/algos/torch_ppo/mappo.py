@@ -22,10 +22,14 @@ device = torch.device('cuda')
 class RolloutBuffer:
 
     def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95,
-                 n_rollout_threads=1, centralized=False, n_agents=5, discrete_action=False):
+                 n_rollout_threads=1, centralized=False, n_agents=5, use_state_vector=False, discrete_action=False):
 
         self.n_agents = n_agents
-        self.obs_buf = torch.zeros(core.combined_shape_v3(size, n_rollout_threads, self.n_agents, obs_dim)).to(device)
+        if use_state_vector:
+            self.obs_buf = torch.zeros(core.combined_shape_v2(size, n_rollout_threads, obs_dim)).to(device)
+        else:
+            self.obs_buf = torch.zeros(core.combined_shape_v3(size, n_rollout_threads, self.n_agents, obs_dim)).to(device)
+
         if discrete_action:
             self.act_buf = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
         else:
@@ -42,6 +46,7 @@ class RolloutBuffer:
         self.n_rollout_threads = n_rollout_threads
         self.buffer_size = size
         self.centralized = centralized
+        self.use_state_vector = use_state_vector
 
     def store(self, obs, act, rew, val, logp, dones):
         """
@@ -49,7 +54,7 @@ class RolloutBuffer:
         """
 
         assert self.ptr < self.max_size
-        self.obs_buf[self.ptr] = obs.squeeze(2)
+        self.obs_buf[self.ptr] = obs if self.use_state_vector else obs.squeeze(2) 
         self.act_buf[self.ptr] = act
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
@@ -592,7 +597,7 @@ class PPOPolicy():
         ep_rr_dmg = np.zeros(num_envs)
 
         buf = RolloutBuffer(self.obs_dim, self.act_dim, steps_per_epoch, gamma,
-                            lam, n_rollout_threads=num_envs, centralized=centralized,
+                            lam, n_rollout_threads=num_envs, use_state_vector=self.use_state_vector, centralized=centralized,
                             #n_agents=1 if single_agent else 5,
                             n_agents=5,
                             discrete_action=discrete_action)
