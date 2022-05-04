@@ -570,6 +570,10 @@ class PPOPolicy():
         self.discrete_action = discrete_action
         self.rnd = rnd
         self.rnd_bonus = rnd_bonus
+        self.use_state_vector = kargs['use_state_vector']
+
+        if self.use_state_vector:
+            actor_critic = core.MLPActorCritic
 
         print('POLICY SEED', seed)
 
