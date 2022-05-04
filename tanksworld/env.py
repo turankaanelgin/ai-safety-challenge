@@ -638,6 +638,7 @@ class TanksWorldEnv(gym.Env):
             if self.use_state_vector:
                 self.state = self.get_state_vector_flatten()
                 self.state_vector = np.copy(self.state)
+                self.overviewmap = None
             else:
                 self.state = self.get_state()
                 self.state_vector = self.get_state_vector()
