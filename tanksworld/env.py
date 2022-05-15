@@ -255,8 +255,8 @@ class TanksWorldEnv(gym.Env):
         return state_reformat
 
     def get_state_vector_v2(self):#State vector with obstackles
-        tank_states = np.array(self.get_state_vector()).flatten()
-        return np.concatenate((tank_states, self.obstacles_state))
+        tank_states = np.array(self.get_state_vector()).flatten() / 500
+        return np.concatenate((tank_states, self.obstacles_state / 128))
 
     def reset(self, **kwargs):
 
