@@ -118,7 +118,7 @@ class TanksWorldEnv(gym.Env):
         self.use_state_vector = use_state_vector
         self.observation_space = gym.spaces.box.Box(0, 255, (4, 128, 128))
         if self.use_state_vector:
-            self.observation_space = gym.spaces.box.Box(0, 255, (72,))
+            self.observation_space = gym.spaces.box.Box(0, 255, (148,))
         #self.observation_space = gym.spaces.box.Box(0, 255, (3, 128, 128))
         self.action_space = gym.spaces.box.Box(-1, 1, (3,))
 
@@ -173,6 +173,7 @@ class TanksWorldEnv(gym.Env):
         self.tblogs = tblogs
         self.tb_writer = tbwriter if tbwriter else SummaryWriter(tblogs)
         self.log_iter = 0
+        self.obstacles_state = self.get_obstacles_bound_boxes()
         self.reset(params={})
 
     #def seed(self, val):
@@ -221,6 +222,19 @@ class TanksWorldEnv(gym.Env):
 
         return ret_states
 
+    def get_obstacles_bound_boxes(self):
+        img=plt.imread('obstaclemap_fixed.png')
+        imgray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)*255
+        imgray[:10,:]=0
+        imgray[117:,:]=0
+        imgray[:,:10]=0
+        imgray[:,115:]=0
+
+        ret, thresh = cv2.threshold(imgray, 10, 255, 0)
+        contours, hierarchy = cv2.findContours(thresh.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        rects = [cv2.boundingRect(c) for c in contours]
+        return np.array(rects).flatten()
+
     def get_state_vector(self):
 
         state = self._env_info.vector_observations[0]
@@ -240,8 +254,9 @@ class TanksWorldEnv(gym.Env):
 
         return state_reformat
 
-    def get_state_vector_flatten(self):
-        return np.array(self.get_state_vector()).flatten()
+    def get_state_vector_v2(self):#State vector with obstackles
+        tank_states = np.array(self.get_state_vector()).flatten() / 500
+        return np.concatenate((tank_states, self.obstacles_state / 128))
 
     def reset(self, **kwargs):
 
@@ -291,7 +306,7 @@ class TanksWorldEnv(gym.Env):
         self.blue_team_stats = team_stats_dict(self)
 
         if self.use_state_vector:
-            state = self.get_state_vector_flatten()
+            state = self.get_state_vector_v2()
         else:
             state = self.get_state()
 
@@ -636,7 +651,7 @@ class TanksWorldEnv(gym.Env):
 
             # get state
             if self.use_state_vector:
-                self.state = self.get_state_vector_flatten()
+                self.state = self.get_state_vector_v2()
                 self.state_vector = np.copy(self.state)
                 self.overviewmap = None
             else:
@@ -729,7 +744,7 @@ class TanksWorldStackedEnv(TanksWorldEnv):
         ]
 
         if self.use_state_vector:
-            state = self.get_state_vector_flatten()
+            state = self.get_state_vector_v2()
         else:
             state = self.get_state()
 
