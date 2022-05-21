@@ -573,19 +573,22 @@ def mlp(sizes, activation, output_activation=nn.Identity):
 
 class MLPCritic(nn.Module):
 
-    def __init__(self, observation_space, activation, hidden_sizes=[256], num_agents=5):
+    def __init__(self, observation_space, activation, hidden_sizes=[256, 256], num_agents=5):
         super().__init__()
         obs_dim = observation_space.shape[-1]
 
         self.v_net = mlp([obs_dim] + list(hidden_sizes) + [num_agents], activation)
 
     def forward(self, obs):
-        return torch.squeeze(self.v_net(obs), -1) # Critical to ensure v has right shape.
+        v = self.v_net(obs)
+#        v = torch.squeeze(v, -1) # Critical to ensure v has right shape.
+#        if
+        return v
 
 
 class MLPCentralizedGaussianActor(Actor):
 
-    def __init__(self, observation_space, act_dim, activation, init_log_std=-0.5, num_agents=5, hidden_sizes=[256]):
+    def __init__(self, observation_space, act_dim, activation, init_log_std=-0.5, num_agents=5, hidden_sizes=[256, 256]):
         super().__init__()
         log_std = init_log_std * np.ones(act_dim, dtype=np.float32)
         self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
@@ -593,28 +596,12 @@ class MLPCentralizedGaussianActor(Actor):
         self.n_agents = num_agents
         self.act_dim = act_dim
 
-#        self.mu_net = nn.Sequential(
-#            nn.Linear(cnn_net(dummy_img).shape[1]*num_agents, act_dim*num_agents),
-#            activation()
-#        )
         self.mu_net = mlp([obs_dim] + list(hidden_sizes) + [act_dim * num_agents], activation)
 
-#    def _distribution(self, obs):
-#
-#        obs = self.reshape_obs(obs)
-#
-#        batch_size = obs.shape[0]
-#        n_agents = obs.shape[1]
-#        obs = obs.reshape(batch_size * n_agents, obs.shape[2], obs.shape[3], obs.shape[4])
-#        obs = self.cnn_net(obs)
-#        obs = obs.reshape(batch_size, n_agents*obs.shape[1])
-#
-#        mu = self.mu_net(obs).reshape(-1, n_agents, 3)
-#        std = torch.exp(self.log_std)
-#        return Normal(mu, std)
-
     def _distribution(self, obs):
-        mu = self.mu_net(obs).reshape(-1, self.n_agents, self.act_dim)
+        mu = self.mu_net(obs)
+        if self.n_agents > 1:
+            mu = mu.reshape(-1, self.n_agents, self.act_dim)
         std = torch.exp(self.log_std)
         return Normal(mu, std)
 
@@ -625,14 +612,16 @@ class MLPActorCritic(nn.Module):
 
     def __init__(self, observation_space, action_space, activation=nn.Tanh,
                  use_beta=False, init_log_std=-0.5, centralized_critic=False,
-                 centralized=False, local_std=False, discrete_action=False, noisy=False):
+                 centralized=False, local_std=False, discrete_action=False, noisy=False, tanksworld=True):
         super().__init__()
 
 
-        self.pi = MLPCentralizedGaussianActor(observation_space, action_space.shape[0], activation,
-                                             init_log_std=init_log_std, num_agents=5)
+        num_agents = 5 if tanksworld else 1
 
-        self.v = MLPCritic(observation_space, activation, num_agents=5)
+        self.pi = MLPCentralizedGaussianActor(observation_space, action_space.shape[0], activation,
+                                             init_log_std=init_log_std, num_agents=num_agents)
+
+        self.v = MLPCritic(observation_space, activation, num_agents=num_agents)
 
         self.action_space_high = 1.0
         self.action_space_low = -1.0
