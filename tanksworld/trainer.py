@@ -3,6 +3,7 @@ import os
 import pdb
 from tensorboardX import SummaryWriter
 import numpy as np
+import gym
 
 import trainer_config
 from make_env import make_env
@@ -42,6 +43,8 @@ class Trainer:
         if config['num_rollout_threads'] > 1: folder_name += '__ROLLOUT={}'.format(config['num_rollout_threads'])
         if config['save_tag'] != '': folder_name += '__{}'.format(config['save_tag'])
         return folder_name
+
+
 
     def set_training_env(self):
 
@@ -109,6 +112,17 @@ class Trainer:
 
                             return init_
 
+                        def make_env_gym(seed):
+                            def init_():
+                                env = gym.make(self.config['env'])
+                                return env
+
+                            return init_
+
+                        if not self.config['env'] == 'tanksworld':
+                            make_env_ = make_env_gym
+                            num_agents = 1
+
                         env = DummyVecEnv([make_env_(e_seed)], config['use_state_vector'], num_agents)
                         all_training_envs.append(env)
                         all_policy_records.append(policy_record)
@@ -157,6 +171,7 @@ class Trainer:
                     all_tb_writers.append(tb_writer)
 
         return all_training_envs, all_policy_records, all_policy_seeds, all_tb_writers
+
 
 
     def set_eval_env(self):
@@ -262,6 +277,7 @@ class Trainer:
             'use_state_vector': config['use_state_vector'],
             'local_std': config['local_std'],
             'enemy_model': config['enemy_model'],
+            'single_agent': config['single_agent']
         }
 
         return policy_kwargs
