@@ -36,6 +36,7 @@ parser.add_argument('--beta', action='store_true', help='use beta distribution f
 parser.add_argument('--use_state_vector', action='store_true', help='observation as a vector', default=False)
 parser.add_argument('--num_rollout_threads', type=int, help='number of asynchronous environments', default=1)
 parser.add_argument('--n_env_seeds', type=int, help='number of different env seeds to train on', default=1)
+parser.add_argument('--env_name', help='enviroment name', default='tanksworld')
 parser.add_argument('--n_policy_seeds', type=int, help='number of different policy seeds to train on', default=1)
 parser.add_argument('--cnn_path', type=str, help='path to load CNN model')
 parser.add_argument('--independent', action='store_true', help='use independent training', default=False)
