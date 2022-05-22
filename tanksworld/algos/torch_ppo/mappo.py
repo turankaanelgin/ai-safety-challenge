@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 from tanksworld.minimap_util import *
 from .heuristics import *
 from . import core
+from tanksworld.env import TanksWorldEnv
+import gym
 
 
 device = torch.device('cuda')
@@ -114,18 +116,20 @@ class PPOPolicy():
 
     def run(self, num_steps):
         self.kargs.update({'steps_to_run': num_steps})
+        self.use_state_vector = self.kargs['use_state_vector']
 
         ac_kwargs = {}
         ac_kwargs['init_log_std'] = self.kargs['init_log_std']
         ac_kwargs['centralized'] = self.kargs['centralized']
         ac_kwargs['centralized_critic'] = self.kargs['centralized_critic']
         ac_kwargs['local_std'] = self.kargs['local_std']
+        ac_kwargs['num_agents'] = 5 if self.kargs['env_name'] == 'tanksworld' else 1
 
         if self.eval_mode:
             self.evaluate(episodes_to_run=num_steps, model_path=self.kargs['model_path'],
                           num_envs=self.kargs['n_envs'], ac_kwargs=ac_kwargs)
         elif self.visual_mode:
-            self.visualize(episodes_to_run=num_steps, model_path=self.kargs['model_path'], ac_kwargs=ac_kwargs)
+            self.visualize(episodes_to_run=num_steps, model_path=self.kargs['model_path'], env_name=self.kargs['env_name'], ac_kwargs=ac_kwargs)
         elif self.data_mode:
             self.collect_data(episodes_to_run=num_steps, model_path=self.kargs['model_path'], ac_kwargs=ac_kwargs)
         else:
@@ -196,10 +200,12 @@ class PPOPolicy():
 
 
 
-    def visualize(self, episodes_to_run, model_path, actor_critic=core.ActorCritic, ac_kwargs=dict()):
+    def visualize(self, episodes_to_run, model_path, env_name='tanksworld', actor_critic=core.ActorCritic,  ac_kwargs=dict()):
 
         # Record the salient parts of video (the time windows with nonzero reward)
 
+        if self.use_state_vector:
+            actor_critic = core.MLPActorCritic
         matplotlib.use('agg')
 
         episodes = 0
@@ -209,51 +215,68 @@ class PPOPolicy():
         ckpt = torch.load(model_path)
         self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
         self.ac_model.eval()
+        if env_name == 'tanksworld':
 
-        overview_images = []
-        rewards = []
-        while episodes < episodes_to_run:
+            overview_images = []
+            rewards = []
+            while episodes < episodes_to_run:
 
-            with torch.no_grad():
-                action, v, logp, _ = self.ac_model.step(torch.as_tensor(observation, dtype=torch.float32).to(device))
-            next_observation, reward, done, info = self.env.step(action.cpu().numpy())
-            overview = info[0]['overview'].astype(np.uint8)
+                with torch.no_grad():
+                    action, v, logp, _ = self.ac_model.step(torch.as_tensor(observation, dtype=torch.float32).to(device))
+                next_observation, reward, done, info = self.env.step(action.cpu().numpy())
+                overview = info[0]['overview'].astype(np.uint8)
 
-            overview_images.append(overview)
-            rewards.append(reward)
+                overview_images.append(overview)
+                rewards.append(reward)
 
-            observation = next_observation
-            if done[0]:
-                observation = self.env.reset()
-                episodes += 1
+                observation = next_observation
+                if done[0]:
+                    observation = self.env.reset()
+                    episodes += 1
 
-        total_rewards = np.sum(np.concatenate(rewards, axis=0), axis=1)
-        total_rewards = (total_rewards >= 0.1)
-        bitmap = np.zeros(len(total_rewards),)
-        for idx, nonzero in enumerate(total_rewards):
-            if nonzero:
-                bitmap[max(0,idx-5):idx+5] = 1
+            total_rewards = np.sum(np.concatenate(rewards, axis=0), axis=1)
+            total_rewards = (total_rewards >= 0.1)
+            bitmap = np.zeros(len(total_rewards),)
+            for idx, nonzero in enumerate(total_rewards):
+                if nonzero:
+                    bitmap[max(0,idx-5):idx+5] = 1
 
-        overview_images = [overview_images[i] for i, bit in enumerate(bitmap) if bit == 1]
-        observation_list = []
-        for overview in overview_images:
-            fig, axes = plt.subplots(1, 1)
-            plt.imshow(overview)
-            fig.canvas.draw()
-            data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
-            data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-            plt.close()
-            observation_list.append(data)
+            overview_images = [overview_images[i] for i, bit in enumerate(bitmap) if bit == 1]
+            observation_list = []
+            for overview in overview_images:
+                fig, axes = plt.subplots(1, 1)
+                plt.imshow(overview)
+                fig.canvas.draw()
+                data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+                data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+                plt.close()
+                observation_list.append(data)
 
-        out = cv2.VideoWriter(
-            os.path.join(self.callback.policy_record.data_dir, 'video.avi'),
-            cv2.VideoWriter_fourcc(*"MJPG"), 3, (640, 480), True
-        )
-        for img in observation_list:
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            out.write(img)
-        out.release()
+            out = cv2.VideoWriter(
+                os.path.join(self.callback.policy_record.data_dir, 'video.avi'),
+                cv2.VideoWriter_fourcc(*"MJPG"), 3, (640, 480), True
+            )
+            for img in observation_list:
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                out.write(img)
+            out.release()
 
+        else:#record for openai gym
+            from gym.wrappers import Monitor
+            env = Monitor(gym.make(env_name), './video', force=True)
+            state = env.reset()
+            done = False
+            for _ in range(10):
+                while True:
+                    with torch.no_grad():
+                        action, v, logp, _ = self.ac_model.step(torch.as_tensor(observation, dtype=torch.float32).to(device))
+                        a = torch.squeeze(action.cpu()).numpy() 
+#                action = env.action_space.sample()
+                    state_next, reward, done, info = env.step(a)
+                    if done:
+                        env.reset()
+                        break
+            env.close()
 
     def evaluate(self, episodes_to_run, model_path, num_envs=10, actor_critic=core.ActorCritic, ac_kwargs=dict()):
 
@@ -352,6 +375,7 @@ class PPOPolicy():
 
     def setup_model(self, actor_critic, pi_lr, vf_lr, ac_kwargs, enemy_model=None):
 
+        
         self.obs_dim = self.env.observation_space.shape
         self.act_dim = self.env.action_space.shape
         self.obs = self.env.reset()
@@ -561,12 +585,14 @@ class PPOPolicy():
         self.loss_p_index, self.loss_v_index = 0, 0
         self.set_random_seed(seed)
 
+        self.is_tanksworld_env = isinstance(self.env.envs[0], TanksWorldEnv)
         ac_kwargs['init_log_std'] = kargs['init_log_std']
         ac_kwargs['centralized'] = centralized
         ac_kwargs['centralized_critic'] = centralized_critic
         ac_kwargs['local_std'] = local_std
         ac_kwargs['discrete_action'] = discrete_action
         ac_kwargs['noisy'] = noisy
+        ac_kwargs['num_agents'] = 5 if kargs['env_name'] == 'tanksworld' else 1
 
         self.centralized = centralized
         self.centralized_critic = centralized_critic
@@ -575,7 +601,7 @@ class PPOPolicy():
         self.discrete_action = discrete_action
         self.rnd = rnd
         self.rnd_bonus = rnd_bonus
-        self.use_state_vector = kargs['use_state_vector']
+#        self.use_state_vector = kargs['use_state_vector']
 
         if self.use_state_vector:
             actor_critic = core.MLPActorCritic
@@ -598,8 +624,8 @@ class PPOPolicy():
 
         buf = RolloutBuffer(self.obs_dim, self.act_dim, steps_per_epoch, gamma,
                             lam, n_rollout_threads=num_envs, use_state_vector=self.use_state_vector, centralized=centralized,
-                            #n_agents=1 if single_agent else 5,
-                            n_agents=5,
+                            n_agents=1 if single_agent else 5,
+#                            n_agents=5,
                             discrete_action=discrete_action)
 
         if not os.path.exists(kargs['save_dir']):
@@ -623,6 +649,7 @@ class PPOPolicy():
 
         #fig, ax = plt.subplots(1, 1, figsize=(12, 6))
 
+        total_score, ep_len1 = 0, 0
         while step < steps_to_run:
 
             if noisy: self.ac_model.resample()
@@ -645,6 +672,7 @@ class PPOPolicy():
                 if mixing_coeff >= 0.1: mixing_coeff -= 0.1
 
             step += 1
+            ep_len1 +=1
 
             obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
 
@@ -695,6 +723,7 @@ class PPOPolicy():
                 else:
                     next_obs, r, terminal, info = env.step(a.cpu().numpy())
             extrinsic_reward = r.copy()
+            total_score += r
 
             if self.rnd:
                 rnd_target = self.rnd_network(obs).detach()
@@ -703,7 +732,8 @@ class PPOPolicy():
                 intrinsic_reward = 1000*rnd_loss.detach().cpu().numpy()
                 r += intrinsic_reward
 
-            self.state_vector = [info[env_idx]['state_vector'] for env_idx in range(len(info))]
+            if self.is_tanksworld_env:
+                self.state_vector = [info[env_idx]['state_vector'] for env_idx in range(len(info))]
 
             if selfplay or enemy_model is not None:
                 r = r[:, :5]
@@ -727,7 +757,7 @@ class PPOPolicy():
             buf.store(obs, a, r, v, logp, terminal)
 
             for env_idx, done in enumerate(terminal):
-                if done:
+                if done and self.is_tanksworld_env:
                     stats = info[env_idx]['red_stats']
                     ep_rr_dmg[env_idx] = stats['damage_inflicted_on']['ally']
                     ep_rb_dmg[env_idx] = stats['damage_inflicted_on']['enemy']
@@ -742,6 +772,9 @@ class PPOPolicy():
             epoch_ended = step > 0 and step % steps_per_epoch == 0
 
             if np.any(terminal) or epoch_ended:
+                if np.any(terminal) and not self.is_tanksworld_env:
+                    print('total score:', total_score, 'ep len:', ep_len1)
+                    total_score, ep_len1 = 0, 0
 
                 with torch.no_grad():
                     obs_input = self.obs[:, :5, :, :, :] if selfplay or enemy_model is not None else self.obs
