@@ -114,12 +114,12 @@ class Trainer:
 
                         def make_env_gym(seed):
                             def init_():
-                                env = gym.make(self.config['env'])
+                                env = gym.make(self.config['env_name'])
                                 return env
 
                             return init_
 
-                        if not self.config['env'] == 'tanksworld':
+                        if not self.config['env_name'] == 'tanksworld':
                             make_env_ = make_env_gym
                             num_agents = 1
 
@@ -220,7 +220,23 @@ class Trainer:
 
                             return init_
 
-                        env = SubprocVecEnv([make_env_(seed) for seed in eval_env_seeds])
+                        def make_env_gym(seed):
+                            def init_():
+                                env = gym.make(self.config['env_name'])
+                                return env
+
+                            return init_
+
+                        if not self.config['env_name'] == 'tanksworld':
+                            make_env_ = make_env_gym
+                            num_agents = 1
+
+
+                        
+#                        print(eval_env_seeds)
+#                        import pdb; pdb.set_trace();
+#                        env = SubprocVecEnv([make_env_(seed) for seed in eval_env_seeds])
+                        env = DummyVecEnv([make_env_(123)], config['use_state_vector'], num_agents)
                         all_eval_envs.append(env)
                         all_policy_records.append(policy_record)
 
@@ -277,6 +293,7 @@ class Trainer:
             'use_state_vector': config['use_state_vector'],
             'local_std': config['local_std'],
             'enemy_model': config['enemy_model'],
+            'env_name': config['env_name'],
             'single_agent': config['single_agent']
         }
 
