@@ -163,6 +163,17 @@ class Trainer:
 
                         return init_
 
+                    def make_env_gym(seed):
+                        def init_():
+                            env = gym.make(self.config['env_name'])
+                            return env
+
+                        return init_
+
+                    if not self.config['env_name'] == 'tanksworld':
+                        make_env_ = make_env_gym
+                        num_agents = 1
+
                     env = SubprocVecEnv([make_env_(seed) for seed in self.env_seeds])
 
                     all_training_envs.append(env)
@@ -233,9 +244,6 @@ class Trainer:
 
 
                         
-#                        print(eval_env_seeds)
-#                        import pdb; pdb.set_trace();
-#                        env = SubprocVecEnv([make_env_(seed) for seed in eval_env_seeds])
                         env = DummyVecEnv([make_env_(123)], config['use_state_vector'], num_agents)
                         all_eval_envs.append(env)
                         all_policy_records.append(policy_record)
@@ -351,12 +359,14 @@ if __name__=='__main__':
 
     if args['eval_mode'] or args['visual_mode']:
         envs, eval_policy_records = trainer.set_eval_env()
-        _, train_policy_records, _, _ = trainer.set_training_env()
+#        _, train_policy_records, _, _ = trainer.set_training_env()
 
+        model_path = 'logs/test/lrp=0.0003__lrv=0.001__r=1.0__p=0.3__H=64__ROLLOUT=7__lunar2/seed0/checkpoints'
         policies_to_run = []
         for seed_idx, policy_record in enumerate(eval_policy_records):
 
-            model_path = os.path.join(train_policy_records[seed_idx].data_dir, 'checkpoints')
+#            model_path = os.path.join(train_policy_records[seed_idx].data_dir, 'checkpoints')
+
             checkpoint_files = os.listdir(model_path)
 
             # If there is best checkpoint, load it
@@ -374,7 +384,9 @@ if __name__=='__main__':
             policy_params = trainer.get_policy_params()
             policy_params['model_path'] = model_path
 
-            callback = EvalCallback(envs[seed_idx], policy_record, eval_env=None)
+            callback = None
+            if args['env_name'] == 'tanksworld':
+                callback = EvalCallback(envs[seed_idx], policy_record, eval_env=None)
             if args['independent']:
                 policy = IPPOPolicy(envs[seed_idx], callback, True, **policy_params)
             else:
@@ -431,10 +443,12 @@ if __name__=='__main__':
 
 
             _MAX_INT = 2147483647  # Max int for Unity ML Seed
-            val_seeds = [np.random.randint(_MAX_INT) for _ in range(3)]
-            val_env = SubprocVecEnv([make_env_(seed) for seed in val_seeds])
 
-            callback = EvalCallback(envs[seed_idx], policy_record, eval_env=val_env, eval_steps=100)
+            callback = None
+            if args['env_name'] == 'tanksworld':
+                val_seeds = [np.random.randint(_MAX_INT) for _ in range(3)]
+                val_env = SubprocVecEnv([make_env_(seed) for seed in val_seeds])
+                callback = EvalCallback(envs[seed_idx], policy_record, eval_env=val_env, eval_steps=100)
             if args['independent']:
                 policy = IPPOPolicy(envs[seed_idx], callback, False, **policy_params)
             else:

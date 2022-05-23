@@ -557,9 +557,10 @@ class PPOPolicy():
             if entropy_coef > 0.0:
                 self.writer.add_scalar('loss/Entropy_Loss', loss_entropy, self.loss_p_index)
             std = torch.exp(self.ac_model.pi.log_std) if not self.discrete_action else torch.zeros((3))
-            self.writer.add_scalar('std_dev/move', std[0].item(), self.loss_p_index)
-            self.writer.add_scalar('std_dev/turn', std[1].item(), self.loss_p_index)
-            self.writer.add_scalar('std_dev/shoot', std[2].item(), self.loss_p_index)
+            if self.is_tanksworld_env:
+                self.writer.add_scalar('std_dev/move', std[0].item(), self.loss_p_index)
+                self.writer.add_scalar('std_dev/turn', std[1].item(), self.loss_p_index)
+                self.writer.add_scalar('std_dev/shoot', std[2].item(), self.loss_p_index)
             self.pi_optimizer.step()
 
         # Value function learning
@@ -585,7 +586,7 @@ class PPOPolicy():
         self.loss_p_index, self.loss_v_index = 0, 0
         self.set_random_seed(seed)
 
-        self.is_tanksworld_env = isinstance(self.env.envs[0], TanksWorldEnv)
+        self.is_tanksworld_env = self.kargs['env_name'] == 'tanksworld'
         ac_kwargs['init_log_std'] = kargs['init_log_std']
         ac_kwargs['centralized'] = centralized
         ac_kwargs['centralized_critic'] = centralized_critic
@@ -649,7 +650,7 @@ class PPOPolicy():
 
         #fig, ax = plt.subplots(1, 1, figsize=(12, 6))
 
-        total_score, ep_len1 = 0, 0
+        total_score, ep_len1, total_step, total_ep = 0, 0,0,0
         while step < steps_to_run:
 
             if noisy: self.ac_model.resample()
@@ -721,7 +722,9 @@ class PPOPolicy():
                     action = torch.cat((action1.unsqueeze(-1), action2.unsqueeze(-1), action3.unsqueeze(-1)), dim=-1)
                     next_obs, r, terminal, info = env.step(action.cpu().numpy())
                 else:
-                    next_obs, r, terminal, info = env.step(a.cpu().numpy())
+                    action_env = a.cpu().numpy() if self.is_tanksworld_env else a.squeeze(1).cpu().numpy()
+                    next_obs, r, terminal, info = env.step(action_env)
+                        
             extrinsic_reward = r.copy()
             total_score += r
 
@@ -746,14 +749,20 @@ class PPOPolicy():
                 distances = 0.001 * np.asarray(distances)
                 r = r - mixing_coeff * np.expand_dims(distances, axis=0)
 
-            ep_ret += np.average(np.sum(extrinsic_reward, axis=1))
+            if self.single_agent: 
+                ep_ret += np.average(extrinsic_reward)
+            else:
+                ep_ret += np.average(np.sum(extrinsic_reward, axis=1))
+
             if rnd:
                 ep_intrinsic_ret += intrinsic_reward
             ep_len += 1
 
             r = torch.as_tensor(r, dtype=torch.float32).to(device)
             self.obs = next_obs
-
+            if self.single_agent:
+                r = r.unsqueeze(1)
+            
             buf.store(obs, a, r, v, logp, terminal)
 
             for env_idx, done in enumerate(terminal):
@@ -773,9 +782,12 @@ class PPOPolicy():
 
             if np.any(terminal) or epoch_ended:
                 if np.any(terminal) and not self.is_tanksworld_env:
-                    print('total score:', total_score, 'ep len:', ep_len1)
+                    total_step += ep_len1
+                    total_ep +=1
+                    print('total score:', np.mean(total_score), 'ep len:', ep_len1, 'total_step:', total_step, 'total_ep:', total_ep)
                     total_score, ep_len1 = 0, 0
 
+                
                 with torch.no_grad():
                     obs_input = self.obs[:, :5, :, :, :] if selfplay or enemy_model is not None else self.obs
                     _, v, _, _ = self.ac_model.step(
@@ -851,3 +863,4 @@ class PPOPolicy():
 
                     if self.callback.eval_env:
                         self.callback.evaluate_policy(self.ac_model.state_dict(), device)
+                    
