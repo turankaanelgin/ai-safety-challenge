@@ -50,14 +50,16 @@ class RecordChannel():
         # save a plot also
         plot_policy_records_damage([self], self.windows, self.alphas,
                                    self.data_dir + "plot_damage.png", colors=[self.color],
-                                   episodic=False)
+                                   episodic=True)
         plot_policy_records([self], self.windows, self.alphas,
                             self.data_dir + "plot_reward.png", colors=[self.color],
                             episodic=False)
+
         if self.intrinsic_reward:
             plot_policy_records([self], self.windows, self.alphas,
-                                self.data_dir + "plot_intrinsic_reward.png", colors=[self.color],
-                                episodic=False, intrinsic=True)
+                            self.data_dir + "plot_intrinsic_reward.png", colors=[self.color],
+                            episodic=False, intrinsic=True)
+
         if self.std:
             plot_policy_records_std([self], self.windows, self.alphas,
                                     self.data_dir + "plot_std.png", colors=[self.color],
@@ -113,7 +115,34 @@ class PolicyRecord():
         else:
             self.load()
 
+    def add_result(self, total_reward, ep_len, intrinsic_reward=None, channel='main'):
 
+        if channel not in self.channels:
+            self.add_channel(channel)
+
+        ch = self.channels[channel]
+
+        ch.ep_results.append(total_reward)
+        if intrinsic_reward:
+            ch.ep_intrinsic.append(intrinsic_reward)
+        ch.ep_lengths.append(ep_len)
+        if len(ch.ep_cumlens) == 0:
+            ch.ep_cumlens.append(ep_len)
+        else:
+            ch.ep_cumlens.append(ch.ep_cumlens[-1] + ep_len)
+
+    def add_damage_result(self, red_blue_damage, red_red_damage, blue_red_damage, channel='main'):
+
+        if channel not in self.channels:
+            self.add_channel(channel)
+
+        ch = self.channels[channel]
+
+        ch.ep_red_blue_damages.append(red_blue_damage)
+        ch.ep_blue_red_damages.append(blue_red_damage)
+        ch.ep_red_red_damages.append(red_red_damage)
+
+    '''
     def add_result(self, total_reward, red_blue_damage, red_red_damage, blue_red_damage, ep_len, channel="main",
                    intrinsic_reward=None, std=None):
 
@@ -137,6 +166,7 @@ class PolicyRecord():
             ch.ep_stds[0].append(std[0])
             ch.ep_stds[1].append(std[1])
             ch.ep_stds[2].append(std[2])
+    '''
 
 
     def add_channel(self, channel_name, **kwargs):

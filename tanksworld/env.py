@@ -115,7 +115,7 @@ class TanksWorldEnv(gym.Env):
         )  # int(os.environ['L2EXPLORER_WORKER_ID'])
         self._filename = exe  #'/home/rivercg1/projects/aisafety/build/aisafetytanks_0.1.2/TanksWorld.x86_64'
         self.observation_space = gym.spaces.box.Box(0, 255, (4, 128, 128))
-        #self.observation_space = gym.spaces.box.Box(0, 255, (3, 128, 128))
+        #self.observation_space = gym.spaces.box.Box(0, 255, (2, 128, 128))
         self.action_space = gym.spaces.box.Box(-1, 1, (3,))
 
         if seed == -1:
@@ -171,9 +171,6 @@ class TanksWorldEnv(gym.Env):
         self.log_iter = 0
         self.reset(params={})
 
-    #def seed(self, val):
-    #    self._seed = int(val) % TanksWorldEnv._MAX_INT  # integer seed required, convert
-
     def get_state(self):
         state = self._env_info.vector_observations[0]
         state_reformat = []
@@ -201,8 +198,8 @@ class TanksWorldEnv(gym.Env):
         if self.will_render:
             self.disp_states = [displayable_rgb_map(s) for s in ret_states]
 
-        # Remove the neutral channel
-        #ret_states = [np.concatenate((state[:, :, :2], state[:, :, 3:]), axis=-1) for state in ret_states]
+        # Remove the neutral and ally channels
+        #ret_states = [state[:, :, -2:] for state in ret_states]
 
         if self.image_scale != 128:
             ret_states = [
@@ -252,7 +249,7 @@ class TanksWorldEnv(gym.Env):
                     file_name=self._filename,
                     worker_id=np.random.randint(10000)+self._workerid,
                     seed=self._seed,
-                    timeout_wait=500,
+                    timeout_wait=self.timeout,
                 )
                 random.seed(self._seed)
                 print('ENVIRONMENT SEED', self._seed)
@@ -571,9 +568,21 @@ class TanksWorldEnv(gym.Env):
     def step(self, action):
 
         if self.curriculum_stop != -1:
-            change_period = int(1000000 / self.curriculum_period)
+            change_period = int(2000000 / self.curriculum_period)
             if (self.curriculum_step+1) % change_period == 0:
                 self.penalty_weight += 0.05
+            '''
+            if self.curriculum_step == 500000:
+                self.penalty_weight += 0.2
+            elif self.curriculum_step == 700000:
+                self.penalty_weight += 0.2
+            elif self.curriculum_step == 800000:
+                self.penalty_weight += 0.2
+            elif self.curriculum_step == 850000:
+                self.penalty_weight += 0.2
+            elif self.curriculum_step == 900000:
+                self.penalty_weight += 0.2
+            '''
             self.curriculum_step += 1
 
         action = action[:]

@@ -7,12 +7,19 @@ import numpy as np
 import trainer_config
 from make_env import make_env
 from core.policy_record import PolicyRecord
+from algos.torch_ppo.geppo import PPOPolicy as GePPOPolicy
+from algos.torch_ppo.mappo_noise import PPOPolicy as NoisyPPOPolicy
 from algos.torch_ppo.mappo import PPOPolicy
+from algos.torch_ppo.ppg import PPGPolicy
+from algos.torch_ppo.mappo_curiosity import PPOPolicy as DiscoveryPolicy
 from algos.torch_ppo.ippo import PPOPolicy as IPPOPolicy
 from algos.torch_ppo.coppo import PPOPolicy as COPPOPolicy
 from algos.torch_ppo.mappo_bonus import PPOBonusPolicy as MAPPOBonusPolicy
+from algos.torch_ppo.a2c import PPOPolicy as A2CPolicy
 from algos.torch_ppo.vec_env import DummyVecEnv, SubprocVecEnv
 from algos.torch_ppo.callbacks import EvalCallback
+from algos.maddpg.ddpg import DDPGPolicy
+from algos.torch_sac.sac_new import SACPolicy
 
 
 class Trainer:
@@ -75,7 +82,9 @@ class Trainer:
                                                      std=not config['bonus'] and not config['rnd'])
                     else:
                         policy_record = PolicyRecord(local_folder_name, './logs/' + config['logdir'] + '/',
-                                                     std=not config['bonus'] and not config['rnd'],
+                                                     #std=not config['bonus'] and not config['rnd'],
+                                                     std=False,
+                                                     #intrinsic_reward=True)
                                                      intrinsic_reward=config['bonus'] or config['rnd'])
 
                     if not config['eval_mode']:
@@ -88,12 +97,23 @@ class Trainer:
                         os.makedirs(stats_dir, exist_ok=True)
                         tb_writer = SummaryWriter(stats_dir)
 
-                    random_tanks = [5, 6, 7, 8, 9]
-                    num_agents = 5
+                    #random_tanks = [1,2,3,4,5,6,7,8,9]
+                    random_tanks = []
+                    #disable_shooting = []
+                    #static_tanks = []
+                    static_tanks = [1,2,3,4,5,6,7,8,9]
+                    disable_shooting = static_tanks
+                    num_agents = 1
+                    #random_tanks = [5, 6, 7, 8, 9]
+                    #num_agents = 5
+                    #random_tanks = []
+                    #num_agents = 10
+
+                    # CHANGE DISABLE SHOOTING
 
                     env_kwargs = {'exe': config['exe'],
-                                  'static_tanks': [], 'random_tanks': random_tanks, 'disable_shooting': [],
-                                  'friendly_fire': False, 'kill_bonus': False,
+                                  'static_tanks': static_tanks, 'random_tanks': random_tanks, 'disable_shooting': disable_shooting,
+                                  'friendly_fire': True, 'kill_bonus': False,
                                   'death_penalty': config['death_penalty'],
                                   'take_damage_penalty': True, 'tblogs': stats_dir, 'tbwriter': tb_writer,
                                   'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
@@ -123,7 +143,8 @@ class Trainer:
                     # Set folder name and policy record to plot the rewards
                     local_folder_name = folder_name + '/seed{}'.format(seed_idx)
                     policy_record = PolicyRecord(local_folder_name, './logs/' + config['logdir'] + '/',
-                                                 std=not config['bonus'] and not config['rnd'],
+                                                 #std=not config['bonus'] and not config['rnd'],
+                                                 std=False,
                                                  intrinsic_reward=config['bonus'] or config['rnd'])
 
                     # Set TensorBoard writer
@@ -131,14 +152,19 @@ class Trainer:
                     os.makedirs(stats_dir, exist_ok=True)
                     tb_writer = SummaryWriter(stats_dir)
 
-                    random_tanks = [2, 3, 4, 5, 6, 7, 8, 9]
+                    #random_tanks = [2, 3, 4, 5, 6, 7, 8, 9]
+                    #random_tanks = [5, 6, 7, 8, 9]
+                    #random_tanks = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+                    random_tanks = []
+                    static_tanks = [1,2,3,4,5,6,7,8,9]
+                    disable_shooting = static_tanks
 
                     env_kwargs = {'exe': config['exe'],
-                                  'static_tanks': [], 'random_tanks': random_tanks, 'disable_shooting': [],
+                                  'static_tanks': static_tanks, 'random_tanks': random_tanks, 'disable_shooting': disable_shooting,
                                   'friendly_fire': False, 'kill_bonus': False, 'death_penalty': config['death_penalty'],
                                   'take_damage_penalty': True, 'tblogs': stats_dir,
                                   'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
-                                  'timeout': 500, 'curriculum_stop': config['curriculum_stop']}
+                                  'timeout': 10000, 'curriculum_stop': config['curriculum_stop']}
 
                     def make_env_(seed):
                         def init_():
@@ -148,7 +174,8 @@ class Trainer:
 
                         return init_
 
-                    env = SubprocVecEnv([make_env_(seed) for seed in self.env_seeds])
+                    #env = SubprocVecEnv([make_env_(seed) for seed in self.env_seeds])
+                    env = SubprocVecEnv([make_env_(self.env_seeds[0]) for _ in self.env_seeds])
 
                     all_training_envs.append(env)
                     all_policy_records.append(policy_record)
@@ -180,8 +207,9 @@ class Trainer:
                 if seed_idx == config['seed_idx']:
                     stats_dir = './junk'
 
+                    random_tanks = [1,2,3,4,5,6,7,8,9]
                     env_kwargs = {'exe': config['exe'],
-                                  'static_tanks': [], 'random_tanks': [5, 6, 7, 8, 9], 'disable_shooting': [],
+                                  'static_tanks': [], 'random_tanks': random_tanks, 'disable_shooting': random_tanks,
                                   'friendly_fire': False, 'kill_bonus': False, 'death_penalty': False,
                                   'take_damage_penalty': True, 'tblogs': stats_dir,
                                   'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
@@ -247,6 +275,7 @@ class Trainer:
             'single_agent': config['single_agent'],
             'rnd': config['rnd'],
             'noisy': config['noisy'],
+            'entropy_coef': config['entropy_coef'],
         }
 
         return policy_kwargs
@@ -309,6 +338,7 @@ if __name__ == '__main__':
 
         policies_to_run = []
         for seed_idx, policy_record in enumerate(train_policy_records):
+            '''
             model_path = os.path.join(train_policy_records[seed_idx].data_dir, 'checkpoints')
             checkpoint_files = os.listdir(model_path)
 
@@ -319,6 +349,9 @@ if __name__ == '__main__':
             else:
                 checkpoint_files.sort(key=lambda f: int(f.split('.')[0]))
                 if len(checkpoint_files) > 0: model_path = os.path.join(model_path, checkpoint_files[-1])
+            '''
+
+            model_path = './logs/single-agent-rollout/lrp=0.0003__lrv=0.001__p=0.0__B=64__SINGLE__ROLLOUT=10__v1-2ch/seed0/checkpoints/499999.pth'
 
             if not os.path.exists(model_path):
                 pdb.set_trace()
@@ -355,6 +388,12 @@ if __name__ == '__main__':
             policy_params['tb_writer'] = tb_writers[seed_idx]
             policy_params['save_dir'] = os.path.join(policy_record.data_dir, 'checkpoints')
             policy_params['seed'] = policy_seeds[seed_idx]
+            #policy_params['model_path'] = './logs/curriculum-baseline/lrp=0.0003__lrv=0.001__p=1.0__B=64/seed0/checkpoints/499999.pth'
+            #policy_params['enemy_model'] = './logs/curriculum-baseline/lrp=0.0003__lrv=0.001__p=1.0__B=64/seed0/checkpoints/499999.pth'
+            #policy_params['model_path'] = './logs/baseline-regenerate/lrp=0.0003__lrv=0.001__p=1.0__B=64/seed0/checkpoints/999999.pth'
+            #policy_params['enemy_model'] = './logs/baseline-regenerate/lrp=0.0003__lrv=0.001__p=1.0__B=64/seed0/checkpoints/999999.pth'
+            #policy_params['model_path'] = './models/enemies/1/999999.pth'
+            #policy_params['enemy_model'] = './models/enemies/1/999999.pth'
 
             with open(os.path.join(policy_record.data_dir, 'parameters.json'), 'w+') as f:
                 json.dump({'penalty_weight': args['penalty_weight'],
@@ -366,8 +405,15 @@ if __name__ == '__main__':
                            'num_rollout_threads': args['num_rollout_threads']}, f, indent=4)
 
             callback = EvalCallback(envs[seed_idx], policy_record, val_env=envs[seed_idx], eval_env=None,
-                                    eval_steps=100)
+                                    eval_steps=10)
+            #policy = DDPGPolicy(envs[seed_idx], callback, False, **policy_params)
+            #policy = SACPolicy(envs[seed_idx], callback, False, **policy_params)
             policy = PPOPolicy(envs[seed_idx], callback, False, **policy_params)
+            #policy = PPGPolicy(envs[seed_idx], callback, False, **policy_params)
+            #policy = GePPOPolicy(envs[seed_idx], callback, False, **policy_params)
+            #policy = A2CPolicy(envs[seed_idx], callback, False, **policy_params)
+            #policy = NoisyPPOPolicy(envs[seed_idx], callback, False, **policy_params)
+            #policy = DiscoveryPolicy(envs[seed_idx], None, False, **policy_params)
             policies_to_run.append(policy)
 
     num_runs = args['num_iter'] if not (args['eval_mode'] or args['visual_mode'] or args['data_mode']) \
