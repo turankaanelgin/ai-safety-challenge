@@ -62,33 +62,11 @@ class RolloutBuffer:
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
         self.logp_buf[self.ptr] = logp
-        self.terminal_buf[self.ptr] = dones
+#        self.terminal_buf[self.ptr] = dones
 #        self.episode_starts[self.ptr] = torch.FloatTensor(dones).unsqueeze(1).tile((1, self.n_agents))
         self.ptr += 1
 
     def finish_path(self, last_val):
-        '''
-        import pdb; pdb.set_trace();
-
-        path_start = int(self.path_start_idx[env_idx])
-
-        last_val = last_val[env_idx,:].unsqueeze(0)
-        rews = torch.cat((self.rew_buf[path_start:self.ptr, env_idx], last_val), dim=0)
-        vals = torch.cat((self.val_buf[path_start:self.ptr, env_idx], last_val), dim=0)
-
-        # the next two lines implement GAE-Lambda advantage calculation
-        deltas = rews[:-1] + self.gamma * (1. - self.terminal_buf) * vals[1:] - vals[:-1]
-        import pdb; pdb.set_trace();
-        diiscount_delta = core.discount_cumsum(deltas.cpu().numpy(), self.gamma * self.lam)
-        self.adv_buf[path_start:self.ptr, env_idx] = torch.as_tensor(discount_delta.copy(), dtype=torch.float32).to(device)
-
-        discount_rews = core.discount_cumsum(rews.cpu().numpy(), self.gamma)[:-1]
-        self.ret_buf[path_start:self.ptr, env_idx] = torch.as_tensor(discount_rews.copy(), dtype=torch.float32).to(
-            device)
-
-        self.path_start_idx[env_idx] = self.ptr
-        '''
-
         ret = last_val
         self.val_buf[-1] = last_val
         adv = np.zeros((self.num_workers, 1))
@@ -100,46 +78,16 @@ class RolloutBuffer:
             self.adv_buf[i] = adv
             self.ret_buf[i] = ret
 
-#        advantages = tensor(np.zeros((config.num_workers, 1)))
-#        returns = prediction['v'].detach()
-#        for i in reversed(range(config.rollout_length)):
-#            returns = storage.reward[i] + config.discount * storage.mask[i] * returns
-#            if not config.use_gae:
-#                advantages = returns - storage.v[i].detach()
-#            else:
-#                td_error = storage.reward[i] + config.discount * storage.mask[i] * storage.v[i + 1] - storage.v[i]
-#                advantages = advantages * config.gae_tau * config.discount * storage.mask[i] + td_error
-#            storage.advantage[i] = advantages.detach()
-#            storage.ret[i] = returns.detach()
-#            import pdb; pdb.set_trace();
 
     def get(self):
-        """
-        Call this at the end of an epoch to get all of the data from
-        the buffer, with advantages appropriately normalized (shifted to have
-        mean zero and std one). Also, resets some pointers in the buffer.
-        """
-#        assert self.ptr == self.rollout_length  # buffer has to be full before you can get
-        # self.ptr, self.path_start_idx = 0, 0
         self.ptr = 0
-#        self.path_start_idx = np.zeros(self.n_rollout_threads, )
-        # the next two lines implement the advantage normalization trick
-#        adv_buf = self.adv_buf.flatten(start_dim=1)
-
         adv = self.tensor_func(self.adv_buf).flatten(end_dim=1)
         adv_std, adv_mean = torch.std_mean(adv)
         adv = (adv - adv_mean) / adv_std
-#        self.adv_buf = adv_buf.reshape(adv_buf.shape[0], self.n_rollout_threads, self.n_agents)
-
-
         obs, ret, logp, val, act = [self.tensor_func(x).flatten(end_dim=1) for x in 
                 [self.obs_buf, self.ret_buf, self.logp_buf, self.val_buf, self.act_buf]
             ]
-        
-#        data = dict(obs=obs, act=self.tensor_func(self.act_buf), ret=self.tensor_func(self.ret_buf),
-#                    adv=adv, logp=self.tensor_func(self.logp_buf), val=self.tensor_func(self.val_buf))
         return dict(obs=obs.detach(), adv=adv.detach(), logp=logp.detach(), val=val.detach(), ret=ret.detach(), act=act.detach())
-#        return {k: torch.as_tensor(v, dtype=torch.float32).to(device) for k, v in data.items()}
 
 
 
@@ -515,13 +463,7 @@ class PPOPolicy():
     def compute_loss_pi(self, data, clip_ratio):
 
         obs, act, adv, logp_old = data['obs'], data['act'], data['adv'], data['logp']
-#        size = data['obs'].shape[0]
-#        obs = torch.flatten(obs, end_dim=1)
-#        act = torch.flatten(act, end_dim=1)
-
-        # Policy loss
         pi, logp = self.ac_model.pi(obs, act)
-#        logp = logp.reshape(size, -1, 1) if self.single_agent else logp.reshape(size, -1, 5)
         ratio = torch.exp(logp - logp_old)
         clip_adv = torch.clamp(ratio, 1 - clip_ratio, 1 + clip_ratio) * adv
         loss_pi = -(torch.min(ratio * adv, clip_adv)).mean()
@@ -540,14 +482,7 @@ class PPOPolicy():
     def compute_loss_v(self, data):
 
         obs, ret = data['obs'], data['ret']
-#        obs = torch.flatten(obs, end_dim=1) if self.centralized or self.centralized_critic\
-#                                            else torch.flatten(obs, end_dim=2)
-#        ret = torch.flatten(ret, end_dim=1) if self.centralized or self.centralized_critic\
-#                                            else torch.flatten(ret)
-
         values = self.ac_model.v(obs)
-#        import pdb; pdb.set_trace();
-#        values = vl.squeeze(0)
         return ((values - ret) ** 2).mean()
 
 
@@ -591,19 +526,6 @@ class PPOPolicy():
                     loss_pi.backward()
                     self.pi_optimizer.step()
 
-#                if entropy_coef > 0.0:
-#                    loss_entropy = self.compute_loss_entropy(batch_data)
-#                    loss = loss_pi + entropy_coef * loss_entropy
-#                else:
-#                    loss = loss_pi
-
-
-#                if self.rnd:
-#                    self.rnd_optimizer.zero_grad()
-#                    loss_rnd = self.compute_loss_rnd(batch_data)
-#                    loss_rnd.backward()
-#                    self.rnd_optimizer.step()
-
                 self.loss_p_index += 1
                 self.writer.add_scalar('loss/Policy_Loss', loss_pi, self.loss_p_index)
                 if entropy_coef > 0.0:
@@ -614,8 +536,6 @@ class PPOPolicy():
                     self.writer.add_scalar('std_dev/turn', std[1].item(), self.loss_p_index)
                     self.writer.add_scalar('std_dev/shoot', std[2].item(), self.loss_p_index)
 
-            # Value function learning
-#            for i in range(train_v_iters):
                 loss_v = self.compute_loss_v(batch_data)
                 self.vf_optimizer.zero_grad()
                 loss_v.backward()
@@ -654,6 +574,7 @@ class PPOPolicy():
         self.rnd = rnd
         self.rnd_bonus = rnd_bonus
         self.batch_size = batch_size
+        self.num_agents = ac_kwargs['num_agents']
 #        self.use_state_vector = kargs['use_state_vector']
 
         if self.use_state_vector:
@@ -707,121 +628,23 @@ class PPOPolicy():
         obs = self.obs
         while step < steps_to_run:
 
-            '''
-            if noisy: self.ac_model.resample()
-
-            if (step + 1) % 50000 == 0 or step == 0: # Periodically save the model
-                self.save_model(kargs['save_dir'], step)
-
-            if (step + 1) % 100000 == 0 and selfplay: # Selfplay load enemy
-                if self.prev_ckpt is not None:
-                    self.enemy_model.load_state_dict(self.prev_ckpt)
-
-            if (step + 1) % 50000 == 0: # Selfplay record prev checkpoint
-                self.prev_ckpt = self.ac_model.state_dict()
-
-            if (step + 1) % 25000 == 0 and (ally_heuristic or enemy_heuristic): # Heuristic anneal mixing coefficient
-                if mixing_coeff >= 0.05:
-                    mixing_coeff -= 0.05
-
-            if (step + 1) % 10000 == 0 and dense_reward:
-                if mixing_coeff >= 0.1: mixing_coeff -= 0.1
-            '''
-
             step += 1
             ep_len1 +=1
 
-#            obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
-#            obs = torch.as_tensor(obs, dtype=torch.float32).to(device)
 
-            if selfplay or enemy_model is not None:
-                ally_obs = obs[:, :5, :, :, :]
-                ally_a, v, logp, entropy = self.ac_model.step(ally_obs)
-                enemy_obs = obs[:, 5:, :, :, :]
-                with torch.no_grad():
-                    enemy_a, _, _, _ = self.enemy_model.step(enemy_obs)
-                a = torch.cat((ally_a, enemy_a), dim=1)
-
-            else:
-                a, v, logp, entropy = self.ac_model.step(self.tensor_func(obs))
-                a, v, logp = a.cpu().numpy(), v.cpu().numpy(), logp.cpu().numpy()
+            a, v, logp, entropy = self.ac_model.step(self.tensor_func(obs))
+            a, v, logp = a.cpu().numpy(), v.cpu().numpy(), logp.cpu().numpy()
 
             if step % rollout_length == 0:
                 buf.finish_path(v)
                 self.update(buf, train_pi_iters, train_v_iters, target_kl, clip_ratio, entropy_coef)
 
-            if ally_heuristic or enemy_heuristic:
-                if ally_heuristic:
-                    heuristic_action = get_ally_heuristic_2(self.state_vector)
-                else:
-                    heuristic_action = get_enemy_heuristic(self.state_vector)
-
-                # Mix heuristic action with policy action
-
-                coin = np.random.rand()
-                if coin < mixing_coeff:
-                    next_obs, r, terminal, info = env.step(heuristic_action)
-                else:
-                    next_obs, r, terminal, info = env.step(a.cpu().numpy())
-
-                '''
-                obs_to_disp = self.obs[0,0,0:3] * 255
-                plt.imshow(obs_to_disp.astype(np.uint8).transpose(1,2,0))
-                plt.savefig('./obs.png')
-                next_obs, r, terminal, info = env.step(heuristic_action)
-                obs_to_disp = next_obs[0, 0, 0:3] * 255
-                plt.imshow(obs_to_disp.astype(np.uint8).transpose(1, 2, 0))
-                plt.savefig('./next_obs.png')
-
-                if (step+1) % 10 == 0:
-                    pdb.set_trace()
-                '''
-            else:
-                if discrete_action:
-                    action1 = (a // 100) * 0.04 - 1
-                    action2 = ((a % 100) // 2) * 0.04 - 1
-                    action3 = (a % 100) % 2 - 0.5
-                    action = torch.cat((action1.unsqueeze(-1), action2.unsqueeze(-1), action3.unsqueeze(-1)), dim=-1)
-                    next_obs, r, terminal, info = env.step(action.cpu().numpy())
-                else:
-                    # gym action runs this
-                    action_env = a if self.is_tanksworld_env else a.squeeze(1)
-                    next_obs, r, terminal, info = env.step(action_env)
+            action_env = a if self.is_tanksworld_env else a.squeeze(1)
+            next_obs, r, terminal, info = env.step(action_env)
                         
 #            extrinsic_reward = r.copy()
             total_score += r
 
-            '''
-            if self.rnd:
-                rnd_target = self.rnd_network(obs).detach()
-                rnd_pred = self.rnd_pred_network(obs).detach()
-                rnd_loss = F.mse_loss(rnd_pred, rnd_target, reduction='none').mean(2)
-                intrinsic_reward = 1000*rnd_loss.detach().cpu().numpy()
-                r += intrinsic_reward
-
-            if self.is_tanksworld_env:
-                self.state_vector = [info[env_idx]['state_vector'] for env_idx in range(len(info))]
-
-            if selfplay or enemy_model is not None:
-                r = r[:, :5]
-                a = ally_a
-                obs = ally_obs
-
-            if dense_reward:
-                distances = distance_to_closest_enemy(self.state_vector, obs,
-                                                      num_agents=1 if single_agent else 5)
-                distances = 0.001 * np.asarray(distances)
-                r = r - mixing_coeff * np.expand_dims(distances, axis=0)
-
-            if self.single_agent: 
-                ep_ret += np.average(extrinsic_reward)
-            else:
-                ep_ret += np.average(np.sum(extrinsic_reward, axis=1))
-
-            if rnd:
-                ep_intrinsic_ret += intrinsic_reward
-            ep_len += 1
-            '''
 
             if self.single_agent:
 #                import pdb; pdb.set_trace();
@@ -829,9 +652,9 @@ class PPOPolicy():
                 r = np.expand_dims(r, 1)
                 terminal = np.expand_dims(terminal, 1)
             
-#            terminal_ = torch.as_tensor(terminal, dtype=torch.float32).to(device)
-#            terminal_ = terminal_.unsqueeze(1)
             
+#            if self.is_tanksworld_env:
+
             buf.store(obs, a, r, v, logp, terminal)
             obs = next_obs
             for i, (terminal_, score) in enumerate(zip(terminal, total_score)):
@@ -839,106 +662,3 @@ class PPOPolicy():
                     print('score:', (score), 'ep len:', ep_len1, 'total_step:', total_step, 'total_ep:', total_ep)
                     total_score[i] = 0
 
-            '''
-            for env_idx, done in enumerate(terminal):
-                if done and self.is_tanksworld_env:
-                    stats = info[env_idx]['red_stats']
-                    ep_rr_dmg[env_idx] = stats['damage_inflicted_on']['ally']
-                    ep_rb_dmg[env_idx] = stats['damage_inflicted_on']['enemy']
-                    ep_br_dmg[env_idx] = stats['damage_taken_by']['enemy']
-                    last_hundred_red_blue_damages[env_idx].append(ep_rb_dmg[env_idx])
-                    last_hundred_red_red_damages[env_idx].append(ep_rr_dmg[env_idx])
-                    last_hundred_blue_red_damages[env_idx].append(ep_br_dmg[env_idx])
-                    last_hundred_red_blue_damages[env_idx] = last_hundred_red_blue_damages[env_idx][-100:]
-                    last_hundred_red_red_damages[env_idx] = last_hundred_red_red_damages[env_idx][-100:]
-                    last_hundred_blue_red_damages[env_idx] = last_hundred_blue_red_damages[env_idx][-100:]
-
-            '''
-#            epoch_ended = step > 0 and step % steps_per_epoch == 0
-
-#            if np.any(terminal) or epoch_ended:
-#                if np.any(terminal) and not self.is_tanksworld_env:
-#                    total_step += ep_len1
-#                    total_ep +=1
-#                    total_score, ep_len1 = 0, 0
-#
-                
-#                with torch.no_grad():
-#                    obs_input = self.obs[:, :5, :, :, :] if selfplay or enemy_model is not None else self.obs
-#                    _, v, _, _ = self.ac_model.step(
-#                        torch.as_tensor(obs_input, dtype=torch.float32).to(device))
-#
-#                for env_idx, done in enumerate(terminal):
-#                    if done:
-#                        with torch.no_grad(): v[env_idx] = 0 if self.centralized or single_agent else torch.zeros(5)
-#                    buf.finish_path(v, env_idx)
-#
-#                if epoch_ended:
-#                    for env_idx in range(num_envs):
-#                        buf.finish_path(v, env_idx)
-
-            '''
-                episode_lengths.append(ep_len)
-                episode_returns.append(ep_ret)
-                if rnd:
-                    episode_intrinsic_returns.append(ep_intrinsic_ret)
-                episode_red_red_damages.append(ep_rr_dmg)
-                episode_blue_red_damages.append(ep_br_dmg)
-                episode_red_blue_damages.append(ep_rb_dmg)
-                std = torch.exp(self.ac_model.pi.log_std).cpu().detach().numpy() if not discrete_action else torch.zeros((3))
-                episode_stds.append(std)
-
-#                if epoch_ended:
-#                    self.update(buf, train_pi_iters, train_v_iters, target_kl, clip_ratio, entropy_coef)
-
-                ep_ret = 0
-                ep_intrinsic_ret = 0
-                ep_len = 0
-                ep_rb_dmg = np.zeros(num_envs)
-                ep_br_dmg = np.zeros(num_envs)
-                ep_rr_dmg = np.zeros(num_envs)
-
-
-            if (step + 1) % 100 == 0:
-
-                if self.callback:
-                    self.callback.save_metrics_multienv(episode_returns, episode_lengths, episode_red_blue_damages,
-                                                        episode_red_red_damages, episode_blue_red_damages,
-                                                        episode_stds=episode_stds if not rnd else None,
-                                                        episode_intrinsic_rewards=episode_intrinsic_returns if rnd else None)
-
-                    with open(os.path.join(self.callback.policy_record.data_dir, 'mean_statistics.json'), 'w+') as f:
-                        if last_hundred_red_blue_damages[0] is not None:
-                            red_red_damage = np.average(np.concatenate(last_hundred_red_red_damages))
-                            red_blue_damage = np.average(np.concatenate(last_hundred_red_blue_damages))
-                            blue_red_damage = np.average(np.concatenate(last_hundred_blue_red_damages))
-                        else:
-                            red_red_damage, red_blue_damage, blue_red_damage = 0.0, 0.0, 0.0
-
-                        json.dump({'Red-Blue-Damage': red_blue_damage,
-                                   'Red-Red-Damage': red_red_damage,
-                                   'Blue-Red-Damage': blue_red_damage}, f, indent=True)
-
-                episode_lengths = []
-                episode_returns = []
-                episode_red_blue_damages = []
-                episode_blue_red_damages = []
-                episode_red_red_damages = []
-                episode_stds = []
-
-            if (step+1) % 50000 == 0:
-
-                if self.callback and self.callback.val_env:
-
-                    eval_score = self.callback.validate_policy(self.ac_model.state_dict(), device, discrete_action)
-                    if eval_score > best_eval_score:
-                        self.save_model(kargs['save_dir'], step, is_best=True)
-                        best_eval_score = eval_score
-                        with open(os.path.join(self.callback.policy_record.data_dir, 'best_eval_score.json'),
-                                    'w+') as f:
-                            json.dump(best_eval_score, f)
-
-                    if self.callback.eval_env:
-                        self.callback.evaluate_policy(self.ac_model.state_dict(), device)
-                    
-            '''
