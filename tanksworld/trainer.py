@@ -10,7 +10,9 @@ from make_env import make_env
 from core.policy_record import PolicyRecord
 from algos.torch_ppo.mappo import PPOPolicy
 from algos.torch_ppo.ippo import PPOPolicy as IPPOPolicy
-from algos.torch_ppo.vec_env import DummyVecEnv, SubprocVecEnv
+from algos.torch_ppo.vec_env import DummyVecEnv
+#from algos.torch_ppo.vec_env import DummyVecEnv, SubprocVecEnv
+from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv, VecEnv
 from algos.torch_ppo.callbacks import EvalCallback
 
 
@@ -40,7 +42,7 @@ class Trainer:
         if config['clip_ratio'] != 0.2: folder_name += '__CLIP{}'.format(config['clip_ratio'])
         if config['independent']: folder_name += '__IND'
         if config['local_std']: folder_name += '__LOCSTD'
-        if config['num_rollout_threads'] > 1: folder_name += '__ROLLOUT={}'.format(config['num_rollout_threads'])
+        if config['num_workers'] > 1: folder_name += '__ROLLOUT={}'.format(config['num_workers'])
         if config['save_tag'] != '': folder_name += '__{}'.format(config['save_tag'])
         return folder_name
 
@@ -56,7 +58,7 @@ class Trainer:
         all_policy_seeds = []
         all_tb_writers = []
 
-        if config['num_rollout_threads'] == 1:
+        if config['num_workers'] == 1:
 
             # Set one policy per environment
             for e_seed_idx, e_seed in enumerate(self.env_seeds):
@@ -175,6 +177,7 @@ class Trainer:
                         num_agents = 1
 
                     env = SubprocVecEnv([make_env_(seed) for seed in self.env_seeds])
+                    
 
                     all_training_envs.append(env)
                     all_policy_records.append(policy_record)
@@ -206,7 +209,7 @@ class Trainer:
         all_eval_envs = []
         all_policy_records = []
 
-        if config['num_rollout_threads'] == 1:  # One rollout
+        if config['num_workers'] == 1:  # One rollout
             for e_seed_idx, _ in enumerate(self.env_seeds):
                 for p_seed_idx, _ in enumerate(self.policy_seeds):
                     seed_idx = e_seed_idx * len(self.policy_seeds) + p_seed_idx
@@ -283,14 +286,15 @@ class Trainer:
         config = self.config
 
         policy_kwargs = {
-            'steps_per_epoch': config['batch_size'],
-            'train_pi_iters': config['num_epochs'],
-            'train_v_iters': config['num_epochs'],
+            'batch_size': config['batch_size'],
+            'rollout_length': config['rollout_length'],
+            'train_pi_iters': config['optimzation_epochs'],
+            'train_v_iters': config['optimzation_epochs'],
             'pi_lr': config['policy_lr'],
             'vf_lr': config['value_lr'],
             'clip_ratio': config['clip_ratio'],
             'cnn_model_path': config['cnn_path'] if config['cnn_path'] != 'None' else None,
-            'n_envs': config['n_eval_seeds'] if config['eval_mode'] else config['num_rollout_threads'],
+            'n_envs': config['n_eval_seeds'] if config['eval_mode'] else config['num_workers'],
             'freeze_rep': config['freeze_rep'],
             'use_value_norm': config['valuenorm'],
             'use_beta': config['beta'],
@@ -313,7 +317,7 @@ class Trainer:
         config = self.config
         _MAX_INT = 2147483647  # Max int for Unity ML Seed
         n_policy_seeds = config['n_policy_seeds']
-        n_rollout_threads = config['num_rollout_threads']
+        n_rollout_threads = config['num_workers']
         n_env_seeds = n_rollout_threads if n_rollout_threads > 1 else config['n_env_seeds']
 
         # Create the log directory if not exists
@@ -422,7 +426,7 @@ if __name__=='__main__':
                            'value_lr': args['value_lr'],
                            'centralized': args['centralized'],
                            'freeze_rep': args['freeze_rep'],
-                           'num_rollout_threads': args['num_rollout_threads']}, f, indent=4)
+                           'num_workers': args['num_workers']}, f, indent=4)
 
             # Set validation environment (with 3 random seeds)
             env_kwargs = {'exe': args['exe'],

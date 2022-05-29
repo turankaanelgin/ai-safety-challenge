@@ -23,48 +23,52 @@ device = torch.device('cuda')
 
 class RolloutBuffer:
 
-    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95,
-                 n_rollout_threads=1, centralized=False, n_agents=5, use_state_vector=False, discrete_action=False):
+    def __init__(self, obs_dim, act_dim, rollout_length, gamma=0.99, lam=0.95,
+                 num_workers=1, centralized=False, n_agents=5, use_state_vector=False, discrete_action=False):
 
         self.n_agents = n_agents
         if use_state_vector:
-            self.obs_buf = torch.zeros(core.combined_shape_v2(size, n_rollout_threads, obs_dim)).to(device)
+            self.obs_buf = np.zeros(core.combined_shape_v2(rollout_length, num_workers, obs_dim))
         else:
-            self.obs_buf = torch.zeros(core.combined_shape_v3(size, n_rollout_threads, self.n_agents, obs_dim)).to(device)
+            self.obs_buf = np.zeros(core.combined_shape_v3(rollout_length, num_workers, self.n_agents, obs_dim))
 
         if discrete_action:
-            self.act_buf = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
+            self.act_buf = np.zeros((rollout_length, num_workers, self.n_agents))
         else:
-            self.act_buf = torch.zeros(core.combined_shape_v3(size, n_rollout_threads, self.n_agents, act_dim)).to(device)
-        self.adv_buf = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
-        self.rew_buf = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
-        self.ret_buf = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
-        self.val_buf = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
-        self.logp_buf = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
-        self.episode_starts = torch.zeros((size, n_rollout_threads, self.n_agents)).to(device)
+            self.act_buf = np.zeros(core.combined_shape_v3(rollout_length, num_workers, self.n_agents, act_dim))
+        self.adv_buf = np.zeros((rollout_length, num_workers, self.n_agents))
+        self.rew_buf = np.zeros((rollout_length, num_workers, self.n_agents))
+        self.terminal_buf = np.zeros((rollout_length, num_workers, self.n_agents))
+        self.ret_buf = np.zeros((rollout_length, num_workers, self.n_agents))
+        self.val_buf = np.zeros((rollout_length + 1, num_workers, self.n_agents))
+        self.logp_buf = np.zeros((rollout_length, num_workers, self.n_agents))
+        self.episode_starts = np.zeros((rollout_length, num_workers, self.n_agents))
         self.gamma, self.lam = gamma, lam
-        self.ptr, self.max_size = 0, size
-        self.path_start_idx = np.zeros(n_rollout_threads,)
-        self.n_rollout_threads = n_rollout_threads
-        self.buffer_size = size
+        self.path_start_idx = np.zeros(num_workers,)
+        self.num_workers = num_workers
         self.centralized = centralized
         self.use_state_vector = use_state_vector
+        self.ptr, self.rollout_length = 0, rollout_length
+        self.num_workers = num_workers
+        self.tensor_func = lambda x: torch.as_tensor(x, dtype=torch.float32).to(device)
 
     def store(self, obs, act, rew, val, logp, dones):
         """
         Append one timestep of agent-environment interaction to the buffer.
         """
-
-        assert self.ptr < self.max_size
+        assert self.ptr < self.rollout_length
         self.obs_buf[self.ptr] = obs if self.use_state_vector else obs.squeeze(2) 
         self.act_buf[self.ptr] = act
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
         self.logp_buf[self.ptr] = logp
-        self.episode_starts[self.ptr] = torch.FloatTensor(dones).unsqueeze(1).tile((1, self.n_agents))
+        self.terminal_buf[self.ptr] = dones
+#        self.episode_starts[self.ptr] = torch.FloatTensor(dones).unsqueeze(1).tile((1, self.n_agents))
         self.ptr += 1
 
-    def finish_path(self, last_val, env_idx):
+    def finish_path(self, last_val):
+        '''
+        import pdb; pdb.set_trace();
 
         path_start = int(self.path_start_idx[env_idx])
 
@@ -73,8 +77,9 @@ class RolloutBuffer:
         vals = torch.cat((self.val_buf[path_start:self.ptr, env_idx], last_val), dim=0)
 
         # the next two lines implement GAE-Lambda advantage calculation
-        deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
-        discount_delta = core.discount_cumsum(deltas.cpu().numpy(), self.gamma * self.lam)
+        deltas = rews[:-1] + self.gamma * (1. - self.terminal_buf) * vals[1:] - vals[:-1]
+        import pdb; pdb.set_trace();
+        diiscount_delta = core.discount_cumsum(deltas.cpu().numpy(), self.gamma * self.lam)
         self.adv_buf[path_start:self.ptr, env_idx] = torch.as_tensor(discount_delta.copy(), dtype=torch.float32).to(device)
 
         discount_rews = core.discount_cumsum(rews.cpu().numpy(), self.gamma)[:-1]
@@ -82,6 +87,31 @@ class RolloutBuffer:
             device)
 
         self.path_start_idx[env_idx] = self.ptr
+        '''
+
+        ret = last_val
+        self.val_buf[-1] = last_val
+        adv = np.zeros((self.num_workers, 1))
+        for i in reversed(range(self.rollout_length)):
+            mask = (1 - self.terminal_buf[i])
+            ret = self.rew_buf[i] + self.gamma * mask * ret
+            td_error = self.rew_buf[i] + self.gamma * mask * self.val_buf[i + 1] - self.val_buf[i]
+            adv = adv * self.lam * self.gamma * mask + td_error
+            self.adv_buf[i] = adv
+            self.ret_buf[i] = ret
+
+#        advantages = tensor(np.zeros((config.num_workers, 1)))
+#        returns = prediction['v'].detach()
+#        for i in reversed(range(config.rollout_length)):
+#            returns = storage.reward[i] + config.discount * storage.mask[i] * returns
+#            if not config.use_gae:
+#                advantages = returns - storage.v[i].detach()
+#            else:
+#                td_error = storage.reward[i] + config.discount * storage.mask[i] * storage.v[i + 1] - storage.v[i]
+#                advantages = advantages * config.gae_tau * config.discount * storage.mask[i] + td_error
+#            storage.advantage[i] = advantages.detach()
+#            storage.ret[i] = returns.detach()
+#            import pdb; pdb.set_trace();
 
     def get(self):
         """
@@ -89,18 +119,27 @@ class RolloutBuffer:
         the buffer, with advantages appropriately normalized (shifted to have
         mean zero and std one). Also, resets some pointers in the buffer.
         """
-        assert self.ptr == self.max_size  # buffer has to be full before you can get
+#        assert self.ptr == self.rollout_length  # buffer has to be full before you can get
         # self.ptr, self.path_start_idx = 0, 0
         self.ptr = 0
-        self.path_start_idx = np.zeros(self.n_rollout_threads, )
+#        self.path_start_idx = np.zeros(self.n_rollout_threads, )
         # the next two lines implement the advantage normalization trick
-        adv_buf = self.adv_buf.flatten(start_dim=1)
-        adv_std, adv_mean = torch.std_mean(adv_buf, dim=0)
-        adv_buf = (adv_buf - adv_mean) / adv_std
-        self.adv_buf = adv_buf.reshape(adv_buf.shape[0], self.n_rollout_threads, self.n_agents)
-        data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
-                    adv=self.adv_buf, logp=self.logp_buf, val=self.val_buf)
-        return {k: torch.as_tensor(v, dtype=torch.float32).to(device) for k, v in data.items()}
+#        adv_buf = self.adv_buf.flatten(start_dim=1)
+
+        adv = self.tensor_func(self.adv_buf).flatten(end_dim=1)
+        adv_std, adv_mean = torch.std_mean(adv)
+        adv = (adv - adv_mean) / adv_std
+#        self.adv_buf = adv_buf.reshape(adv_buf.shape[0], self.n_rollout_threads, self.n_agents)
+
+
+        obs, ret, logp, val, act = [self.tensor_func(x).flatten(end_dim=1) for x in 
+                [self.obs_buf, self.ret_buf, self.logp_buf, self.val_buf, self.act_buf]
+            ]
+        
+#        data = dict(obs=obs, act=self.tensor_func(self.act_buf), ret=self.tensor_func(self.ret_buf),
+#                    adv=adv, logp=self.tensor_func(self.logp_buf), val=self.tensor_func(self.val_buf))
+        return dict(obs=obs.detach(), adv=adv.detach(), logp=logp.detach(), val=val.detach(), ret=ret.detach(), act=act.detach())
+#        return {k: torch.as_tensor(v, dtype=torch.float32).to(device) for k, v in data.items()}
 
 
 
@@ -142,9 +181,9 @@ class PPOPolicy():
         observation = self.env.reset()
 
         self.ac_model = actor_critic(self.env.observation_space, self.env.action_space, **ac_kwargs).to(device)
-        ckpt = torch.load(model_path)
-        self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
-        self.ac_model.eval()
+#        ckpt = torch.load(model_path)
+#        self.ac_model.load_state_dict(ckpt['model_state_dict'], strict=True)
+#        self.ac_model.eval()
 
         observations = None
         actions = None
@@ -476,13 +515,13 @@ class PPOPolicy():
     def compute_loss_pi(self, data, clip_ratio):
 
         obs, act, adv, logp_old = data['obs'], data['act'], data['adv'], data['logp']
-        size = data['obs'].shape[0]
-        obs = torch.flatten(obs, end_dim=1)
-        act = torch.flatten(act, end_dim=1)
+#        size = data['obs'].shape[0]
+#        obs = torch.flatten(obs, end_dim=1)
+#        act = torch.flatten(act, end_dim=1)
 
         # Policy loss
         pi, logp = self.ac_model.pi(obs, act)
-        logp = logp.reshape(size, -1, 1) if self.single_agent else logp.reshape(size, -1, 5)
+#        logp = logp.reshape(size, -1, 1) if self.single_agent else logp.reshape(size, -1, 5)
         ratio = torch.exp(logp - logp_old)
         clip_adv = torch.clamp(ratio, 1 - clip_ratio, 1 + clip_ratio) * adv
         loss_pi = -(torch.min(ratio * adv, clip_adv)).mean()
@@ -501,11 +540,14 @@ class PPOPolicy():
     def compute_loss_v(self, data):
 
         obs, ret = data['obs'], data['ret']
-        obs = torch.flatten(obs, end_dim=1) if self.centralized or self.centralized_critic\
-                                            else torch.flatten(obs, end_dim=2)
-        ret = torch.flatten(ret, end_dim=1) if self.centralized or self.centralized_critic\
-                                            else torch.flatten(ret)
-        values = self.ac_model.v(obs).squeeze(0)
+#        obs = torch.flatten(obs, end_dim=1) if self.centralized or self.centralized_critic\
+#                                            else torch.flatten(obs, end_dim=2)
+#        ret = torch.flatten(ret, end_dim=1) if self.centralized or self.centralized_critic\
+#                                            else torch.flatten(ret)
+
+        values = self.ac_model.v(obs)
+#        import pdb; pdb.set_trace();
+#        values = vl.squeeze(0)
         return ((values - ret) ** 2).mean()
 
 
@@ -524,6 +566,14 @@ class PPOPolicy():
         rnd_loss = F.mse_loss(rnd_pred, rnd_target, reduction='none').mean()
         return rnd_loss
 
+    def random_sample1(self, indices, batch_size):
+        indices = np.asarray(np.random.permutation(indices))
+        batches = indices[:len(indices) // batch_size * batch_size].reshape(-1, batch_size)
+        for batch in batches:
+            yield batch
+        r = len(indices) % batch_size
+        if r:
+            yield indices[-r:]
 
     def update(self, buf, train_pi_iters, train_v_iters, target_kl, clip_ratio, entropy_coef):
 
@@ -531,50 +581,51 @@ class PPOPolicy():
 
         # Train policy with multiple steps of gradient descent
         for i in range(train_pi_iters):
-            self.pi_optimizer.zero_grad()
-            loss_pi, pi_info = self.compute_loss_pi(data, clip_ratio)
+            for batch_indices in self.random_sample1(np.arange(data['obs'].shape[0]), self.batch_size):
+                batch_data = {key: value[batch_indices] for key, value in data.items()}
+                loss_pi, pi_info = self.compute_loss_pi(batch_data, clip_ratio)
 
-            kl = pi_info['kl']
-            if kl > 1.5 * target_kl:
-                break
+                kl = pi_info['kl']
+                if kl <= 1.5 * target_kl:
+                    self.pi_optimizer.zero_grad()
+                    loss_pi.backward()
+                    self.pi_optimizer.step()
 
-            if entropy_coef > 0.0:
-                loss_entropy = self.compute_loss_entropy(data)
-                loss = loss_pi + entropy_coef * loss_entropy
-            else:
-                loss = loss_pi
+#                if entropy_coef > 0.0:
+#                    loss_entropy = self.compute_loss_entropy(batch_data)
+#                    loss = loss_pi + entropy_coef * loss_entropy
+#                else:
+#                    loss = loss_pi
 
-            loss.backward()
 
-            if self.rnd:
-                self.rnd_optimizer.zero_grad()
-                loss_rnd = self.compute_loss_rnd(data)
-                loss_rnd.backward()
-                self.rnd_optimizer.step()
+#                if self.rnd:
+#                    self.rnd_optimizer.zero_grad()
+#                    loss_rnd = self.compute_loss_rnd(batch_data)
+#                    loss_rnd.backward()
+#                    self.rnd_optimizer.step()
 
-            self.loss_p_index += 1
-            self.writer.add_scalar('loss/Policy_Loss', loss_pi, self.loss_p_index)
-            if entropy_coef > 0.0:
-                self.writer.add_scalar('loss/Entropy_Loss', loss_entropy, self.loss_p_index)
-            std = torch.exp(self.ac_model.pi.log_std) if not self.discrete_action else torch.zeros((3))
-            if self.is_tanksworld_env:
-                self.writer.add_scalar('std_dev/move', std[0].item(), self.loss_p_index)
-                self.writer.add_scalar('std_dev/turn', std[1].item(), self.loss_p_index)
-                self.writer.add_scalar('std_dev/shoot', std[2].item(), self.loss_p_index)
-            self.pi_optimizer.step()
+                self.loss_p_index += 1
+                self.writer.add_scalar('loss/Policy_Loss', loss_pi, self.loss_p_index)
+                if entropy_coef > 0.0:
+                    self.writer.add_scalar('loss/Entropy_Loss', loss_entropy, self.loss_p_index)
+                std = torch.exp(self.ac_model.pi.log_std) if not self.discrete_action else torch.zeros((3))
+                if self.is_tanksworld_env:
+                    self.writer.add_scalar('std_dev/move', std[0].item(), self.loss_p_index)
+                    self.writer.add_scalar('std_dev/turn', std[1].item(), self.loss_p_index)
+                    self.writer.add_scalar('std_dev/shoot', std[2].item(), self.loss_p_index)
 
-        # Value function learning
-        for i in range(train_v_iters):
-            self.vf_optimizer.zero_grad()
-            loss_v = self.compute_loss_v(data)
-            loss_v.backward()
-            self.loss_v_index += 1
-            self.writer.add_scalar('loss/Value_Loss', loss_v, self.loss_v_index)
-            self.vf_optimizer.step()
+            # Value function learning
+#            for i in range(train_v_iters):
+                loss_v = self.compute_loss_v(batch_data)
+                self.vf_optimizer.zero_grad()
+                loss_v.backward()
+                self.vf_optimizer.step()
+                self.loss_v_index += 1
+                self.writer.add_scalar('loss/Value_Loss', loss_v, self.loss_v_index)
 
 
     def learn(self, actor_critic=core.ActorCritic, ac_kwargs=dict(), seed=-1,
-              steps_per_epoch=800, steps_to_run=100000, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
+              rollout_length=2048, batch_size=64, steps_to_run=100000, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
               vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97,
               target_kl=0.01, freeze_rep=True, entropy_coef=0.0, use_value_norm=False,
               tb_writer=None, selfplay=False, ally_heuristic=False, enemy_heuristic=False, dense_reward=False,
@@ -602,16 +653,18 @@ class PPOPolicy():
         self.discrete_action = discrete_action
         self.rnd = rnd
         self.rnd_bonus = rnd_bonus
+        self.batch_size = batch_size
 #        self.use_state_vector = kargs['use_state_vector']
 
         if self.use_state_vector:
             actor_critic = core.MLPActorCritic
 
+        self.tensor_func = lambda x: torch.as_tensor(x, dtype=torch.float32).to(device)
         print('POLICY SEED', seed)
 
         self.prev_ckpt = None
         self.setup_model(actor_critic, pi_lr, vf_lr, ac_kwargs, enemy_model=enemy_model)
-        self.load_model(kargs['model_path'], kargs['cnn_model_path'], freeze_rep, steps_per_epoch)
+        self.load_model(kargs['model_path'], kargs['cnn_model_path'], freeze_rep, rollout_length)
         num_envs = kargs['n_envs']
         if self.callback:
             self.callback.init_model(self.ac_model)
@@ -623,8 +676,8 @@ class PPOPolicy():
         ep_br_dmg = np.zeros(num_envs)
         ep_rr_dmg = np.zeros(num_envs)
 
-        buf = RolloutBuffer(self.obs_dim, self.act_dim, steps_per_epoch, gamma,
-                            lam, n_rollout_threads=num_envs, use_state_vector=self.use_state_vector, centralized=centralized,
+        buf = RolloutBuffer(self.obs_dim, self.act_dim, rollout_length, gamma,
+                            lam, num_workers=num_envs, use_state_vector=self.use_state_vector, centralized=centralized,
                             n_agents=1 if single_agent else 5,
 #                            n_agents=5,
                             discrete_action=discrete_action)
@@ -651,8 +704,10 @@ class PPOPolicy():
         #fig, ax = plt.subplots(1, 1, figsize=(12, 6))
 
         total_score, ep_len1, total_step, total_ep = 0, 0,0,0
+        obs = self.obs
         while step < steps_to_run:
 
+            '''
             if noisy: self.ac_model.resample()
 
             if (step + 1) % 50000 == 0 or step == 0: # Periodically save the model
@@ -671,11 +726,13 @@ class PPOPolicy():
 
             if (step + 1) % 10000 == 0 and dense_reward:
                 if mixing_coeff >= 0.1: mixing_coeff -= 0.1
+            '''
 
             step += 1
             ep_len1 +=1
 
-            obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
+#            obs = torch.as_tensor(self.obs, dtype=torch.float32).to(device)
+#            obs = torch.as_tensor(obs, dtype=torch.float32).to(device)
 
             if selfplay or enemy_model is not None:
                 ally_obs = obs[:, :5, :, :, :]
@@ -686,7 +743,12 @@ class PPOPolicy():
                 a = torch.cat((ally_a, enemy_a), dim=1)
 
             else:
-                a, v, logp, entropy = self.ac_model.step(obs)
+                a, v, logp, entropy = self.ac_model.step(self.tensor_func(obs))
+                a, v, logp = a.cpu().numpy(), v.cpu().numpy(), logp.cpu().numpy()
+
+            if step % rollout_length == 0:
+                buf.finish_path(v)
+                self.update(buf, train_pi_iters, train_v_iters, target_kl, clip_ratio, entropy_coef)
 
             if ally_heuristic or enemy_heuristic:
                 if ally_heuristic:
@@ -722,12 +784,14 @@ class PPOPolicy():
                     action = torch.cat((action1.unsqueeze(-1), action2.unsqueeze(-1), action3.unsqueeze(-1)), dim=-1)
                     next_obs, r, terminal, info = env.step(action.cpu().numpy())
                 else:
-                    action_env = a.cpu().numpy() if self.is_tanksworld_env else a.squeeze(1).cpu().numpy()
+                    # gym action runs this
+                    action_env = a if self.is_tanksworld_env else a.squeeze(1)
                     next_obs, r, terminal, info = env.step(action_env)
                         
-            extrinsic_reward = r.copy()
+#            extrinsic_reward = r.copy()
             total_score += r
 
+            '''
             if self.rnd:
                 rnd_target = self.rnd_network(obs).detach()
                 rnd_pred = self.rnd_pred_network(obs).detach()
@@ -757,14 +821,25 @@ class PPOPolicy():
             if rnd:
                 ep_intrinsic_ret += intrinsic_reward
             ep_len += 1
+            '''
 
-            r = torch.as_tensor(r, dtype=torch.float32).to(device)
-            self.obs = next_obs
             if self.single_agent:
-                r = r.unsqueeze(1)
+#                import pdb; pdb.set_trace();
+#                r = r.unsqueeze(1)
+                r = np.expand_dims(r, 1)
+                terminal = np.expand_dims(terminal, 1)
+            
+#            terminal_ = torch.as_tensor(terminal, dtype=torch.float32).to(device)
+#            terminal_ = terminal_.unsqueeze(1)
             
             buf.store(obs, a, r, v, logp, terminal)
+            obs = next_obs
+            for i, (terminal_, score) in enumerate(zip(terminal, total_score)):
+                if terminal_:
+                    print('score:', (score), 'ep len:', ep_len1, 'total_step:', total_step, 'total_ep:', total_ep)
+                    total_score[i] = 0
 
+            '''
             for env_idx, done in enumerate(terminal):
                 if done and self.is_tanksworld_env:
                     stats = info[env_idx]['red_stats']
@@ -778,30 +853,31 @@ class PPOPolicy():
                     last_hundred_red_red_damages[env_idx] = last_hundred_red_red_damages[env_idx][-100:]
                     last_hundred_blue_red_damages[env_idx] = last_hundred_blue_red_damages[env_idx][-100:]
 
-            epoch_ended = step > 0 and step % steps_per_epoch == 0
+            '''
+#            epoch_ended = step > 0 and step % steps_per_epoch == 0
 
-            if np.any(terminal) or epoch_ended:
-                if np.any(terminal) and not self.is_tanksworld_env:
-                    total_step += ep_len1
-                    total_ep +=1
-                    print('total score:', np.mean(total_score), 'ep len:', ep_len1, 'total_step:', total_step, 'total_ep:', total_ep)
-                    total_score, ep_len1 = 0, 0
-
+#            if np.any(terminal) or epoch_ended:
+#                if np.any(terminal) and not self.is_tanksworld_env:
+#                    total_step += ep_len1
+#                    total_ep +=1
+#                    total_score, ep_len1 = 0, 0
+#
                 
-                with torch.no_grad():
-                    obs_input = self.obs[:, :5, :, :, :] if selfplay or enemy_model is not None else self.obs
-                    _, v, _, _ = self.ac_model.step(
-                        torch.as_tensor(obs_input, dtype=torch.float32).to(device))
+#                with torch.no_grad():
+#                    obs_input = self.obs[:, :5, :, :, :] if selfplay or enemy_model is not None else self.obs
+#                    _, v, _, _ = self.ac_model.step(
+#                        torch.as_tensor(obs_input, dtype=torch.float32).to(device))
+#
+#                for env_idx, done in enumerate(terminal):
+#                    if done:
+#                        with torch.no_grad(): v[env_idx] = 0 if self.centralized or single_agent else torch.zeros(5)
+#                    buf.finish_path(v, env_idx)
+#
+#                if epoch_ended:
+#                    for env_idx in range(num_envs):
+#                        buf.finish_path(v, env_idx)
 
-                for env_idx, done in enumerate(terminal):
-                    if done:
-                        with torch.no_grad(): v[env_idx] = 0 if self.centralized or single_agent else torch.zeros(5)
-                    buf.finish_path(v, env_idx)
-
-                if epoch_ended:
-                    for env_idx in range(num_envs):
-                        buf.finish_path(v, env_idx)
-
+            '''
                 episode_lengths.append(ep_len)
                 episode_returns.append(ep_ret)
                 if rnd:
@@ -812,8 +888,8 @@ class PPOPolicy():
                 std = torch.exp(self.ac_model.pi.log_std).cpu().detach().numpy() if not discrete_action else torch.zeros((3))
                 episode_stds.append(std)
 
-                if epoch_ended:
-                    self.update(buf, train_pi_iters, train_v_iters, target_kl, clip_ratio, entropy_coef)
+#                if epoch_ended:
+#                    self.update(buf, train_pi_iters, train_v_iters, target_kl, clip_ratio, entropy_coef)
 
                 ep_ret = 0
                 ep_intrinsic_ret = 0
@@ -821,6 +897,7 @@ class PPOPolicy():
                 ep_rb_dmg = np.zeros(num_envs)
                 ep_br_dmg = np.zeros(num_envs)
                 ep_rr_dmg = np.zeros(num_envs)
+
 
             if (step + 1) % 100 == 0:
 
@@ -864,3 +941,4 @@ class PPOPolicy():
                     if self.callback.eval_env:
                         self.callback.evaluate_policy(self.ac_model.state_dict(), device)
                     
+            '''
