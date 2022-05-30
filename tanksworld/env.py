@@ -110,6 +110,7 @@ class TanksWorldEnv(gym.Env):
         use_state_vector=False
     ):
 
+        timeout = 3000
         # call reset() to begin playing
         self._workerid = (
             MPI.COMM_WORLD.Get_rank()
@@ -260,6 +261,8 @@ class TanksWorldEnv(gym.Env):
 
     def reset(self, **kwargs):
 
+#        import traceback
+#        traceback.print_stack()
         if self.red_team_stats is not None:
             self.log_stats()
 
@@ -312,6 +315,7 @@ class TanksWorldEnv(gym.Env):
 
         return state
 
+
     def is_done(self, state):
         red_health = [i * TanksWorldEnv._tank_data_len + 3 for i in range(5)]
         blue_health = [(i + 5) * TanksWorldEnv._tank_data_len + 3 for i in range(5)]
@@ -323,14 +327,9 @@ class TanksWorldEnv(gym.Env):
         blue_dead = [state[i] <= 0 for i in blue_health]
         training_dead = [state[i] <= 0 for i in training_health]
 
-        if (
-            all(red_dead)
-            or all(blue_dead)
-            or all(training_dead)
-            or self.episode_steps > self.timeout
-        ):
-            return True
-        return False
+        game_end = all(red_dead) or all(blue_dead) or all(training_dead) or self.episode_steps > self.timeout
+        tank_terminal_signals = [True]*10 if game_end else red_dead + blue_dead
+        return {'game_end': game_end, 'ally_terminal': [True]* 5 if game_end else red_dead, 'all_terminal': tank_terminal_signals}
 
     def log_stats(self):
         if self.tblogs is None:
@@ -672,13 +671,16 @@ class TanksWorldEnv(gym.Env):
         #info = [
         #    {"red_stats": self.red_team_stats, "blue_stats": self.blue_team_stats}
         #] * len(self.training_tanks)
+        terminal_info = self.is_done(self._env_info.vector_observations[0])
         info = {"red_stats": self.red_team_stats, "blue_stats": self.blue_team_stats,
-                "state_vector": self.state_vector, "overview": self.overviewmap}
-
+                "state_vector": self.state_vector, "overview": self.overviewmap,
+                'ally_terminal': terminal_info['ally_terminal'],
+                'all_terminal': terminal_info['all_terminal']
+                }
         return (
             self.state,
             self.reward,
-            self.done or self.is_done(self._env_info.vector_observations[0]),
+            terminal_info['game_end'],
             info,
         )
 

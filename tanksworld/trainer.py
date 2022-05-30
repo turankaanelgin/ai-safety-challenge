@@ -10,9 +10,10 @@ from make_env import make_env
 from core.policy_record import PolicyRecord
 from algos.torch_ppo.mappo import PPOPolicy
 from algos.torch_ppo.ippo import PPOPolicy as IPPOPolicy
-from algos.torch_ppo.vec_env import DummyVecEnv
+#from algos.torch_ppo.vec_env import DummyVecEnv
 #from algos.torch_ppo.vec_env import DummyVecEnv, SubprocVecEnv
 from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv, VecEnv
+from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
 from algos.torch_ppo.callbacks import EvalCallback
 
 
@@ -177,6 +178,7 @@ class Trainer:
                         num_agents = 1
 
                     env = SubprocVecEnv([make_env_(seed) for seed in self.env_seeds])
+#                    env = DummyVecEnv([make_env_(seed) for seed in self.env_seeds])
                     
 
                     all_training_envs.append(env)
@@ -451,8 +453,9 @@ if __name__=='__main__':
             callback = None
             if args['env_name'] == 'tanksworld':
                 val_seeds = [np.random.randint(_MAX_INT) for _ in range(3)]
-                val_env = SubprocVecEnv([make_env_(seed) for seed in val_seeds])
-                callback = EvalCallback(envs[seed_idx], policy_record, eval_env=val_env, eval_steps=100)
+#                val_env = SubprocVecEnv([make_env_(seed) for seed in val_seeds])
+#                callback = EvalCallback(envs[seed_idx], policy_record, eval_env=val_env, eval_steps=100)
+                callback = None
             if args['independent']:
                 policy = IPPOPolicy(envs[seed_idx], callback, False, **policy_params)
             else:

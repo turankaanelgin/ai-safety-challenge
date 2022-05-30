@@ -62,8 +62,7 @@ class RolloutBuffer:
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
         self.logp_buf[self.ptr] = logp
-#        self.terminal_buf[self.ptr] = dones
-#        self.episode_starts[self.ptr] = torch.FloatTensor(dones).unsqueeze(1).tile((1, self.n_agents))
+        self.terminal_buf[self.ptr] = dones
         self.ptr += 1
 
     def finish_path(self, last_val):
@@ -642,23 +641,19 @@ class PPOPolicy():
             action_env = a if self.is_tanksworld_env else a.squeeze(1)
             next_obs, r, terminal, info = env.step(action_env)
                         
-#            extrinsic_reward = r.copy()
             total_score += r
 
-
             if self.single_agent:
-#                import pdb; pdb.set_trace();
-#                r = r.unsqueeze(1)
                 r = np.expand_dims(r, 1)
                 terminal = np.expand_dims(terminal, 1)
             
-            
-#            if self.is_tanksworld_env:
-
+            if self.is_tanksworld_env:
+                terminal = np.stack([x['ally_terminal'] for x in info]).astype(int)
             buf.store(obs, a, r, v, logp, terminal)
+
             obs = next_obs
             for i, (terminal_, score) in enumerate(zip(terminal, total_score)):
-                if terminal_:
+                if all(terminal_):
                     print('score:', (score), 'ep len:', ep_len1, 'total_step:', total_step, 'total_ep:', total_ep)
                     total_score[i] = 0
 
