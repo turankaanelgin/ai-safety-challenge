@@ -577,7 +577,6 @@ class MLPCritic(nn.Module):
         super().__init__()
         obs_dim = observation_space.shape[-1]
 
-
         self.v_net = mlp([obs_dim] + list(hidden_sizes) + [num_agents], activation)
 
     def forward(self, obs):
@@ -615,14 +614,14 @@ class MLPActorCritic(nn.Module):
 
     def __init__(self, observation_space, action_space, activation=nn.Tanh,
                  use_beta=False, init_log_std=-0.5, centralized_critic=False,
-                 centralized=False, local_std=False, discrete_action=False, noisy=False, num_agents=5):
+                 centralized=False, local_std=False, discrete_action=False, noisy=False, num_agents=5, hidden_sizes=[64, 64]):
         super().__init__()
 
 
         self.pi = MLPCentralizedGaussianActor(observation_space, action_space.shape[0], activation,
-                                             init_log_std=init_log_std, num_agents=num_agents)
+                                             init_log_std=init_log_std, num_agents=num_agents, hidden_sizes=hidden_sizes)
 
-        self.v = MLPCritic(observation_space, activation, num_agents=num_agents)
+        self.v = MLPCritic(observation_space, activation, num_agents=num_agents, hidden_sizes=hidden_sizes)
 
         self.action_space_high = 1.0
         self.action_space_low = -1.0

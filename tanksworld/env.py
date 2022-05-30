@@ -107,10 +107,10 @@ class TanksWorldEnv(gym.Env):
         tbwriter=None,
         seed=0,
         curriculum_stop=-1,
-        use_state_vector=False
+        use_state_vector=False,
+        attach_bounding_box=False
     ):
 
-        timeout = 3000
         # call reset() to begin playing
         self._workerid = (
             MPI.COMM_WORLD.Get_rank()
@@ -118,8 +118,14 @@ class TanksWorldEnv(gym.Env):
         self._filename = exe  #'/home/rivercg1/projects/aisafety/build/aisafetytanks_0.1.2/TanksWorld.x86_64'
         self.use_state_vector = use_state_vector
         self.observation_space = gym.spaces.box.Box(0, 255, (4, 128, 128))
+        
+        self.attach_bounding_box = attach_bounding_box
         if self.use_state_vector:
-            self.observation_space = gym.spaces.box.Box(0, 255, (148,))
+            if self.attach_bounding_box: 
+                self.observation_space = gym.spaces.box.Box(0, 255, (148,))
+            else:
+                self.observation_space = gym.spaces.box.Box(0, 255, (72,))
+
         #self.observation_space = gym.spaces.box.Box(0, 255, (3, 128, 128))
         self.action_space = gym.spaces.box.Box(-1, 1, (3,))
 
@@ -257,7 +263,9 @@ class TanksWorldEnv(gym.Env):
 
     def get_state_vector_v2(self):#State vector with obstackles
         tank_states = np.array(self.get_state_vector()).flatten() / 500
-        return np.concatenate((tank_states, self.obstacles_state / 128))
+        if self.attach_bounding_box:
+            return np.concatenate((tank_states, self.obstacles_state / 128))
+        return tank_states
 
     def reset(self, **kwargs):
 

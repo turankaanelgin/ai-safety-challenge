@@ -156,6 +156,7 @@ class Trainer:
                                   'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
                                   'timeout': 500, 'curriculum_stop': config['curriculum_stop'],
                                   'use_state_vector': config['use_state_vector'],
+                                  'attach_bounding_box': config['attach_bounding_box']
                                   }
 
                     def make_env_(seed):
@@ -308,7 +309,8 @@ class Trainer:
             'local_std': config['local_std'],
             'enemy_model': config['enemy_model'],
             'env_name': config['env_name'],
-            'single_agent': config['single_agent']
+            'single_agent': config['single_agent'],
+            'hidden_sizes': config['hidden_sizes']
         }
 
         return policy_kwargs
@@ -330,7 +332,7 @@ class Trainer:
         # Else generate new seeds and save.
         init_seeds = os.path.join('./logs', config['logdir'], 'seeds.json')
 
-        if os.path.exists(init_seeds):
+        if os.path.exists(init_seeds) and False:
             with open(init_seeds, 'r') as f:
                 seeds = json.load(f)
                 env_seeds = seeds['env_seeds']
@@ -455,7 +457,7 @@ if __name__=='__main__':
                 val_seeds = [np.random.randint(_MAX_INT) for _ in range(3)]
 #                val_env = SubprocVecEnv([make_env_(seed) for seed in val_seeds])
 #                callback = EvalCallback(envs[seed_idx], policy_record, eval_env=val_env, eval_steps=100)
-                callback = None
+                callback = EvalCallback(envs[seed_idx], policy_record)#, eval_env=val_env, eval_steps=100)
             if args['independent']:
                 policy = IPPOPolicy(envs[seed_idx], callback, False, **policy_params)
             else:

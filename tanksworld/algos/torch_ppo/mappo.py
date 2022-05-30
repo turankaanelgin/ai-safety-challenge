@@ -76,6 +76,7 @@ class RolloutBuffer:
             adv = adv * self.lam * self.gamma * mask + td_error
             self.adv_buf[i] = adv
             self.ret_buf[i] = ret
+            
 
 
     def get(self):
@@ -462,6 +463,7 @@ class PPOPolicy():
     def compute_loss_pi(self, data, clip_ratio):
 
         obs, act, adv, logp_old = data['obs'], data['act'], data['adv'], data['logp']
+        
         pi, logp = self.ac_model.pi(obs, act)
         ratio = torch.exp(logp - logp_old)
         clip_adv = torch.clamp(ratio, 1 - clip_ratio, 1 + clip_ratio) * adv
@@ -563,6 +565,7 @@ class PPOPolicy():
         ac_kwargs['local_std'] = local_std
         ac_kwargs['discrete_action'] = discrete_action
         ac_kwargs['noisy'] = noisy
+        ac_kwargs['hidden_sizes'] = kargs['hidden_sizes']
         ac_kwargs['num_agents'] = 5 if kargs['env_name'] == 'tanksworld' else 1
 
         self.centralized = centralized
@@ -584,7 +587,7 @@ class PPOPolicy():
 
         self.prev_ckpt = None
         self.setup_model(actor_critic, pi_lr, vf_lr, ac_kwargs, enemy_model=enemy_model)
-        self.load_model(kargs['model_path'], kargs['cnn_model_path'], freeze_rep, rollout_length)
+#        self.load_model(kargs['model_path'], kargs['cnn_model_path'], freeze_rep, rollout_length)
         num_envs = kargs['n_envs']
         if self.callback:
             self.callback.init_model(self.ac_model)
@@ -606,7 +609,7 @@ class PPOPolicy():
             from pathlib import Path
             Path(kargs['save_dir']).mkdir(parents=True, exist_ok=True)
 
-        step = self.start_step
+#        step = self.start_step
         episode_lengths = []
         episode_returns = []
         episode_intrinsic_returns = []
@@ -616,20 +619,21 @@ class PPOPolicy():
         last_hundred_red_blue_damages = [[] for _ in range(num_envs)]
         last_hundred_red_red_damages = [[] for _ in range(num_envs)]
         last_hundred_blue_red_damages = [[] for _ in range(num_envs)]
-        best_eval_score = self.best_eval_score
+#        best_eval_score = self.best_eval_score
 
         if ally_heuristic or enemy_heuristic or dense_reward:
             mixing_coeff = 0.6
 
         #fig, ax = plt.subplots(1, 1, figsize=(12, 6))
 
-        total_score, ep_len1, total_step, total_ep = 0, 0,0,0
+        total_score, step = 0, 0
         obs = self.obs
         while step < steps_to_run:
-
             step += 1
-            ep_len1 +=1
 
+
+            if (step + 1) % 50000 == 0 or step == 0: # Periodically save the model
+                self.save_model(kargs['save_dir'], step)
 
             a, v, logp, entropy = self.ac_model.step(self.tensor_func(obs))
             a, v, logp = a.cpu().numpy(), v.cpu().numpy(), logp.cpu().numpy()
@@ -652,8 +656,44 @@ class PPOPolicy():
             buf.store(obs, a, r, v, logp, terminal)
 
             obs = next_obs
-            for i, (terminal_, score) in enumerate(zip(terminal, total_score)):
-                if all(terminal_):
-                    print('score:', (score), 'ep len:', ep_len1, 'total_step:', total_step, 'total_ep:', total_ep)
-                    total_score[i] = 0
+            for env_idx, (terminal_, score) in enumerate(zip(terminal, total_score)):
+                if self.is_tanksworld_env and all(terminal_):
+                    print('score:', sum(score))
 
+                    stats = info[env_idx]['red_stats']
+                    ep_rr_dmg[env_idx] = stats['damage_inflicted_on']['ally']
+                    ep_rb_dmg[env_idx] = stats['damage_inflicted_on']['enemy']
+                    ep_br_dmg[env_idx] = stats['damage_taken_by']['enemy']
+                    last_hundred_red_blue_damages[env_idx].append(ep_rb_dmg[env_idx])
+                    last_hundred_red_red_damages[env_idx].append(ep_rr_dmg[env_idx])
+                    last_hundred_blue_red_damages[env_idx].append(ep_br_dmg[env_idx])
+                    last_hundred_red_blue_damages[env_idx] = last_hundred_red_blue_damages[env_idx][-100:]
+                    last_hundred_red_red_damages[env_idx] = last_hundred_red_red_damages[env_idx][-100:]
+                    last_hundred_blue_red_damages[env_idx] = last_hundred_blue_red_damages[env_idx][-100:]
+
+
+                    num_envs = len(obs)
+                    episode_lengths.append(step * num_envs)
+                    episode_returns.append(sum(score))
+                    episode_red_red_damages.append(ep_rr_dmg)
+                    episode_blue_red_damages.append(ep_br_dmg)
+                    episode_red_blue_damages.append(ep_rb_dmg)
+                    std = torch.exp(self.ac_model.pi.log_std).cpu().detach().numpy() if not discrete_action else torch.zeros((3))
+                    episode_stds.append(std)
+
+
+                    ep_rb_dmg = np.zeros(num_envs)
+                    ep_br_dmg = np.zeros(num_envs)
+                    ep_rr_dmg = np.zeros(num_envs)
+                    total_score[env_idx] = 0
+                else:
+                    print('score:', score)
+                    total_score[env_idx] = 0
+
+
+
+            if self.callback and step % 2000==0:
+                self.callback.save_metrics_multienv(episode_returns, episode_lengths, episode_red_blue_damages,
+                                                    episode_red_red_damages, episode_blue_red_damages,
+                                                    episode_stds=episode_stds if not rnd else None,
+                                                    episode_intrinsic_rewards=episode_intrinsic_returns if rnd else None)
