@@ -28,6 +28,11 @@ def combined_shape_v3(length, batch_len, seq_len, shape=None):
         return (length, batch_len, seq_len,)
     return (length, batch_len, seq_len, shape) if np.isscalar(shape) else (length, batch_len, seq_len, *shape)
 
+def combined_shape_v4(length, length2, batch_len, seq_len, shape=None):
+    if shape is None:
+        return (length, length2, batch_len, seq_len,)
+    return (length, length2, batch_len, seq_len, shape) if np.isscalar(shape) else (length, length2, batch_len, seq_len, *shape)
+
 
 def cnn(n_channels):
     model = nn.Sequential(
@@ -66,7 +71,7 @@ class RNDNetwork(nn.Module):
 
         super(RNDNetwork, self).__init__()
         self.cnn_net = cnn(4)
-        self.head = nn.Linear(9216, 16)
+        self.head = nn.Linear(9216, 8)
 
     def reshape_obs(self, obs):
         # Reshape observation for CNN
@@ -174,6 +179,81 @@ class BetaActor(Actor):
         return pi, logp_a
 
 
+class GaussianActorStateVector(Actor):
+
+    def __init__(self, act_dim, activation, cnn_net, init_log_std=-0.5):
+        super().__init__()
+
+        self.cnn_net = cnn_net
+
+        self.mu_net = nn.Sequential(
+            nn.Linear(60, 5*act_dim),
+            activation()
+        )
+        log_std = init_log_std * np.ones(act_dim, dtype=np.float32)
+        self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
+
+    def _distribution(self, obs):
+
+        obs = torch.flatten(obs[:-2]).unsqueeze(0)
+
+        mu = self.mu_net(obs).reshape(-1, 5, 3)
+        std = torch.exp(self.log_std)
+        return Normal(mu, std)
+
+    def _log_prob_from_distribution(self, pi, act):
+
+        return pi.log_prob(act).sum(axis=-1)  # Last axis sum needed for Torch Normal distribution
+
+
+class GaussianActorCombined(Actor):
+
+    def __init__(self, observation_space, act_dim, activation, cnn_net, init_log_std=-0.5):
+
+        super().__init__()
+
+        self.cnn_net = cnn_net
+
+        dummy_img = torch.rand((1,) + observation_space.shape)
+        self.mu_net = nn.Sequential(
+                nn.Linear(cnn_net(dummy_img).shape[1], act_dim),
+                activation()
+            )
+        self.mu_net_2 = nn.Sequential(
+            nn.Linear(36, act_dim),
+            activation()
+        )
+
+        log_std = init_log_std * np.ones(act_dim, dtype=np.float32)
+        self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
+
+    def _distribution(self, obs):
+
+        obs, state_vector = obs
+
+        obs = self.reshape_obs(obs)
+
+        batch_size = obs.shape[0]
+        seq_size = obs.shape[1]
+        obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
+        obs = self.cnn_net(obs)
+        obs = obs.reshape(batch_size, seq_size, obs.shape[1])
+
+        state_vector = state_vector.reshape(batch_size, seq_size, -1)
+        state_vector = F.normalize(state_vector, dim=-1)
+        obs = F.normalize(obs, dim=-1)
+
+        mu1 = self.mu_net(obs)
+        mu2 = self.mu_net_2(state_vector)
+        mu = (mu1+mu2)/2
+        std = torch.exp(self.log_std)
+        return Normal(mu, std)
+
+    def _log_prob_from_distribution(self, pi, act):
+
+        return pi.log_prob(act).sum(axis=-1)  # Last axis sum needed for Torch Normal distribution
+
+
 class GaussianActor(Actor):
 
     def __init__(self, observation_space, act_dim, activation, cnn_net, init_log_std=-0.5, local_std=False,
@@ -184,6 +264,10 @@ class GaussianActor(Actor):
 
         dummy_img = torch.rand((1,) + observation_space.shape)
         if noisy:
+            #self.mu_net = nn.Sequential(
+            #    NoisyLinear(cnn_net(dummy_img).shape[1], act_dim),
+            #    activation()
+            #)
             self.mu_net = NoisyLinear(cnn_net(dummy_img).shape[1], act_dim)
         else:
             self.mu_net = nn.Sequential(
@@ -220,16 +304,14 @@ class GaussianActor(Actor):
             std = torch.exp(std)
         else:
             std = torch.exp(self.log_std)
-        try:
-            return Normal(mu, std)
-        except: pdb.set_trace()
+        return Normal(mu, std)
 
     def _log_prob_from_distribution(self, pi, act):
 
         return pi.log_prob(act).sum(axis=-1)  # Last axis sum needed for Torch Normal distribution
 
     def resample(self):
-        self.mu_net.resample()
+        self.mu_net[0].resample()
 
 
 class GaussianActor_v2(Actor):
@@ -298,8 +380,14 @@ class SoftmaxActor(Actor):
         self.cnn_net = cnn_net
 
         dummy_img = torch.rand((1,) + observation_space.shape)
+        #self.action = nn.Sequential(
+        #    nn.Linear(cnn_net(dummy_img).shape[1], 10*10*2),
+        #    activation(),
+        #)
         self.action = nn.Sequential(
-            nn.Linear(cnn_net(dummy_img).shape[1], 50*50*2),
+            nn.Linear(cnn_net(dummy_img).shape[1], 10),
+            activation(),
+            nn.Linear(10, 100*100*2),
             activation(),
         )
 
@@ -384,6 +472,25 @@ class CentralizedGaussianActor_v2(Actor):
         return pi.log_prob(act).sum(axis=-1)  # Last axis sum needed for Torch Normal distribution
 
 
+class CriticStateVector(nn.Module):
+
+    def __init__(self, activation, cnn_net):
+        super().__init__()
+        self.cnn_net = cnn_net
+
+        self.v_net = nn.Sequential(
+            nn.Linear(60, 5),
+            activation()
+        )
+
+    def forward(self, obs):
+
+        obs = torch.flatten(obs[:,:-2], start_dim=1)
+
+        v_out = self.v_net(obs)
+        return torch.squeeze(v_out, -1)  # Critical to ensure v has right shape.
+
+
 class Critic(nn.Module):
 
     def __init__(self, observation_space, activation, cnn_net, noisy=False):
@@ -392,7 +499,10 @@ class Critic(nn.Module):
 
         dummy_img = torch.rand((1,) + observation_space.shape)
         if noisy:
-            self.v_net = NoisyLinear(cnn_net(dummy_img).shape[1], 1)
+            self.v_net = nn.Sequential(
+                NoisyLinear(cnn_net(dummy_img).shape[1], 1),
+                activation()
+            )
         else:
             self.v_net = nn.Sequential(
                 nn.Linear(cnn_net(dummy_img).shape[1], 1),
@@ -427,7 +537,53 @@ class Critic(nn.Module):
         return torch.squeeze(v_out, -1)  # Critical to ensure v has right shape.
 
     def resample(self):
-        self.v_net.resample()
+        self.v_net[0].resample()
+
+
+class CombinedCritic(nn.Module):
+
+    def __init__(self, observation_space, activation, cnn_net):
+
+        super().__init__()
+        self.cnn_net = cnn_net
+
+        dummy_img = torch.rand((1,) + observation_space.shape)
+        self.v_net = nn.Sequential(
+            nn.Linear(cnn_net(dummy_img).shape[1] + 36, 1),
+            activation()
+        )
+
+    def reshape_obs(self, obs):
+        # Reshape observation for CNN
+        if len(obs.shape) == 4:
+            obs = obs.unsqueeze(0)
+        elif len(obs.shape) == 6:
+            if obs.shape[1] == 1:
+                obs = obs.squeeze(1)
+            elif obs.shape[2] == 1:
+                obs = obs.squeeze(2)
+            else:
+                obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
+                                  obs.shape[3], obs.shape[4], obs.shape[5])
+        return obs
+
+    def forward(self, obs):
+
+        obs, state_vector = obs
+
+        obs = self.reshape_obs(obs)
+
+        batch_size = obs.shape[0]
+        seq_size = obs.shape[1]
+        obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
+        obs = self.cnn_net(obs)
+        obs = obs.reshape(batch_size, seq_size, obs.shape[1])
+
+        state_vector = state_vector.reshape(batch_size, seq_size, -1)
+        obs = torch.cat((state_vector, obs), dim=-1)
+
+        v_out = self.v_net(obs).squeeze(-1)
+        return v_out
 
 
 class CentralizedCritic(nn.Module):
@@ -514,27 +670,44 @@ class ActorCritic(nn.Module):
 
     def __init__(self, observation_space, action_space, activation=nn.Tanh,
                  use_beta=False, init_log_std=-0.5, centralized_critic=False,
-                 centralized=False, local_std=False, discrete_action=False, noisy=False):
+                 centralized=False, local_std=False, discrete_action=False, noisy=False,
+                 state_vector=False, shared_rep=False):
         super().__init__()
 
-        cnn_net = cnn(observation_space.shape[0])
+        if shared_rep:
+            cnn_net = cnn(observation_space.shape[0])
+        else:
+            # TODO change
+            cnn_net = cnn(observation_space.shape[0])
+            actor_cnn_net = cnn_net
+            critic_cnn_net = cnn_net
+            #actor_cnn_net = cnn(observation_space.shape[0])
+            #critic_cnn_net = cnn(observation_space.shape[0])
 
         if centralized:
             self.pi = CentralizedGaussianActor(observation_space, action_space.shape[0], activation,
                                              cnn_net=cnn_net, init_log_std=init_log_std, num_agents=5)
+        elif state_vector:
+            self.pi = GaussianActorStateVector(action_space.shape[0], activation, cnn_net=cnn_net,
+                                               init_log_std=init_log_std)
         elif use_beta:
             self.pi = BetaActor(observation_space, action_space.shape[0], cnn_net=cnn_net)
         elif discrete_action:
             self.pi = SoftmaxActor(observation_space, activation, cnn_net=cnn_net)
         else:
-            self.pi = GaussianActor(observation_space, action_space.shape[0], activation, cnn_net=cnn_net,
+            self.pi = GaussianActor(observation_space, action_space.shape[0], activation,
+                                    cnn_net=cnn_net if shared_rep else actor_cnn_net,
                                     init_log_std=init_log_std, local_std=local_std, noisy=noisy)
 
         if centralized or centralized_critic:
             self.v = CentralizedCritic(observation_space, activation, cnn_net=cnn_net, num_agents=5)
-            #self.v = Critic(observation_space, activation, cnn_net=cnn_net, noisy=noisy)
+            #self.v = Critic(observation_space, activation, cnn_net=cnn_net)
+        elif state_vector:
+            self.v = CriticStateVector(activation, cnn_net=cnn_net)
         else:
-            self.v = Critic(observation_space, activation, cnn_net=cnn_net, noisy=noisy)
+            self.v = Critic(observation_space, activation,
+                            cnn_net=cnn_net if shared_rep else critic_cnn_net,
+                            noisy=False)
 
         self.action_space_high = 1.0
         self.action_space_low = -1.0
@@ -563,3 +736,63 @@ class ActorCritic(nn.Module):
     def resample(self):
         self.pi.resample()
         self.v.resample()
+
+
+class ICM(nn.Module):
+
+    def __init__(self):
+
+        super().__init__()
+
+        self.encoder = nn.Sequential(
+            nn.Conv2d(4, 32, 8, 4),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, 4, 2),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, 3, 1),
+            nn.ReLU(),
+            nn.AvgPool2d(8),
+            nn.Flatten()
+        )
+        self.forward_ = nn.Linear(64+3, 64)
+        self.inverse_ = nn.Linear(64+64, 3)
+
+    def reshape_obs(self, obs):
+        # Reshape observation for CNN
+        if len(obs.shape) == 4:
+            obs = obs.unsqueeze(0)
+        elif len(obs.shape) == 6:
+            if obs.shape[1] == 1:
+                obs = obs.squeeze(1)
+            elif obs.shape[2] == 1:
+                obs = obs.squeeze(2)
+            else:
+                obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2],
+                                  obs.shape[3], obs.shape[4], obs.shape[5])
+        return obs
+
+    def forward(self, state, next_state, action):
+
+        obs = self.reshape_obs(state)
+        batch_size = obs.shape[0]
+        seq_size = obs.shape[1]
+        obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
+        obs = self.encoder(obs)
+        state_feat = obs.reshape(batch_size, seq_size, obs.shape[1])
+
+        obs = self.reshape_obs(next_state)
+        batch_size = obs.shape[0]
+        seq_size = obs.shape[1]
+        obs = obs.reshape(obs.shape[0] * obs.shape[1], obs.shape[2], obs.shape[3], obs.shape[4])
+        obs = self.encoder(obs)
+        next_state_feat = obs.reshape(batch_size, seq_size, obs.shape[1])
+
+        if len(action.shape) == 2:
+            action = action.unsqueeze(0)
+
+        input = torch.cat((state_feat, action), dim=-1)
+        next_pred = self.forward_(input)
+        input = torch.cat((state_feat, next_state_feat), dim=-1)
+        action_pred = self.inverse_(input)
+
+        return next_pred, next_state_feat, action_pred

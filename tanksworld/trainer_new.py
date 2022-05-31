@@ -98,22 +98,22 @@ class Trainer:
                         tb_writer = SummaryWriter(stats_dir)
 
                     #random_tanks = [1,2,3,4,5,6,7,8,9]
-                    random_tanks = []
-                    #disable_shooting = []
-                    #static_tanks = []
-                    static_tanks = [1,2,3,4,5,6,7,8,9]
-                    disable_shooting = static_tanks
-                    num_agents = 1
+                    #random_tanks = []
+                    disable_shooting = []
+                    static_tanks = []
+                    #static_tanks = [1,2,3,4,5,6,7,8,9]
+                    #disable_shooting = static_tanks
+                    #num_agents = 1
                     #random_tanks = [5, 6, 7, 8, 9]
                     #num_agents = 5
-                    #random_tanks = []
-                    #num_agents = 10
+                    random_tanks = []
+                    num_agents = 10
 
                     # CHANGE DISABLE SHOOTING
 
                     env_kwargs = {'exe': config['exe'],
-                                  'static_tanks': static_tanks, 'random_tanks': random_tanks, 'disable_shooting': disable_shooting,
-                                  'friendly_fire': True, 'kill_bonus': False,
+                                  'static_tanks': static_tanks, 'random_tanks': random_tanks,
+                                  'disable_shooting': disable_shooting, 'friendly_fire': False, 'kill_bonus': False,
                                   'death_penalty': config['death_penalty'],
                                   'take_damage_penalty': True, 'tblogs': stats_dir, 'tbwriter': tb_writer,
                                   'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
@@ -153,18 +153,20 @@ class Trainer:
                     tb_writer = SummaryWriter(stats_dir)
 
                     #random_tanks = [2, 3, 4, 5, 6, 7, 8, 9]
-                    #random_tanks = [5, 6, 7, 8, 9]
+                    random_tanks = [5, 6, 7, 8, 9]
                     #random_tanks = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-                    random_tanks = []
-                    static_tanks = [1,2,3,4,5,6,7,8,9]
-                    disable_shooting = static_tanks
+                    #random_tanks = []
+                    #static_tanks = [1,2,3,4,5,6,7,8,9]
+                    #disable_shooting = static_tanks
+                    static_tanks = []
+                    disable_shooting = []
 
                     env_kwargs = {'exe': config['exe'],
                                   'static_tanks': static_tanks, 'random_tanks': random_tanks, 'disable_shooting': disable_shooting,
                                   'friendly_fire': False, 'kill_bonus': False, 'death_penalty': config['death_penalty'],
                                   'take_damage_penalty': True, 'tblogs': stats_dir,
                                   'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
-                                  'timeout': 10000, 'curriculum_stop': config['curriculum_stop']}
+                                  'timeout': 500, 'curriculum_stop': config['curriculum_stop']}
 
                     def make_env_(seed):
                         def init_():
@@ -174,8 +176,8 @@ class Trainer:
 
                         return init_
 
-                    #env = SubprocVecEnv([make_env_(seed) for seed in self.env_seeds])
-                    env = SubprocVecEnv([make_env_(self.env_seeds[0]) for _ in self.env_seeds])
+                    env = SubprocVecEnv([make_env_(seed) for seed in self.env_seeds])
+                    #env = SubprocVecEnv([make_env_(self.env_seeds[0]) for _ in self.env_seeds])
 
                     all_training_envs.append(env)
                     all_policy_records.append(policy_record)
@@ -255,7 +257,7 @@ class Trainer:
         config = self.config
 
         policy_kwargs = {
-            'steps_per_epoch': config['batch_size'],
+            'batch_size': config['batch_size'],
             'train_pi_iters': config['num_epochs'],
             'train_v_iters': config['num_epochs'],
             'pi_lr': config['policy_lr'],
@@ -276,6 +278,7 @@ class Trainer:
             'rnd': config['rnd'],
             'noisy': config['noisy'],
             'entropy_coef': config['entropy_coef'],
+            'rollout_length': config['batch_size'],
         }
 
         return policy_kwargs
