@@ -9,6 +9,8 @@ from make_env import make_env
 from core.policy_record import PolicyRecord
 from algos.torch_ppo.mappo import PPOPolicy
 from algos.torch_ppo.ippo import PPOPolicy as IPPOPolicy
+from algos.torch_ppo.coppo import PPOPolicy as COPPOPolicy
+from algos.torch_ppo.mappo_bonus import PPOBonusPolicy as MAPPOBonusPolicy
 from algos.torch_ppo.vec_env import DummyVecEnv, SubprocVecEnv
 from algos.torch_ppo.callbacks import EvalCallback
 
@@ -38,7 +40,12 @@ class Trainer:
         if config['death_penalty']: folder_name += '__DP'
         if config['clip_ratio'] != 0.2: folder_name += '__CLIP{}'.format(config['clip_ratio'])
         if config['independent']: folder_name += '__IND'
+        if config['coppo']: folder_name += '__COPPO'
+        if config['single_agent']: folder_name += '__SINGLE'
         if config['local_std']: folder_name += '__LOCSTD'
+        if config['bonus']: folder_name += '__BONUS'
+        if config['rnd']: folder_name += '__RND'
+        if config['noisy']: folder_name += '__NOISY'
         if config['num_rollout_threads'] > 1: folder_name += '__ROLLOUT={}'.format(config['num_rollout_threads'])
         if config['save_tag'] != '': folder_name += '__{}'.format(config['save_tag'])
         return folder_name
@@ -66,13 +73,27 @@ class Trainer:
 
                         # Set folder name and policy record to plot the rewards
                         local_folder_name = folder_name + '/seed{}'.format(seed_idx)
+                        '''
                         if config['eval_mode']:
                             policy_record = PolicyRecord(local_folder_name, './logs/' + config['eval_logdir'] + '/',
-                                                         std=True)
+                                                         std=False)
+                                                         #std=not config['bonus'] and not config['rnd'])
                         else:
                             policy_record = PolicyRecord(local_folder_name, './logs/' + config['logdir'] + '/',
-                                                         std=True)
-
+                                                         #std=not config['bonus'] and not config['rnd'],
+                                                         std=False,
+                                                         intrinsic_reward=config['bonus'] or config['rnd'])
+                        '''
+                        if config['eval_mode']:
+                            policy_record = PolicyRecord(local_folder_name, '/scratch/telgin1/logs/' + config['eval_logdir'] + '/',
+                                                         std=False)
+                            # std=not config['bonus'] and not config['rnd'])
+                        else:
+                            policy_record = PolicyRecord(local_folder_name, '/scratch/telgin1/logs/' + config['logdir'] + '/',
+                                                         # std=not config['bonus'] and not config['rnd'],
+                                                         std=False,
+                                                         intrinsic_reward=config['bonus'] or config['rnd'])
+                        '''
                         if not config['eval_mode']:
                             # Set TensorBoard writer
                             stats_dir = os.path.join('./logs', config['logdir'], local_folder_name, 'stats')
@@ -82,20 +103,40 @@ class Trainer:
                             stats_dir = os.path.join('./junk')
                             os.makedirs(stats_dir, exist_ok=True)
                             tb_writer = SummaryWriter(stats_dir)
+                        '''
+                        if not config['eval_mode']:
+                            # Set TensorBoard writer
+                            stats_dir = os.path.join('/scratch/telgin1/logs', config['logdir'], local_folder_name, 'stats')
+                            os.makedirs(stats_dir, exist_ok=True)
+                            tb_writer = SummaryWriter(stats_dir)
+                        else:
+                            stats_dir = os.path.join('./junk')
+                            os.makedirs(stats_dir, exist_ok=True)
+                            tb_writer = SummaryWriter(stats_dir)
 
+
+                        '''
                         if config['selfplay'] or config['enemy_model'] is not None:
                             random_tanks = []
                             num_agents = 10
+                        elif config['single_agent']:
+                            random_tanks = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+                            num_agents = 1
                         else:
                             random_tanks = [5, 6, 7, 8, 9]
                             num_agents = 5
+                        '''
+                        random_tanks = [5,6,7,8,9]
+                        num_agents = 5
+                        #random_tanks = []
+                        #num_agents = 10
 
                         env_kwargs = {'exe': config['exe'],
                                       'static_tanks': [], 'random_tanks': random_tanks, 'disable_shooting': [],
                                       'friendly_fire': False, 'kill_bonus': False,
                                       'death_penalty': config['death_penalty'],
                                       'take_damage_penalty': True, 'tblogs': stats_dir, 'tbwriter': tb_writer,
-                                      'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
+                                      'penalty_weight': config['penalty_weight'], 'reward_weight': config['reward_weight'],
                                       'timeout': 500, 'seed': e_seed,
                                       'curriculum_stop': config['curriculum_stop']}
 
@@ -113,23 +154,26 @@ class Trainer:
                         all_policy_seeds.append(p_seed)
                         all_tb_writers.append(tb_writer)
 
-        else: # Multiple rollouts
+        else:  # Multiple rollouts
 
             # Set one policy per multiple environments
             for p_seed_idx, p_seed in enumerate(self.policy_seeds):
                 seed_idx = p_seed_idx
                 if seed_idx == config['seed_idx']:
-
                     # Set folder name and policy record to plot the rewards
                     local_folder_name = folder_name + '/seed{}'.format(seed_idx)
-                    policy_record = PolicyRecord(local_folder_name, './logs/' + config['logdir'] + '/', std=True)
+                    policy_record = PolicyRecord(local_folder_name, './logs/' + config['logdir'] + '/',
+                                                 std=not config['bonus'] and not config['rnd'],
+                                                 intrinsic_reward=config['bonus'] or config['rnd'])
 
                     # Set TensorBoard writer
                     stats_dir = os.path.join('./logs', config['logdir'], local_folder_name, 'stats')
                     os.makedirs(stats_dir, exist_ok=True)
                     tb_writer = SummaryWriter(stats_dir)
 
-                    random_tanks = [] if config['selfplay'] else [5,6,7,8,9]
+                    random_tanks = [] if config['selfplay'] else [5, 6, 7, 8, 9]
+                    #random_tanks = [2, 3, 4, 5, 6, 7, 8, 9]
+                    #num_agents = 2
                     env_kwargs = {'exe': config['exe'],
                                   'static_tanks': [], 'random_tanks': random_tanks, 'disable_shooting': [],
                                   'friendly_fire': False, 'kill_bonus': False, 'death_penalty': config['death_penalty'],
@@ -154,15 +198,13 @@ class Trainer:
 
         return all_training_envs, all_policy_records, all_policy_seeds, all_tb_writers
 
-
     def set_eval_env(self):
 
         config = self.config
-        folder_name = self.get_folder_name()
-        eval_folder_name = folder_name + '__EVAL'
 
         # Load or generate evaluation seeds
-        eval_seed_folder = os.path.join('./logs', config['logdir'], 'eval_seeds.json')
+        #eval_seed_folder = os.path.join('./logs', config['logdir'], 'eval_seeds.json')
+        eval_seed_folder = os.path.join('/scratch/telgin1/logs', config['logdir'], 'eval_seeds.json')
         if os.path.exists(eval_seed_folder):
             with open(eval_seed_folder, 'r') as f:
                 eval_env_seeds = json.load(f)
@@ -174,16 +216,12 @@ class Trainer:
                 json.dump(eval_env_seeds, f)
 
         all_eval_envs = []
-        all_policy_records = []
 
         if config['num_rollout_threads'] == 1:  # One rollout
             for e_seed_idx, _ in enumerate(self.env_seeds):
                 for p_seed_idx, _ in enumerate(self.policy_seeds):
                     seed_idx = e_seed_idx * len(self.policy_seeds) + p_seed_idx
                     if seed_idx == config['seed_idx']:
-                        local_eval_folder_name = eval_folder_name + '/seed{}'.format(seed_idx)
-                        policy_record = PolicyRecord(local_eval_folder_name, './logs/' + config['logdir'] + '/',
-                                                     std=True)
                         stats_dir = './junk'
 
                         env_kwargs = {'exe': config['exe'],
@@ -203,15 +241,12 @@ class Trainer:
 
                         env = SubprocVecEnv([make_env_(seed) for seed in eval_env_seeds])
                         all_eval_envs.append(env)
-                        all_policy_records.append(policy_record)
 
-        else: # Multiple rollouts
+        else:  # Multiple rollouts
 
             for p_seed_idx, _ in enumerate(self.policy_seeds):
                 seed_idx = p_seed_idx
                 if seed_idx == config['seed_idx']:
-                    local_eval_folder_name = eval_folder_name + '/seed{}'.format(seed_idx)
-                    policy_record = PolicyRecord(local_eval_folder_name, './logs/' + config['logdir'] + '/', std=True)
 
                     env_kwargs = {'exe': config['exe'],
                                   'static_tanks': [], 'random_tanks': [5, 6, 7, 8, 9], 'disable_shooting': [],
@@ -230,9 +265,79 @@ class Trainer:
 
                     env = SubprocVecEnv([make_env_(seed) for seed in self.env_seeds])
                     all_eval_envs.append(env)
-                    all_policy_records.append(policy_record)
 
-        return all_eval_envs, all_policy_records
+        return all_eval_envs
+
+
+    def set_eval_env_with_enemy(self):
+
+        config = self.config
+
+        # Load or generate evaluation seeds
+        #eval_seed_folder = os.path.join('./logs', config['logdir'], 'eval_seeds.json')
+        eval_seed_folder = os.path.join('/scratch/telgin1/logs', config['logdir'], 'eval_seeds.json')
+        if os.path.exists(eval_seed_folder):
+            with open(eval_seed_folder, 'r') as f:
+                eval_env_seeds = json.load(f)
+            eval_env_seeds = eval_env_seeds[:config['n_eval_seeds']]
+        else:
+            _MAX_INT = 2147483647  # Max int for Unity ML Seed
+            eval_env_seeds = [np.random.randint(_MAX_INT) for _ in range(config['n_eval_seeds'])]
+            with open(eval_seed_folder, 'w+') as f:
+                json.dump(eval_env_seeds, f)
+
+        all_eval_envs = []
+
+        if config['num_rollout_threads'] == 1:  # One rollout
+            for e_seed_idx, _ in enumerate(self.env_seeds):
+                for p_seed_idx, _ in enumerate(self.policy_seeds):
+                    seed_idx = e_seed_idx * len(self.policy_seeds) + p_seed_idx
+                    if seed_idx == config['seed_idx']:
+                        stats_dir = './junk'
+
+                        env_kwargs = {'exe': config['exe'],
+                                      'static_tanks': [], 'random_tanks': [], 'disable_shooting': [],
+                                      'friendly_fire': False, 'kill_bonus': False, 'death_penalty': False,
+                                      'take_damage_penalty': True, 'tblogs': stats_dir,
+                                      'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
+                                      'timeout': 500}
+
+                        def make_env_(seed):
+                            def init_():
+                                env = make_env(**env_kwargs)
+                                env._seed = seed
+                                return env
+
+                            return init_
+
+                        env = SubprocVecEnv([make_env_(seed) for seed in eval_env_seeds])
+                        all_eval_envs.append(env)
+
+        else:  # Multiple rollouts
+
+            for p_seed_idx, _ in enumerate(self.policy_seeds):
+                seed_idx = p_seed_idx
+                if seed_idx == config['seed_idx']:
+                    env_kwargs = {'exe': config['exe'],
+                                  'static_tanks': [], 'random_tanks': [5, 6, 7, 8, 9], 'disable_shooting': [],
+                                  'friendly_fire': False, 'kill_bonus': False, 'death_penalty': False,
+                                  'take_damage_penalty': True, 'tblogs': './junk',
+                                  'penalty_weight': config['penalty_weight'], 'reward_weight': 1.0,
+                                  'timeout': 500}
+
+                    def make_env_(seed):
+                        def init_():
+                            env = make_env(**env_kwargs)
+                            env._seed = seed
+                            return env
+
+                        return init_
+
+                    env = SubprocVecEnv([make_env_(seed) for seed in self.env_seeds])
+                    all_eval_envs.append(env)
+
+        return all_eval_envs
+
 
 
     def get_policy_params(self):
@@ -254,12 +359,15 @@ class Trainer:
             'init_log_std': config['init_log_std'],
             'selfplay': config['selfplay'],
             'centralized': config['centralized'],
+            'centralized_critic': config['centralized_critic'],
             'local_std': config['local_std'],
             'enemy_model': config['enemy_model'],
+            'single_agent': config['single_agent'],
+            'rnd': config['rnd'],
+            'noisy': config['noisy'],
         }
 
         return policy_kwargs
-
 
     def set_seeds(self):
 
@@ -270,12 +378,13 @@ class Trainer:
         n_env_seeds = n_rollout_threads if n_rollout_threads > 1 else config['n_env_seeds']
 
         # Create the log directory if not exists
-        if not os.path.exists(os.path.join('./logs', config['logdir'])):
-            os.mkdir(os.path.join('./logs', config['logdir']))
+        #if not os.path.exists(os.path.join('./logs', config['logdir'])):
+        #    os.mkdir(os.path.join('./logs', config['logdir']))
 
         # If seeds were saved under the log directory as a json file, load them.
         # Else generate new seeds and save.
-        init_seeds = os.path.join('./logs', config['logdir'], 'seeds.json')
+        #init_seeds = os.path.join('./logs', config['logdir'], 'seeds.json')
+        init_seeds = os.path.join('/scratch/telgin1/logs', config['logdir'], 'seeds.json')
 
         if os.path.exists(init_seeds):
             with open(init_seeds, 'r') as f:
@@ -299,23 +408,28 @@ class Trainer:
         self.policy_seeds = policy_seeds
 
 
-
-if __name__=='__main__':
+if __name__ == '__main__':
 
     def run_policy(pol, env):
         pol.run(num_steps=args['num_iter'])
         env.close()
 
+
     args = trainer_config.config
     trainer = Trainer(args)
     trainer.set_seeds()
 
-    if args['eval_mode'] or args['visual_mode']:
-        envs, eval_policy_records = trainer.set_eval_env()
-        _, train_policy_records, _, _ = trainer.set_training_env()
+    if args['eval_mode'] or args['visual_mode'] or args['data_mode']:
+        train_envs, train_policy_records, _, _ = trainer.set_training_env()
+        eval_envs = trainer.set_eval_env()
+        if args['independent']:
+            envs = train_envs
+        else:
+            #envs = trainer.set_eval_env()
+            pass
 
         policies_to_run = []
-        for seed_idx, policy_record in enumerate(eval_policy_records):
+        for seed_idx, policy_record in enumerate(train_policy_records):
 
             model_path = os.path.join(train_policy_records[seed_idx].data_dir, 'checkpoints')
             checkpoint_files = os.listdir(model_path)
@@ -329,22 +443,24 @@ if __name__=='__main__':
                 if len(checkpoint_files) > 0: model_path = os.path.join(model_path, checkpoint_files[-1])
 
             if not os.path.exists(model_path):
-                pdb.set_trace()
+                exit(0)
             print('MODEL PATH', model_path)
 
             policy_params = trainer.get_policy_params()
             policy_params['model_path'] = model_path
 
-            callback = EvalCallback(envs[seed_idx], policy_record, eval_env=None)
+            callback = EvalCallback(eval_envs[seed_idx], policy_record, eval_env=eval_envs[seed_idx])
             if args['independent']:
                 policy = IPPOPolicy(envs[seed_idx], callback, True, **policy_params)
             else:
-                policy = PPOPolicy(envs[seed_idx], callback, eval_mode=args['eval_mode'],
-                                   visual_mode=args['visual_mode'], **policy_params)
+                policy = PPOPolicy(eval_envs[seed_idx], callback, eval_mode=args['eval_mode'],
+                                   visual_mode=args['visual_mode'], data_mode=args['data_mode'], **policy_params)
             policies_to_run.append(policy)
 
     else:
         envs, policy_records, policy_seeds, tb_writers = trainer.set_training_env()
+        #eval_envs = trainer.set_eval_env()
+        #eval_envs_with_enemy = trainer.set_eval_env_with_enemy()
 
         policies_to_run = []
         for seed_idx, policy_record in enumerate(policy_records):
@@ -359,6 +475,7 @@ if __name__=='__main__':
                 if len(checkpoint_files) > 0: model_path = os.path.join(model_path, checkpoint_files[-1])
 
             policy_params = trainer.get_policy_params()
+
             policy_params['model_path'] = model_path
             policy_params['tb_writer'] = tb_writers[seed_idx]
             policy_params['save_dir'] = os.path.join(policy_record.data_dir, 'checkpoints')
@@ -374,8 +491,12 @@ if __name__=='__main__':
                            'num_rollout_threads': args['num_rollout_threads']}, f, indent=4)
 
             # Set validation environment (with 3 random seeds)
+            if args['single_agent']:
+                random_tanks = [1,2,3,4,5,6,7,8,9]
+            else:
+                random_tanks = [5,6,7,8,9]
             env_kwargs = {'exe': args['exe'],
-                          'static_tanks': [], 'random_tanks': [5, 6, 7, 8, 9], 'disable_shooting': [],
+                          'static_tanks': [], 'random_tanks': random_tanks, 'disable_shooting': [],
                           'friendly_fire': False, 'kill_bonus': False, 'death_penalty': False,
                           'take_damage_penalty': True, 'tblogs': './junk',
                           'penalty_weight': args['penalty_weight'], 'reward_weight': 1.0,
@@ -391,18 +512,38 @@ if __name__=='__main__':
                 return init_
 
 
-            _MAX_INT = 2147483647  # Max int for Unity ML Seed
-            val_seeds = [np.random.randint(_MAX_INT) for _ in range(3)]
-            val_env = SubprocVecEnv([make_env_(seed) for seed in val_seeds])
-
-            callback = EvalCallback(envs[seed_idx], policy_record, eval_env=val_env, eval_steps=100)
             if args['independent']:
+                callback = EvalCallback(envs[seed_idx], policy_record, val_env=envs[seed_idx], eval_env=None,
+                                        eval_steps=100)
                 policy = IPPOPolicy(envs[seed_idx], callback, False, **policy_params)
+
+            elif args['coppo']:
+                callback = EvalCallback(envs[seed_idx], policy_record, val_env=envs[seed_idx], eval_env=None,
+                                        eval_steps=100)
+                policy = COPPOPolicy(envs[seed_idx], callback, False, **policy_params)
+
             else:
-                policy = PPOPolicy(envs[seed_idx], callback, False, **policy_params)
+                _MAX_INT = 2147483647  # Max int for Unity ML Seed
+                val_seeds = [np.random.randint(_MAX_INT) for _ in range(3)]
+                #val_env = SubprocVecEnv([make_env_(seed) for seed in val_seeds])
+
+                if args['bonus']:
+                    callback = EvalCallback(envs[seed_idx], policy_record, val_env=val_env, eval_env=eval_envs[seed_idx],
+                                            eval_steps=100)
+                    policy = MAPPOBonusPolicy(envs[seed_idx], callback, False, **policy_params)
+                else:
+                    callback = EvalCallback(envs[seed_idx], policy_record, val_env=None, eval_env=None,
+                                            #eval_env_with_enemy=eval_envs_with_enemy[seed_idx],
+                                            eval_env_with_enemy=None,
+                                            eval_steps=100)
+                    policy = PPOPolicy(envs[seed_idx], callback, False, **policy_params)
+
             policies_to_run.append(policy)
 
-    num_runs = args['num_iter'] if not args['eval_mode'] else args['num_eval_episodes']
+    num_runs = args['num_iter'] if not (args['eval_mode'] or args['visual_mode'] or args['data_mode']) \
+                                else args['num_eval_episodes']
     policies_to_run[0].run(num_steps=num_runs)
     envs[0].close()
-    if args['eval_mode']: tb_writers[0].close()
+    #eval_envs_with_enemy[0].close()
+    #eval_envs[0].close()
+    #if args['eval_mode']: tb_writers[0].close()
