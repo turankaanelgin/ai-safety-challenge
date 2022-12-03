@@ -8,28 +8,19 @@ For our baseline, we use centralized training - decentralized execution framewor
 We search through various hyperparameters to generate the Pareto frontier for the Tanksworld environment. In particular we consider two categories of training parameters:
 
 - Utility function parameters
-- - Damage taken weight ($\omega$): [0.0, 0.5, 1.0, 2.0]
+    - Damage taken weight ($\omega$): [0.0, 0.5, 1.0, 2.0]
 - Learning parameters
-- - Actor learning rate ($\eta_\theta$): [1e-3, 3e-4, 5e-5]
-- - Critic learning rate ($\eta_\omega$): [1e-3, 5e-4, 1e-4]
-- - Batch size ($B$): [32, 64, 128]
+    - Actor learning rate ($\eta_\theta$): [1e-3, 3e-4, 5e-5]
+    - Critic learning rate ($\eta_\omega$): [1e-3, 5e-4, 1e-4]
+    - Batch size ($B$): [32, 64, 128]
 
 Reward parameters reflect system design goals to some degree. They impact the nature of the interaction between the agents and the environment and hence affect the nature of the learning problem (e.g., higher penalties generally result in more cautious behaviours). In general, as we vary the reward parameters, we expect to see agent performance that represents different tradeoffs between the accrual of positive and negative rewards.\\
 On the other hand, the selection of learning parameters presents a natural tradeoff given the multi-objective nature of the problem. For example, larger batch sizes may be necessary to mitigate reward sparsity but increase the likelihood of aggregating positive and negative contributions within a single gradient calculation (in particular, given the high value selected for the discount factor).
 
 We fix the rest of the hyperparameters with the following values based on \cite{Schulman2017ProximalPO}: 
-$$\begin{table}[H]
-    \centering
-    \begin{tabular}{|c|c|}
-        \hline
-        Number of epochs ($n\_epochs$) & 4 \\
-        Discount factor ($\gamma$) & 0.99 \\ 
-        GAE coefficient ($\lambda$) & 0.95 \\
-        Clip ratio ($\epsilon$) & 0.2 \\
-        KL divergence target ($d_{targ}$) & 0.015 \\
-        Initial value of standard deviation ($\sigma_0$) & 0.6 \\
-        \hline
-    \end{tabular}
-    \caption{Hyperparameters}
-    \label{tab:my_label}
-\end{table}$$
+| Number of epochs ($n\_epochs$) | 4 |
+| Discount factor ($\gamma$) | 0.99 |
+| GAE coefficient ($\lambda$) | 0.95 |
+| Clip ratio ($\epsilon$) | 0.2 |
+| KL divergence target ($d_{targ}$) | 0.015 |
+| Initial value of standard deviation ($\sigma_0$) | 0.6 |
