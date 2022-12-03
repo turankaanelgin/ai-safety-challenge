@@ -18,6 +18,7 @@ Reward parameters reflect system design goals to some degree. They impact the na
 On the other hand, the selection of learning parameters presents a natural tradeoff given the multi-objective nature of the problem. For example, larger batch sizes may be necessary to mitigate reward sparsity but increase the likelihood of aggregating positive and negative contributions within a single gradient calculation (in particular, given the high value selected for the discount factor).
 
 We fix the rest of the hyperparameters with the following values based on \cite{Schulman2017ProximalPO}: 
+| -----------------------------                    | -     |
 | Number of epochs ($n\_epochs$)                   | 4     |
 | Discount factor ($\gamma$)                       | 0.99  |
 | GAE coefficient ($\lambda$)                      | 0.95  |
