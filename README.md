@@ -1,4 +1,4 @@
-Quick Links: [Overview & Installation](README.md) | [Environment](./docs/TanksWorldData.md) | [Evaluation](./docs/Evaluation.md) | [Submission](./docs/Submission.md) | [Baseline Experiments](./docs/Running.md)
+Quick Links: [Overview & Installation](README.md) | [Environment](./docs/TanksWorldData.md) | [Evaluation](./docs/Evaluation.md) | [Submission](./docs/Submission.md) | [Baseline Experiments](./docs/Running.md) | [Baseline Results](./docs/TanksworldBaselineExplained.ipynb)
 
 # AI Safety Challenge (TanksWorld)
 
