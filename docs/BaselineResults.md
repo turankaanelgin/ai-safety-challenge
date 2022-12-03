@@ -24,3 +24,15 @@ We fix the rest of the hyperparameters with the following values based on \cite{
 - Clip ratio ($\epsilon$)                          : 0.2   
 - KL divergence target ($d_{targ}$)                : 0.015 
 - Initial value of standard deviation ($\sigma_0$) : 0.6   
+
+# Results
+## Training Curves
+The following are the examples of training curves. The first row shows individual damage components (red-to-blue, blue-to-red, red-to-red), while the second row shows the scalarized reward.
+
+## Evaluation
+We evaluate a trained policy on multiple environments each of which is initialized with a different random seed. The random seed determines the initial position of the tanks (for both allies and enemies) and also the randomness in the behaviour of the enemy team.
+We evaluate the trained models on 30 different randomly initialized environments and compute the average and standard deviation of the metrics across 10 games in each environment. In this way we end up having 300 samples for each evaluation run. We also report the median values to see the effect of outliers.
+
+# Implementation Details
+We use a four layer CNN for the representation component which is the NatureCNN architecture in \cite{Mnih2015HumanlevelCT}. It is challenging to optimize representation and control components simultaneously, therefore we train the CNN alongside a policy and then freeze it for the rest of the experiments in order to improve speed and simplify the training process. Based on our experiments, the representation trained with a blue-to-red damage weight of 0.65 and friendly fire weight of 0, with the optimal learning rates and batch sizes used in Pareto frontier, gives the best performance. In addition to that, we train the representation across 5 parallel environments by averaging the gradients across them. With this asynchronous training we achieve a faster convergence based on the idea in \cite{Mnih2016AsynchronousMF}. \\
+We train each model with 3 different policy initializations and 2 different environment initializations for each of the policy initializations, therefore in total 6 different random seed combinations. Policy initialization consists of initial values of the neural network parameters and random seed for selecting actions from the learnt distribution. On the other hand, environment initialization consists of the initial positions of the tanks and random behaviour of the enemy.
