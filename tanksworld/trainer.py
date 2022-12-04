@@ -73,27 +73,15 @@ class Trainer:
 
                         # Set folder name and policy record to plot the rewards
                         local_folder_name = folder_name + '/seed{}'.format(seed_idx)
-                        '''
+
                         if config['eval_mode']:
                             policy_record = PolicyRecord(local_folder_name, './logs/' + config['eval_logdir'] + '/',
                                                          std=False)
-                                                         #std=not config['bonus'] and not config['rnd'])
                         else:
                             policy_record = PolicyRecord(local_folder_name, './logs/' + config['logdir'] + '/',
-                                                         #std=not config['bonus'] and not config['rnd'],
                                                          std=False,
                                                          intrinsic_reward=config['bonus'] or config['rnd'])
-                        '''
-                        if config['eval_mode']:
-                            policy_record = PolicyRecord(local_folder_name, '/scratch/telgin1/logs/' + config['eval_logdir'] + '/',
-                                                         std=False)
-                            # std=not config['bonus'] and not config['rnd'])
-                        else:
-                            policy_record = PolicyRecord(local_folder_name, '/scratch/telgin1/logs/' + config['logdir'] + '/',
-                                                         # std=not config['bonus'] and not config['rnd'],
-                                                         std=False,
-                                                         intrinsic_reward=config['bonus'] or config['rnd'])
-                        '''
+
                         if not config['eval_mode']:
                             # Set TensorBoard writer
                             stats_dir = os.path.join('./logs', config['logdir'], local_folder_name, 'stats')
@@ -103,19 +91,8 @@ class Trainer:
                             stats_dir = os.path.join('./junk')
                             os.makedirs(stats_dir, exist_ok=True)
                             tb_writer = SummaryWriter(stats_dir)
-                        '''
-                        if not config['eval_mode']:
-                            # Set TensorBoard writer
-                            stats_dir = os.path.join('/scratch/telgin1/logs', config['logdir'], local_folder_name, 'stats')
-                            os.makedirs(stats_dir, exist_ok=True)
-                            tb_writer = SummaryWriter(stats_dir)
-                        else:
-                            stats_dir = os.path.join('./junk')
-                            os.makedirs(stats_dir, exist_ok=True)
-                            tb_writer = SummaryWriter(stats_dir)
 
 
-                        '''
                         if config['selfplay'] or config['enemy_model'] is not None:
                             random_tanks = []
                             num_agents = 10
@@ -125,11 +102,7 @@ class Trainer:
                         else:
                             random_tanks = [5, 6, 7, 8, 9]
                             num_agents = 5
-                        '''
-                        random_tanks = [5,6,7,8,9]
-                        num_agents = 5
-                        #random_tanks = []
-                        #num_agents = 10
+
 
                         env_kwargs = {'exe': config['exe'],
                                       'static_tanks': [], 'random_tanks': random_tanks, 'disable_shooting': [],
@@ -172,8 +145,6 @@ class Trainer:
                     tb_writer = SummaryWriter(stats_dir)
 
                     random_tanks = [] if config['selfplay'] else [5, 6, 7, 8, 9]
-                    #random_tanks = [2, 3, 4, 5, 6, 7, 8, 9]
-                    #num_agents = 2
                     env_kwargs = {'exe': config['exe'],
                                   'static_tanks': [], 'random_tanks': random_tanks, 'disable_shooting': [],
                                   'friendly_fire': False, 'kill_bonus': False, 'death_penalty': config['death_penalty'],
@@ -203,8 +174,7 @@ class Trainer:
         config = self.config
 
         # Load or generate evaluation seeds
-        #eval_seed_folder = os.path.join('./logs', config['logdir'], 'eval_seeds.json')
-        eval_seed_folder = os.path.join('/scratch/telgin1/logs', config['logdir'], 'eval_seeds.json')
+        eval_seed_folder = os.path.join('./logs', config['logdir'], 'eval_seeds.json')
         if os.path.exists(eval_seed_folder):
             with open(eval_seed_folder, 'r') as f:
                 eval_env_seeds = json.load(f)
@@ -274,7 +244,6 @@ class Trainer:
         config = self.config
 
         # Load or generate evaluation seeds
-        #eval_seed_folder = os.path.join('./logs', config['logdir'], 'eval_seeds.json')
         eval_seed_folder = os.path.join('/scratch/telgin1/logs', config['logdir'], 'eval_seeds.json')
         if os.path.exists(eval_seed_folder):
             with open(eval_seed_folder, 'r') as f:
@@ -378,13 +347,12 @@ class Trainer:
         n_env_seeds = n_rollout_threads if n_rollout_threads > 1 else config['n_env_seeds']
 
         # Create the log directory if not exists
-        #if not os.path.exists(os.path.join('./logs', config['logdir'])):
-        #    os.mkdir(os.path.join('./logs', config['logdir']))
+        if not os.path.exists(os.path.join('./logs', config['logdir'])):
+            os.mkdir(os.path.join('./logs', config['logdir']))
 
         # If seeds were saved under the log directory as a json file, load them.
         # Else generate new seeds and save.
-        #init_seeds = os.path.join('./logs', config['logdir'], 'seeds.json')
-        init_seeds = os.path.join('/scratch/telgin1/logs', config['logdir'], 'seeds.json')
+        init_seeds = os.path.join('./logs', config['logdir'], 'seeds.json')
 
         if os.path.exists(init_seeds):
             with open(init_seeds, 'r') as f:
@@ -425,8 +393,7 @@ if __name__ == '__main__':
         if args['independent']:
             envs = train_envs
         else:
-            #envs = trainer.set_eval_env()
-            pass
+            envs = trainer.set_eval_env()
 
         policies_to_run = []
         for seed_idx, policy_record in enumerate(train_policy_records):
@@ -459,8 +426,6 @@ if __name__ == '__main__':
 
     else:
         envs, policy_records, policy_seeds, tb_writers = trainer.set_training_env()
-        #eval_envs = trainer.set_eval_env()
-        #eval_envs_with_enemy = trainer.set_eval_env_with_enemy()
 
         policies_to_run = []
         for seed_idx, policy_record in enumerate(policy_records):
@@ -525,7 +490,6 @@ if __name__ == '__main__':
             else:
                 _MAX_INT = 2147483647  # Max int for Unity ML Seed
                 val_seeds = [np.random.randint(_MAX_INT) for _ in range(3)]
-                #val_env = SubprocVecEnv([make_env_(seed) for seed in val_seeds])
 
                 if args['bonus']:
                     callback = EvalCallback(envs[seed_idx], policy_record, val_env=val_env, eval_env=eval_envs[seed_idx],
@@ -533,7 +497,6 @@ if __name__ == '__main__':
                     policy = MAPPOBonusPolicy(envs[seed_idx], callback, False, **policy_params)
                 else:
                     callback = EvalCallback(envs[seed_idx], policy_record, val_env=None, eval_env=None,
-                                            #eval_env_with_enemy=eval_envs_with_enemy[seed_idx],
                                             eval_env_with_enemy=None,
                                             eval_steps=100)
                     policy = PPOPolicy(envs[seed_idx], callback, False, **policy_params)
@@ -544,6 +507,3 @@ if __name__ == '__main__':
                                 else args['num_eval_episodes']
     policies_to_run[0].run(num_steps=num_runs)
     envs[0].close()
-    #eval_envs_with_enemy[0].close()
-    #eval_envs[0].close()
-    #if args['eval_mode']: tb_writers[0].close()

@@ -1,6 +1,7 @@
 # ©2020 Johns Hopkins University Applied Physics Laboratory LLC.
 import pdb
 import sys, time, random
+from math import ceil
 import gym
 from mlagents.envs import UnityEnvironment
 import os
@@ -138,7 +139,8 @@ class TanksWorldEnv(gym.Env):
         self.reward_weight = reward_weight
         self.penalty_weight = penalty_weight
         self.curriculum_stop = curriculum_stop
-        self.curriculum_period = int((self.curriculum_stop - self.penalty_weight) / 0.05)
+        self.curriculum_period = ceil((self.curriculum_stop - self.penalty_weight) / 0.05)
+
         self.curriculum_step = 0
 
         self.static_tanks = static_tanks
@@ -568,7 +570,7 @@ class TanksWorldEnv(gym.Env):
     def step(self, action):
 
         if self.curriculum_stop != -1:
-            change_period = int(2000000 / self.curriculum_period)
+            change_period = int(1000000 / self.curriculum_period)
             if (self.curriculum_step+1) % change_period == 0:
                 self.penalty_weight += 0.05
             '''
