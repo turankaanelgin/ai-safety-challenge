@@ -573,7 +573,7 @@ def mlp(sizes, activation, output_activation=nn.Identity):
 
 class MLPCritic(nn.Module):
 
-    def __init__(self, observation_space, activation, hidden_sizes=[64, 64], num_agents=5):
+    def __init__(self, observation_space, activation, hidden_sizes=[256, 256], num_agents=5):
         super().__init__()
         obs_dim = observation_space.shape[-1]
 
@@ -588,7 +588,7 @@ class MLPCritic(nn.Module):
 
 class MLPCentralizedGaussianActor(Actor):
 
-    def __init__(self, observation_space, act_dim, activation, init_log_std=-0.5, num_agents=5, hidden_sizes=[64,64]):
+    def __init__(self, observation_space, act_dim, activation, init_log_std=-0.5, num_agents=5, hidden_sizes=[256, 256]):
         super().__init__()
 
         log_std = init_log_std * np.zeros(act_dim, dtype=np.float32)
