@@ -1,0 +1,2012 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+ABC	algos/torch_ppo/distributions.py	/^from abc import ABC, abstractmethod$/;"	i
+ABC	algos/torch_ppo/vec_env/base_vec_env.py	/^from abc import ABC, abstractmethod$/;"	i
+ABC	env_wrappers.py	/^from abc import ABC, abstractmethod$/;"	i
+Actor	algos/torch_ppo/core.py	/^class Actor(nn.Module):$/;"	c
+Actor	algos/torch_ppo/core_ind.py	/^class Actor(nn.Module):$/;"	c
+Actor	algos/torch_ppo/core_old.py	/^class Actor(nn.Module):$/;"	c
+Actor	algos/torch_trpo/core.py	/^class Actor(nn.Module):$/;"	c
+ActorCritic	algos/torch_ppo/core.py	/^class ActorCritic(nn.Module):$/;"	c
+ActorCritic	algos/torch_ppo/core_ind.py	/^class ActorCritic(nn.Module):$/;"	c
+ActorCritic	algos/torch_trpo/core.py	/^class ActorCritic(nn.Module):$/;"	c
+Adam	algos/maddpg/maddpg.py	/^from torch.optim import Adam$/;"	i
+Adam	algos/torch_ppo/coppo.py	/^from torch.optim import Adam$/;"	i
+Adam	algos/torch_ppo/ippo.py	/^from torch.optim import Adam$/;"	i
+Adam	algos/torch_ppo/mappo.py	/^from torch.optim import Adam$/;"	i
+Adam	algos/torch_ppo/mappo_bonus.py	/^from torch.optim import Adam$/;"	i
+Adam	algos/torch_ppo/mappo_old.py	/^from torch.optim import Adam$/;"	i
+Adam	algos/torch_ppo/matrpo.py	/^from torch.optim import Adam$/;"	i
+Adam	algos/torch_ppo/pcpg.py	/^from torch.optim import Adam$/;"	i
+Adam	algos/torch_ppo/ppo.py	/^from torch.optim import Adam$/;"	i
+Adam	algos/torch_sac/sac.py	/^from torch.optim import Adam$/;"	i
+Adam	algos/torch_sac/sac_new.py	/^from torch.optim import Adam$/;"	i
+Adam	algos/torch_trpo/matrpo.py	/^from torch.optim import Adam$/;"	i
+Any	algos/torch_ppo/distributions.py	/^from typing import Any, Dict, List, Optional, Tuple, Union$/;"	i
+Any	algos/torch_ppo/vec_env/base_vec_env.py	/^from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union$/;"	i
+Any	algos/torch_ppo/vec_env/dummy_vec_env.py	/^from typing import Any, Callable, List, Optional, Sequence, Type, Union$/;"	i
+Any	algos/torch_ppo/vec_env/stacked_observations.py	/^from typing import Any, Dict, List, Optional, Tuple, Union$/;"	i
+Any	algos/torch_ppo/vec_env/subproc_vec_env.py	/^from typing import Any, Callable, List, Optional, Sequence, Tuple, Type, Union$/;"	i
+Any	algos/torch_ppo/vec_env/util.py	/^from typing import Any, Dict, List, Tuple$/;"	i
+Any	algos/torch_ppo/vec_env/vec_frame_stack.py	/^from typing import Any, Dict, List, Optional, Tuple, Union$/;"	i
+Any	algos/torch_ppo/vec_env/vec_normalize.py	/^from typing import Any, Dict, List, Optional, Union$/;"	i
+BackwardModel	algos/torch_ppo/curiosity.py	/^class BackwardModel(nn.Module):$/;"	c
+BaseNormalizer	algos/torch_ppo/utils/normalizer.py	/^class BaseNormalizer:$/;"	c
+Bernoulli	algos/torch_ppo/core_ind.py	/^from torch.distributions.bernoulli import Bernoulli$/;"	i
+Bernoulli	algos/torch_ppo/core_old.py	/^from torch.distributions.bernoulli import Bernoulli$/;"	i
+Beta	algos/torch_ppo/core.py	/^from torch.distributions.beta import Beta$/;"	i
+Beta	algos/torch_ppo/core_ind.py	/^from torch.distributions.beta import Beta$/;"	i
+Beta	algos/torch_ppo/core_old.py	/^from torch.distributions.beta import Beta$/;"	i
+Beta	algos/torch_trpo/core.py	/^from torch.distributions.beta import Beta$/;"	i
+BetaActor	algos/torch_ppo/core.py	/^class BetaActor(Actor):$/;"	c
+BetaActor	algos/torch_trpo/core.py	/^class BetaActor(Actor):$/;"	c
+Box	algos/torch_ppo/core_ind.py	/^from gym.spaces import Box, Discrete$/;"	i
+Box	algos/torch_ppo/core_old.py	/^from gym.spaces import Box, Discrete$/;"	i
+CKPTS_TABLE	algos/torch_ppo/torch_utils.py	/^CKPTS_TABLE = 'checkpoints'$/;"	v
+CKPTS_TABLE	algos/torch_trpo/torch_utils.py	/^CKPTS_TABLE = 'checkpoints'$/;"	v
+COPPOPolicy	trainer_new.py	/^from algos.torch_ppo.coppo import PPOPolicy as COPPOPolicy$/;"	i
+COPPOPolicy	trainer_pcpg.py	/^from algos.torch_ppo.coppo import PPOPolicy as COPPOPolicy$/;"	i
+Callable	algos/torch_ppo/vec_env/dummy_vec_env.py	/^from typing import Any, Callable, List, Optional, Sequence, Type, Union$/;"	i
+Callable	algos/torch_ppo/vec_env/subproc_vec_env.py	/^from typing import Any, Callable, List, Optional, Sequence, Tuple, Type, Union$/;"	i
+Callable	algos/torch_ppo/vec_env/vec_video_recorder.py	/^from typing import Callable$/;"	i
+CalledProcessError	algos/torch_ppo/utils/run_utils.py	/^from subprocess import CalledProcessError$/;"	i
+Categorical	algos/torch_ppo/core.py	/^from torch.distributions.categorical import Categorical$/;"	i
+Categorical	algos/torch_ppo/core_ind.py	/^from torch.distributions.categorical import Categorical$/;"	i
+Categorical	algos/torch_ppo/core_old.py	/^from torch.distributions.categorical import Categorical$/;"	i
+Categorical	algos/torch_ppo/torch_utils.py	/^from torch.distributions.categorical import Categorical$/;"	i
+Categorical	algos/torch_trpo/core.py	/^from torch.distributions.categorical import Categorical$/;"	i
+Categorical	algos/torch_trpo/torch_utils.py	/^from torch.distributions.categorical import Categorical$/;"	i
+CentralizedCritic	algos/torch_ppo/core.py	/^class CentralizedCritic(nn.Module):$/;"	c
+CentralizedCritic	algos/torch_trpo/core.py	/^class CentralizedCritic(nn.Module):$/;"	c
+CentralizedCritic_v2	algos/torch_ppo/core.py	/^class CentralizedCritic_v2(nn.Module):$/;"	c
+CentralizedCritic_v2	algos/torch_trpo/core.py	/^class CentralizedCritic_v2(nn.Module):$/;"	c
+CentralizedGaussianActor	algos/torch_ppo/core.py	/^class CentralizedGaussianActor(Actor):$/;"	c
+CentralizedGaussianActor	algos/torch_trpo/core.py	/^class CentralizedGaussianActor(Actor):$/;"	c
+CentralizedGaussianActor_v2	algos/torch_ppo/core.py	/^class CentralizedGaussianActor_v2(Actor):$/;"	c
+CentralizedGaussianActor_v2	algos/torch_trpo/core.py	/^class CentralizedGaussianActor_v2(Actor):$/;"	c
+ChooseDummyVecEnv	env_wrappers.py	/^class ChooseDummyVecEnv(ShareVecEnv):$/;"	c
+ChooseGuardSubprocVecEnv	env_wrappers.py	/^class ChooseGuardSubprocVecEnv(ShareVecEnv):$/;"	c
+ChooseSimpleDummyVecEnv	env_wrappers.py	/^class ChooseSimpleDummyVecEnv(ShareVecEnv):$/;"	c
+ChooseSimpleSubprocVecEnv	env_wrappers.py	/^class ChooseSimpleSubprocVecEnv(ShareVecEnv):$/;"	c
+ChooseSubprocVecEnv	env_wrappers.py	/^class ChooseSubprocVecEnv(ShareVecEnv):$/;"	c
+CloudpickleWrapper	algos/torch_ppo/callbacks.py	/^from stable_baselines3.common.vec_env.base_vec_env import CloudpickleWrapper$/;"	i
+CloudpickleWrapper	algos/torch_ppo/vec_env/__init__.py	/^from .base_vec_env import CloudpickleWrapper, VecEnv, VecEnvWrapper$/;"	i
+CloudpickleWrapper	algos/torch_ppo/vec_env/base_vec_env.py	/^class CloudpickleWrapper:$/;"	c
+CloudpickleWrapper	env_wrappers.py	/^class CloudpickleWrapper(object):$/;"	c
+Config	algos/torch_ppo/utils/config.py	/^class Config:$/;"	c
+ConstantFilter	algos/torch_ppo/torch_utils.py	/^class ConstantFilter:$/;"	c
+ConstantFilter	algos/torch_trpo/torch_utils.py	/^class ConstantFilter:$/;"	c
+Critic	algos/torch_ppo/core.py	/^class Critic(nn.Module):$/;"	c
+Critic	algos/torch_ppo/core_ind.py	/^class Critic(nn.Module):$/;"	c
+Critic	algos/torch_trpo/core.py	/^class Critic(nn.Module):$/;"	c
+CyclicLR	algos/torch_ppo/ppo.py	/^from torch.optim.lr_scheduler import ReduceLROnPlateau, ExponentialLR, CyclicLR$/;"	i
+DDPGPolicy	core/stems.py	/^from arena5.algos.ddpg.ddpg_policy import DDPGPolicy$/;"	i
+DEFAULT_DATA_DIR	algos/torch_ppo/utils/run_utils.py	/^                               DEFAULT_SHORTHAND, WAIT_BEFORE_LAUNCH$/;"	i
+DEFAULT_SHORTHAND	algos/torch_ppo/utils/run_utils.py	/^                               DEFAULT_SHORTHAND, WAIT_BEFORE_LAUNCH$/;"	i
+DIV_LINE_WIDTH	algos/torch_ppo/utils/plot.py	/^DIV_LINE_WIDTH = 50$/;"	v
+DIV_LINE_WIDTH	algos/torch_ppo/utils/run_utils.py	/^DIV_LINE_WIDTH = 80$/;"	v
+Dict	algos/torch_ppo/distributions.py	/^from typing import Any, Dict, List, Optional, Tuple, Union$/;"	i
+Dict	algos/torch_ppo/vec_env/base_vec_env.py	/^from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union$/;"	i
+Dict	algos/torch_ppo/vec_env/stacked_observations.py	/^from typing import Any, Dict, List, Optional, Tuple, Union$/;"	i
+Dict	algos/torch_ppo/vec_env/util.py	/^from typing import Any, Dict, List, Tuple$/;"	i
+Dict	algos/torch_ppo/vec_env/vec_frame_stack.py	/^from typing import Any, Dict, List, Optional, Tuple, Union$/;"	i
+Dict	algos/torch_ppo/vec_env/vec_normalize.py	/^from typing import Any, Dict, List, Optional, Union$/;"	i
+Dict	algos/torch_ppo/vec_env/vec_transpose.py	/^from typing import Dict, Union$/;"	i
+Discrete	algos/torch_ppo/core_ind.py	/^from gym.spaces import Box, Discrete$/;"	i
+Discrete	algos/torch_ppo/core_old.py	/^from gym.spaces import Box, Discrete$/;"	i
+Distribution	algos/torch_ppo/distributions.py	/^class Distribution(ABC):$/;"	c
+DummyVecEnv	algos/torch_ppo/vec_env/__init__.py	/^from .dummy_vec_env import DummyVecEnv$/;"	i
+DummyVecEnv	algos/torch_ppo/vec_env/dummy_vec_env.py	/^class DummyVecEnv(VecEnv):$/;"	c
+DummyVecEnv	algos/torch_ppo/vec_env/vec_video_recorder.py	/^from stable_baselines3.common.vec_env.dummy_vec_env import DummyVecEnv$/;"	i
+DummyVecEnv	env_wrappers.py	/^class DummyVecEnv(ShareVecEnv):$/;"	c
+DummyVecEnv	trainer.py	/^from algos.torch_ppo.vec_env import DummyVecEnv, SubprocVecEnv$/;"	i
+DummyVecEnv	trainer_new.py	/^from algos.torch_ppo.vec_env import DummyVecEnv, SubprocVecEnv$/;"	i
+DummyVecEnv	trainer_old.py	/^from algos.torch_ppo.vec_env import DummyVecEnv, SubprocVecEnv$/;"	i
+DummyVecEnv	trainer_pcpg.py	/^from algos.torch_ppo.vec_env import DummyVecEnv, SubprocVecEnv$/;"	i
+EnvironmentProcess	core/stems.py	/^from arena5.core.env_process import EnvironmentProcess$/;"	i
+EpochLogger	algos/torch_ppo/ppo.py	/^from .utils.logx import EpochLogger$/;"	i
+EpochLogger	algos/torch_ppo/utils/logx.py	/^class EpochLogger(Logger):$/;"	c
+EpochLogger	algos/torch_ppo/utils/test_policy.py	/^from spinup import EpochLogger$/;"	i
+EvalCallback	algos/torch_ppo/callbacks.py	/^class EvalCallback:$/;"	c
+EvalCallback	trainer.py	/^from algos.torch_ppo.callbacks import EvalCallback$/;"	i
+EvalCallback	trainer_new.py	/^from algos.torch_ppo.callbacks import EvalCallback$/;"	i
+EvalCallback	trainer_old.py	/^from algos.torch_ppo.callbacks import EvalCallback$/;"	i
+EvalCallback	trainer_pcpg.py	/^from algos.torch_ppo.callbacks import EvalCallback$/;"	i
+ExperimentGrid	algos/torch_ppo/utils/run_utils.py	/^class ExperimentGrid:$/;"	c
+ExponentialLR	algos/torch_ppo/ippo.py	/^from torch.optim.lr_scheduler import ReduceLROnPlateau, ExponentialLR$/;"	i
+ExponentialLR	algos/torch_ppo/ppo.py	/^from torch.optim.lr_scheduler import ReduceLROnPlateau, ExponentialLR, CyclicLR$/;"	i
+F	algos/torch_ppo/core.py	/^import torch.nn.functional as F$/;"	i
+F	algos/torch_ppo/core_ind.py	/^import torch.nn.functional as F$/;"	i
+F	algos/torch_ppo/core_old.py	/^import torch.nn.functional as F$/;"	i
+F	algos/torch_ppo/mappo.py	/^import torch.nn.functional as F$/;"	i
+F	algos/torch_ppo/mappo_bonus.py	/^import torch.nn.functional as F$/;"	i
+F	algos/torch_ppo/matrpo.py	/^import torch.nn.functional as F$/;"	i
+F	algos/torch_ppo/noisy.py	/^import torch.nn.functional as F$/;"	i
+F	algos/torch_ppo/pcpg.py	/^import torch.nn.functional as F$/;"	i
+F	algos/torch_sac/core.py	/^import torch.nn.functional as F$/;"	i
+F	algos/torch_trpo/core.py	/^import torch.nn.functional as F$/;"	i
+F	algos/torch_trpo/matrpo.py	/^import torch.nn.functional as F$/;"	i
+FORCE_DATESTAMP	algos/torch_ppo/utils/run_utils.py	/^                               DEFAULT_SHORTHAND, WAIT_BEFORE_LAUNCH$/;"	i
+ForwardBackwardModel	algos/torch_ppo/curiosity.py	/^class ForwardBackwardModel(nn.Module):$/;"	c
+ForwardModel	algos/torch_ppo/curiosity.py	/^class ForwardModel(nn.Module):$/;"	c
+Fvp	algos/torch_ppo/matrpo.py	/^        def Fvp(v):$/;"	f	function:TRPOPolicy.trpo_step
+GRUNet	algos/torch_ppo/rnn.py	/^class GRUNet(nn.Module):$/;"	c
+GaussianActor	algos/torch_ppo/core.py	/^class GaussianActor(Actor):$/;"	c
+GaussianActor	algos/torch_ppo/core_ind.py	/^class GaussianActor(Actor):$/;"	c
+GaussianActor	algos/torch_trpo/core.py	/^class GaussianActor(Actor):$/;"	c
+GaussianActor_v2	algos/torch_ppo/core.py	/^class GaussianActor_v2(Actor):$/;"	c
+GaussianActor_v2	algos/torch_trpo/core.py	/^class GaussianActor_v2(Actor):$/;"	c
+GuardSubprocVecEnv	env_wrappers.py	/^class GuardSubprocVecEnv(ShareVecEnv):$/;"	c
+GymEnv	algos/torch_ppo/vec_env/__init__.py	/^    from stable_baselines3.common.type_aliases import GymEnv$/;"	i
+ICM	algos/torch_ppo/core_old.py	/^class ICM(nn.Module):$/;"	c
+IMG_SZ	minimap_util.py	/^IMG_SZ = 128         #how big is the output image$/;"	v
+IPPOPolicy	trainer.py	/^from algos.torch_ppo.ippo import PPOPolicy as IPPOPolicy$/;"	i
+IPPOPolicy	trainer_new.py	/^from algos.torch_ppo.ippo import PPOPolicy as IPPOPolicy$/;"	i
+IPPOPolicy	trainer_old.py	/^from algos.torch_ppo.ippo import PPOPolicy as IPPOPolicy$/;"	i
+IPPOPolicy	trainer_pcpg.py	/^from algos.torch_ppo.ippo import PPOPolicy as IPPOPolicy$/;"	i
+Identity	algos/torch_ppo/torch_utils.py	/^class Identity:$/;"	c
+Identity	algos/torch_trpo/torch_utils.py	/^class Identity:$/;"	c
+ImageNormalizer	algos/torch_ppo/utils/normalizer.py	/^class ImageNormalizer(RescaleNormalizer):$/;"	c
+Iterable	algos/torch_ppo/vec_env/base_vec_env.py	/^from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union$/;"	i
+LOG_STD_MAX	algos/torch_sac/core.py	/^LOG_STD_MAX = 2$/;"	v
+LOG_STD_MIN	algos/torch_sac/core.py	/^LOG_STD_MIN = -20$/;"	v
+Laplace	algos/torch_ppo/core_ind.py	/^from torch.distributions.laplace import Laplace$/;"	i
+LayerNorm	algos/torch_ppo/norm.py	/^class LayerNorm(Module):$/;"	c
+LinearLR	algos/torch_ppo/ppo.py	/^class LinearLR(_LRScheduler):$/;"	c
+List	algos/torch_ppo/distributions.py	/^from typing import Any, Dict, List, Optional, Tuple, Union$/;"	i
+List	algos/torch_ppo/vec_env/base_vec_env.py	/^from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union$/;"	i
+List	algos/torch_ppo/vec_env/dummy_vec_env.py	/^from typing import Any, Callable, List, Optional, Sequence, Type, Union$/;"	i
+List	algos/torch_ppo/vec_env/stacked_observations.py	/^from typing import Any, Dict, List, Optional, Tuple, Union$/;"	i
+List	algos/torch_ppo/vec_env/subproc_vec_env.py	/^from typing import Any, Callable, List, Optional, Sequence, Tuple, Type, Union$/;"	i
+List	algos/torch_ppo/vec_env/util.py	/^from typing import Any, Dict, List, Tuple$/;"	i
+List	algos/torch_ppo/vec_env/vec_frame_stack.py	/^from typing import Any, Dict, List, Optional, Tuple, Union$/;"	i
+List	algos/torch_ppo/vec_env/vec_normalize.py	/^from typing import Any, Dict, List, Optional, Union$/;"	i
+Logger	algos/torch_ppo/utils/logx.py	/^class Logger:$/;"	c
+MADDPGPolicy	algos/maddpg/maddpg.py	/^class MADDPGPolicy():$/;"	c
+MADDPGPolicy	core/stems.py	/^from arena5.algos.maddpg.maddpg_policy import MADDPGPolicy$/;"	i
+MAPPOBonusPolicy	trainer_new.py	/^from algos.torch_ppo.mappo_bonus import PPOBonusPolicy as MAPPOBonusPolicy$/;"	i
+MAPPOCuriosity	trainer_old.py	/^from algos.torch_ppo.mappo_gpu_curiosity import PPOPolicy as MAPPOCuriosity$/;"	i
+MAPPOPolicy	algos/torch_ppo/mappo_bonus.py	/^from .mappo import PPOPolicy as MAPPOPolicy$/;"	i
+MARandomPolicy	core/stems.py	/^from arena5.algos.multiagent_random.multiagent_random_policy import MARandomPolicy$/;"	i
+MASACPolicy	core/stems.py	/^from arena5.algos.masac.masac_policy import MASACPolicy$/;"	i
+MLPActor	algos/maddpg/core.py	/^class MLPActor(nn.Module):$/;"	c
+MLPActorCritic	algos/maddpg/core.py	/^class MLPActorCritic(nn.Module):$/;"	c
+MLPActorCritic	algos/torch_ppo/core.py	/^class MLPActorCritic(nn.Module):$/;"	c
+MLPActorCritic	algos/torch_ppo/core_old.py	/^class MLPActorCritic(nn.Module):$/;"	c
+MLPActorCritic	algos/torch_sac/core.py	/^class MLPActorCritic(nn.Module):$/;"	c
+MLPBetaActor	algos/torch_ppo/core_old.py	/^class MLPBetaActor(Actor):$/;"	c
+MLPCategoricalActor	algos/torch_ppo/core_old.py	/^class MLPCategoricalActor(Actor):$/;"	c
+MLPCentralCritic	algos/torch_ppo/core_old.py	/^class MLPCentralCritic(nn.Module):$/;"	c
+MLPCentralCritic_v2	algos/torch_ppo/core_old.py	/^class MLPCentralCritic_v2(nn.Module):$/;"	c
+MLPCentralizedGaussianActor	algos/torch_ppo/core.py	/^class MLPCentralizedGaussianActor(Actor):$/;"	c
+MLPCritic	algos/torch_ppo/core.py	/^class MLPCritic(nn.Module):$/;"	c
+MLPCritic	algos/torch_ppo/core_old.py	/^class MLPCritic(nn.Module):$/;"	c
+MLPGaussianActor	algos/torch_ppo/core_old.py	/^class MLPGaussianActor(Actor):$/;"	c
+MLPQFunction	algos/maddpg/core.py	/^class MLPQFunction(nn.Module):$/;"	c
+MLPQFunction	algos/torch_sac/core.py	/^class MLPQFunction(nn.Module):$/;"	c
+MLPSDEActor	algos/torch_ppo/core_old.py	/^class MLPSDEActor(Actor):$/;"	c
+MPI	algos/torch_ppo/ppo.py	/^from mpi4py import MPI$/;"	i
+MPI	algos/torch_ppo/utils/mpi_pytorch.py	/^from mpi4py import MPI$/;"	i
+MPI	algos/torch_ppo/utils/mpi_tf.py	/^from mpi4py import MPI$/;"	i
+MPI	algos/torch_ppo/utils/mpi_tools.py	/^from mpi4py import MPI$/;"	i
+MPI	core/stems.py	/^from mpi4py import MPI$/;"	i
+MPI	env.py	/^from mpi4py import MPI$/;"	i
+MPISynchronizedPRUpdater	algos/random/random_policy.py	/^from arena5.wrappers.mpi_logging_wrappers import MPISynchronizedPRUpdater$/;"	i
+MeanStdNormalizer	algos/torch_ppo/utils/normalizer.py	/^class MeanStdNormalizer(BaseNormalizer):$/;"	c
+Module	algos/torch_ppo/noisy.py	/^from torch.nn.modules.module import Module$/;"	i
+Module	algos/torch_ppo/norm.py	/^from torch.nn import Module$/;"	i
+Monitor	algos/torch_ppo/mappo.py	/^            from gym.wrappers import Monitor$/;"	i
+Monitor	algos/torch_ppo/vec_env/vec_monitor.py	/^        from stable_baselines3.common.monitor import Monitor, ResultsWriter$/;"	i
+MpiAdamOptimizer	algos/torch_ppo/utils/mpi_tf.py	/^class MpiAdamOptimizer(tf.train.AdamOptimizer):$/;"	c
+NoisyLinear	algos/torch_ppo/core.py	/^from .noisy import NoisyLinear$/;"	i
+NoisyLinear	algos/torch_ppo/core_old.py	/^from .noisy import NoisyLinear$/;"	i
+NoisyLinear	algos/torch_ppo/noisy.py	/^class NoisyLinear(Module):$/;"	c
+Normal	algos/torch_ppo/core.py	/^from torch.distributions.normal import Normal$/;"	i
+Normal	algos/torch_ppo/core_ind.py	/^from torch.distributions.normal import Normal$/;"	i
+Normal	algos/torch_ppo/core_old.py	/^from torch.distributions.normal import Normal$/;"	i
+Normal	algos/torch_ppo/distributions.py	/^from torch.distributions.normal import Normal$/;"	i
+Normal	algos/torch_sac/core.py	/^from torch.distributions.normal import Normal$/;"	i
+Normal	algos/torch_trpo/core.py	/^from torch.distributions.normal import Normal$/;"	i
+Optional	algos/torch_ppo/distributions.py	/^from typing import Any, Dict, List, Optional, Tuple, Union$/;"	i
+Optional	algos/torch_ppo/vec_env/__init__.py	/^from typing import Optional, Type, Union$/;"	i
+Optional	algos/torch_ppo/vec_env/base_vec_env.py	/^from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union$/;"	i
+Optional	algos/torch_ppo/vec_env/dummy_vec_env.py	/^from typing import Any, Callable, List, Optional, Sequence, Type, Union$/;"	i
+Optional	algos/torch_ppo/vec_env/stacked_observations.py	/^from typing import Any, Dict, List, Optional, Tuple, Union$/;"	i
+Optional	algos/torch_ppo/vec_env/subproc_vec_env.py	/^from typing import Any, Callable, List, Optional, Sequence, Tuple, Type, Union$/;"	i
+Optional	algos/torch_ppo/vec_env/vec_frame_stack.py	/^from typing import Any, Dict, List, Optional, Tuple, Union$/;"	i
+Optional	algos/torch_ppo/vec_env/vec_monitor.py	/^from typing import Optional, Tuple$/;"	i
+Optional	algos/torch_ppo/vec_env/vec_normalize.py	/^from typing import Any, Dict, List, Optional, Union$/;"	i
+OrderedDict	algos/torch_ppo/vec_env/dummy_vec_env.py	/^from collections import OrderedDict$/;"	i
+OrderedDict	algos/torch_ppo/vec_env/subproc_vec_env.py	/^from collections import OrderedDict$/;"	i
+OrderedDict	algos/torch_ppo/vec_env/util.py	/^from collections import OrderedDict$/;"	i
+PCPGPolicy	algos/torch_ppo/pcpg.py	/^class PCPGPolicy():$/;"	c
+PCPGPolicy	trainer_pcpg.py	/^from algos.torch_ppo.pcpg import PCPGPolicy$/;"	i
+PPOBonusPolicy	algos/torch_ppo/mappo_bonus.py	/^class PPOBonusPolicy(MAPPOPolicy):$/;"	c
+PPOBuffer	algos/torch_ppo/ppo.py	/^class PPOBuffer:$/;"	c
+PPOLSTMPolicy	core/stems.py	/^from arena5.algos.ppo.ppo import PPOPolicy, PPOLSTMPolicy, PPOPolicyEval, PPOLSTMPolicyEval$/;"	i
+PPOLSTMPolicyEval	core/stems.py	/^from arena5.algos.ppo.ppo import PPOPolicy, PPOLSTMPolicy, PPOPolicyEval, PPOLSTMPolicyEval$/;"	i
+PPOPolicy	algos/torch_ppo/coppo.py	/^class PPOPolicy():$/;"	c
+PPOPolicy	algos/torch_ppo/ippo.py	/^class PPOPolicy():$/;"	c
+PPOPolicy	algos/torch_ppo/mappo.py	/^class PPOPolicy():$/;"	c
+PPOPolicy	algos/torch_ppo/mappo_old.py	/^class PPOPolicy():$/;"	c
+PPOPolicy	algos/torch_ppo/ppo.py	/^class PPOPolicy():$/;"	c
+PPOPolicy	core/stems.py	/^from arena5.algos.ppo.ppo import PPOPolicy, PPOLSTMPolicy, PPOPolicyEval, PPOLSTMPolicyEval$/;"	i
+PPOPolicy	trainer.py	/^from algos.torch_ppo.mappo import PPOPolicy$/;"	i
+PPOPolicy	trainer_new.py	/^from algos.torch_ppo.mappo import PPOPolicy$/;"	i
+PPOPolicy	trainer_pcpg.py	/^from algos.torch_ppo.mappo import PPOPolicy$/;"	i
+PPOPolicyEval	core/stems.py	/^from arena5.algos.ppo.ppo import PPOPolicy, PPOLSTMPolicy, PPOPolicyEval, PPOLSTMPolicyEval$/;"	i
+Parameter	algos/torch_ppo/noisy.py	/^from torch.nn.parameter import Parameter$/;"	i
+Parameter	algos/torch_ppo/norm.py	/^from torch.nn.parameter import Parameter$/;"	i
+Parameters	algos/torch_ppo/torch_utils.py	/^class Parameters():$/;"	c
+Parameters	algos/torch_trpo/torch_utils.py	/^class Parameters():$/;"	c
+Path	algos/maddpg/maddpg.py	/^            from pathlib import Path$/;"	i
+Path	algos/torch_ppo/coppo.py	/^            from pathlib import Path$/;"	i
+Path	algos/torch_ppo/ippo.py	/^            from pathlib import Path$/;"	i
+Path	algos/torch_ppo/mappo.py	/^            from pathlib import Path$/;"	i
+Path	algos/torch_ppo/mappo_bonus.py	/^            from pathlib import Path$/;"	i
+Path	algos/torch_ppo/mappo_old.py	/^            from pathlib import Path$/;"	i
+Path	algos/torch_ppo/matrpo.py	/^            from pathlib import Path$/;"	i
+Path	algos/torch_ppo/pcpg.py	/^            from pathlib import Path$/;"	i
+Path	algos/torch_ppo/ppo.py	/^            from pathlib import Path$/;"	i
+Path	algos/torch_sac/sac_new.py	/^            from pathlib import Path$/;"	i
+Path	algos/torch_trpo/matrpo.py	/^            from pathlib import Path$/;"	i
+Pipe	env_wrappers.py	/^from multiprocessing import Process, Pipe$/;"	i
+PolicyRecord	core/policy_record.py	/^class PolicyRecord():$/;"	c
+PolicyRecord	core/stems.py	/^from core.policy_record import PolicyRecord, get_dir_for_policy$/;"	i
+PolicyRecord	trainer.py	/^from core.policy_record import PolicyRecord$/;"	i
+PolicyRecord	trainer_new.py	/^from core.policy_record import PolicyRecord$/;"	i
+PolicyRecord	trainer_old.py	/^from core.policy_record import PolicyRecord$/;"	i
+PolicyRecord	trainer_pcpg.py	/^from core.policy_record import PolicyRecord$/;"	i
+PopArt	algos/torch_ppo/core_old.py	/^class PopArt(nn.Module):$/;"	c
+Popen	create_eval_metrics.py	/^from subprocess import Popen$/;"	i
+Process	algos/torch_ppo/callbacks.py	/^from multiprocessing import Process, Queue$/;"	i
+Process	env_wrappers.py	/^from multiprocessing import Process, Pipe$/;"	i
+Process	trainer_old.py	/^from multiprocessing import Process$/;"	i
+Queue	algos/torch_ppo/callbacks.py	/^from multiprocessing import Process, Queue$/;"	i
+RBFSampler	algos/torch_ppo/mappo_bonus.py	/^from sklearn.kernel_approximation import RBFSampler$/;"	i
+RBFSampler	algos/torch_ppo/pcpg.py	/^from sklearn.kernel_approximation import RBFSampler$/;"	i
+RNDNetwork	algos/torch_ppo/core.py	/^class RNDNetwork(nn.Module):$/;"	c
+RNDNetwork	algos/torch_trpo/core.py	/^class RNDNetwork(nn.Module):$/;"	c
+RandomPolicy	algos/random/random_policy.py	/^class RandomPolicy():$/;"	c
+RandomPolicy	core/stems.py	/^from arena5.algos.random.random_policy import RandomPolicy$/;"	i
+RecordChannel	core/policy_record.py	/^class RecordChannel():$/;"	c
+ReduceLROnPlateau	algos/torch_ppo/ippo.py	/^from torch.optim.lr_scheduler import ReduceLROnPlateau, ExponentialLR$/;"	i
+ReduceLROnPlateau	algos/torch_ppo/ppo.py	/^from torch.optim.lr_scheduler import ReduceLROnPlateau, ExponentialLR, CyclicLR$/;"	i
+Replay	algos/torch_ppo/utils/replay.py	/^class Replay:$/;"	c
+ReplayBuffer	algos/maddpg/maddpg.py	/^class ReplayBuffer:$/;"	c
+ReplayBuffer	algos/torch_sac/sac.py	/^class ReplayBuffer:$/;"	c
+ReplayBuffer	algos/torch_sac/sac_new.py	/^class ReplayBuffer:$/;"	c
+RescaleNormalizer	algos/torch_ppo/utils/normalizer.py	/^class RescaleNormalizer(BaseNormalizer):$/;"	c
+ResultsWriter	algos/torch_ppo/vec_env/vec_monitor.py	/^        from stable_baselines3.common.monitor import Monitor, ResultsWriter$/;"	i
+RewardFilter	algos/torch_ppo/torch_utils.py	/^class RewardFilter:$/;"	c
+RewardFilter	algos/torch_trpo/torch_utils.py	/^class RewardFilter:$/;"	c
+RolloutBuffer	algos/torch_ppo/coppo.py	/^class RolloutBuffer:$/;"	c
+RolloutBuffer	algos/torch_ppo/ippo.py	/^class RolloutBuffer:$/;"	c
+RolloutBuffer	algos/torch_ppo/mappo.py	/^class RolloutBuffer:$/;"	c
+RolloutBuffer	algos/torch_ppo/mappo_bonus.py	/^from .mappo import RolloutBuffer$/;"	i
+RolloutBuffer	algos/torch_ppo/mappo_old.py	/^class RolloutBuffer:$/;"	c
+RolloutBuffer	algos/torch_ppo/matrpo.py	/^class RolloutBuffer:$/;"	c
+RolloutBuffer	algos/torch_ppo/pcpg.py	/^class RolloutBuffer:$/;"	c
+RolloutBuffer	algos/torch_trpo/matrpo.py	/^class RolloutBuffer:$/;"	c
+RunningMeanStd	algos/torch_ppo/vec_env/vec_normalize.py	/^from stable_baselines3.common.running_mean_std import RunningMeanStd$/;"	i
+RunningStat	algos/torch_ppo/torch_utils.py	/^class RunningStat(object):$/;"	c
+RunningStat	algos/torch_trpo/torch_utils.py	/^class RunningStat(object):$/;"	c
+SACPolicy	algos/torch_sac/sac.py	/^class SACPolicy():$/;"	c
+SACPolicy	algos/torch_sac/sac_new.py	/^class SACPolicy():$/;"	c
+SACPolicy	core/stems.py	/^from arena5.algos.sac.sac_policy import SACPolicy$/;"	i
+SCALE	minimap_util.py	/^SCALE = 120.0        #what is the side length of the space when drawn on our image$/;"	v
+Sequence	algos/torch_ppo/vec_env/base_vec_env.py	/^from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union$/;"	i
+Sequence	algos/torch_ppo/vec_env/dummy_vec_env.py	/^from typing import Any, Callable, List, Optional, Sequence, Type, Union$/;"	i
+Sequence	algos/torch_ppo/vec_env/subproc_vec_env.py	/^from typing import Any, Callable, List, Optional, Sequence, Tuple, Type, Union$/;"	i
+ShareDummyVecEnv	env_wrappers.py	/^class ShareDummyVecEnv(ShareVecEnv):$/;"	c
+ShareSubprocVecEnv	env_wrappers.py	/^class ShareSubprocVecEnv(ShareVecEnv):$/;"	c
+ShareVecEnv	env_wrappers.py	/^class ShareVecEnv(ABC):$/;"	c
+SignNormalizer	algos/torch_ppo/utils/normalizer.py	/^class SignNormalizer(BaseNormalizer):$/;"	c
+SoftmaxActor	algos/torch_ppo/core.py	/^class SoftmaxActor(Actor):$/;"	c
+SoftmaxActor	algos/torch_trpo/core.py	/^class SoftmaxActor(Actor):$/;"	c
+SquashedGaussianMLPActor	algos/torch_sac/core.py	/^class SquashedGaussianMLPActor(nn.Module):$/;"	c
+StackedDictObservations	algos/torch_ppo/vec_env/__init__.py	/^from .stacked_observations import StackedDictObservations, StackedObservations$/;"	i
+StackedDictObservations	algos/torch_ppo/vec_env/stacked_observations.py	/^class StackedDictObservations(StackedObservations):$/;"	c
+StackedDictObservations	algos/torch_ppo/vec_env/vec_frame_stack.py	/^from stable_baselines3.common.vec_env.stacked_observations import StackedDictObservations, StackedObservations$/;"	i
+StackedObservations	algos/torch_ppo/vec_env/__init__.py	/^from .stacked_observations import StackedDictObservations, StackedObservations$/;"	i
+StackedObservations	algos/torch_ppo/vec_env/stacked_observations.py	/^class StackedObservations(object):$/;"	c
+StackedObservations	algos/torch_ppo/vec_env/vec_frame_stack.py	/^from stable_baselines3.common.vec_env.stacked_observations import StackedDictObservations, StackedObservations$/;"	i
+StateDependentNoiseDistribution	algos/torch_ppo/core_old.py	/^from .distributions import StateDependentNoiseDistribution$/;"	i
+StateDependentNoiseDistribution	algos/torch_ppo/distributions.py	/^class StateDependentNoiseDistribution(Distribution):$/;"	c
+StateWithTime	algos/torch_ppo/torch_utils.py	/^class StateWithTime:$/;"	c
+StateWithTime	algos/torch_trpo/torch_utils.py	/^class StateWithTime:$/;"	c
+SubprocVecEnv	algos/torch_ppo/vec_env/__init__.py	/^from .subproc_vec_env import SubprocVecEnv$/;"	i
+SubprocVecEnv	algos/torch_ppo/vec_env/subproc_vec_env.py	/^class SubprocVecEnv(VecEnv):$/;"	c
+SubprocVecEnv	algos/torch_ppo/vec_env/vec_video_recorder.py	/^from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv$/;"	i
+SubprocVecEnv	env_wrappers.py	/^class SubprocVecEnv(ShareVecEnv):$/;"	c
+SubprocVecEnv	trainer.py	/^from algos.torch_ppo.vec_env import DummyVecEnv, SubprocVecEnv$/;"	i
+SubprocVecEnv	trainer_new.py	/^from algos.torch_ppo.vec_env import DummyVecEnv, SubprocVecEnv$/;"	i
+SubprocVecEnv	trainer_old.py	/^from algos.torch_ppo.vec_env import DummyVecEnv, SubprocVecEnv$/;"	i
+SubprocVecEnv	trainer_pcpg.py	/^from algos.torch_ppo.vec_env import DummyVecEnv, SubprocVecEnv$/;"	i
+SummaryWriter	algos/torch_ppo/ippo.py	/^from torch.utils.tensorboard import SummaryWriter$/;"	i
+SummaryWriter	env.py	/^from tensorboardX import SummaryWriter$/;"	i
+SummaryWriter	trainer.py	/^from tensorboardX import SummaryWriter$/;"	i
+SummaryWriter	trainer_new.py	/^from tensorboardX import SummaryWriter$/;"	i
+SummaryWriter	trainer_old.py	/^from tensorboardX import SummaryWriter$/;"	i
+SummaryWriter	trainer_pcpg.py	/^from tensorboardX import SummaryWriter$/;"	i
+TRPOPolicy	algos/torch_ppo/matrpo.py	/^class TRPOPolicy():$/;"	c
+TRPOPolicy	algos/torch_trpo/matrpo.py	/^class TRPOPolicy():$/;"	c
+TanhBijector	algos/torch_ppo/distributions.py	/^class TanhBijector(object):$/;"	c
+TanhLS	algos/torch_ppo/mappo_old.py	/^from .lambda_schedulers import TanhLS$/;"	i
+TanksWorldEnv	algos/torch_ppo/mappo.py	/^from tanksworld.env import TanksWorldEnv$/;"	i
+TanksWorldEnv	env.py	/^class TanksWorldEnv(gym.Env):$/;"	c
+TanksWorldEnv	make_env.py	/^from tanksworld.env import TanksWorldEnv$/;"	i
+TanksWorldStackedEnv	env.py	/^class TanksWorldStackedEnv(TanksWorldEnv):$/;"	c
+TorchGPUMAPPOPolicyNew	trainer_old.py	/^from algos.torch_ppo.mappo_gpu_new_improved import PPOPolicy as TorchGPUMAPPOPolicyNew$/;"	i
+TorchGPUMAPPOPolicySeparate	trainer_old.py	/^from algos.torch_ppo.mappo_gpu_separate_env_new import PPOPolicy as TorchGPUMAPPOPolicySeparate$/;"	i
+Trainer	trainer.py	/^class Trainer:$/;"	c
+Trainer	trainer_new.py	/^class Trainer:$/;"	c
+Trainer	trainer_old.py	/^class Trainer:$/;"	c
+Trainer	trainer_pcpg.py	/^class Trainer:$/;"	c
+Trajectories	algos/torch_ppo/torch_utils.py	/^class Trajectories:$/;"	c
+Trajectories	algos/torch_trpo/torch_utils.py	/^class Trajectories:$/;"	c
+Tuple	algos/torch_ppo/distributions.py	/^from typing import Any, Dict, List, Optional, Tuple, Union$/;"	i
+Tuple	algos/torch_ppo/vec_env/base_vec_env.py	/^from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union$/;"	i
+Tuple	algos/torch_ppo/vec_env/stacked_observations.py	/^from typing import Any, Dict, List, Optional, Tuple, Union$/;"	i
+Tuple	algos/torch_ppo/vec_env/subproc_vec_env.py	/^from typing import Any, Callable, List, Optional, Sequence, Tuple, Type, Union$/;"	i
+Tuple	algos/torch_ppo/vec_env/util.py	/^from typing import Any, Dict, List, Tuple$/;"	i
+Tuple	algos/torch_ppo/vec_env/vec_frame_stack.py	/^from typing import Any, Dict, List, Optional, Tuple, Union$/;"	i
+Tuple	algos/torch_ppo/vec_env/vec_monitor.py	/^from typing import Optional, Tuple$/;"	i
+Type	algos/torch_ppo/vec_env/__init__.py	/^from typing import Optional, Type, Union$/;"	i
+Type	algos/torch_ppo/vec_env/base_vec_env.py	/^from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union$/;"	i
+Type	algos/torch_ppo/vec_env/dummy_vec_env.py	/^from typing import Any, Callable, List, Optional, Sequence, Type, Union$/;"	i
+Type	algos/torch_ppo/vec_env/subproc_vec_env.py	/^from typing import Any, Callable, List, Optional, Sequence, Tuple, Type, Union$/;"	i
+UNITY_SZ	minimap_util.py	/^UNITY_SZ = 100.0     #what is the side length of the space in unity coordintaes$/;"	v
+Union	algos/torch_ppo/distributions.py	/^from typing import Any, Dict, List, Optional, Tuple, Union$/;"	i
+Union	algos/torch_ppo/vec_env/__init__.py	/^from typing import Optional, Type, Union$/;"	i
+Union	algos/torch_ppo/vec_env/base_vec_env.py	/^from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union$/;"	i
+Union	algos/torch_ppo/vec_env/dummy_vec_env.py	/^from typing import Any, Callable, List, Optional, Sequence, Type, Union$/;"	i
+Union	algos/torch_ppo/vec_env/stacked_observations.py	/^from typing import Any, Dict, List, Optional, Tuple, Union$/;"	i
+Union	algos/torch_ppo/vec_env/subproc_vec_env.py	/^from typing import Any, Callable, List, Optional, Sequence, Tuple, Type, Union$/;"	i
+Union	algos/torch_ppo/vec_env/vec_frame_stack.py	/^from typing import Any, Dict, List, Optional, Tuple, Union$/;"	i
+Union	algos/torch_ppo/vec_env/vec_normalize.py	/^from typing import Any, Dict, List, Optional, Union$/;"	i
+Union	algos/torch_ppo/vec_env/vec_transpose.py	/^from typing import Dict, Union$/;"	i
+UnityEnvironment	env.py	/^from mlagents.envs import UnityEnvironment$/;"	i
+UserStem	core/stems.py	/^class UserStem(object):$/;"	c
+ValueNorm	algos/torch_ppo/ippo.py	/^from .mappo_utils.valuenorm import ValueNorm$/;"	i
+ValueNorm	algos/torch_ppo/mappo_utils/valuenorm.py	/^class ValueNorm(nn.Module):$/;"	c
+Variable	algos/torch_ppo/noisy.py	/^from torch.autograd import Variable$/;"	i
+VecCheckNan	algos/torch_ppo/vec_env/__init__.py	/^from .vec_check_nan import VecCheckNan$/;"	i
+VecCheckNan	algos/torch_ppo/vec_env/vec_check_nan.py	/^class VecCheckNan(VecEnvWrapper):$/;"	c
+VecEnv	algos/torch_ppo/vec_env/__init__.py	/^from .base_vec_env import CloudpickleWrapper, VecEnv, VecEnvWrapper$/;"	i
+VecEnv	algos/torch_ppo/vec_env/base_vec_env.py	/^class VecEnv(ABC):$/;"	c
+VecEnv	algos/torch_ppo/vec_env/dummy_vec_env.py	/^from .base_vec_env import VecEnv, VecEnvIndices, VecEnvObs, VecEnvStepReturn$/;"	i
+VecEnv	algos/torch_ppo/vec_env/vec_check_nan.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvObs, VecEnvStepReturn, VecEnvWrapper$/;"	i
+VecEnv	algos/torch_ppo/vec_env/vec_extract_dict_obs.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvStepReturn, VecEnvWrapper$/;"	i
+VecEnv	algos/torch_ppo/vec_env/vec_frame_stack.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvWrapper$/;"	i
+VecEnv	algos/torch_ppo/vec_env/vec_monitor.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvObs, VecEnvStepReturn, VecEnvWrapper$/;"	i
+VecEnv	algos/torch_ppo/vec_env/vec_normalize.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvStepReturn, VecEnvWrapper$/;"	i
+VecEnv	algos/torch_ppo/vec_env/vec_transpose.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvStepReturn, VecEnvWrapper$/;"	i
+VecEnv	algos/torch_ppo/vec_env/vec_video_recorder.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvObs, VecEnvStepReturn, VecEnvWrapper$/;"	i
+VecEnvIndices	algos/torch_ppo/vec_env/base_vec_env.py	/^VecEnvIndices = Union[None, int, Iterable[int]]$/;"	v
+VecEnvIndices	algos/torch_ppo/vec_env/dummy_vec_env.py	/^from .base_vec_env import VecEnv, VecEnvIndices, VecEnvObs, VecEnvStepReturn$/;"	i
+VecEnvObs	algos/torch_ppo/vec_env/base_vec_env.py	/^VecEnvObs = Union[np.ndarray, Dict[str, np.ndarray], Tuple[np.ndarray, ...]]$/;"	v
+VecEnvObs	algos/torch_ppo/vec_env/dummy_vec_env.py	/^from .base_vec_env import VecEnv, VecEnvIndices, VecEnvObs, VecEnvStepReturn$/;"	i
+VecEnvObs	algos/torch_ppo/vec_env/util.py	/^from .base_vec_env import VecEnvObs$/;"	i
+VecEnvObs	algos/torch_ppo/vec_env/vec_check_nan.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvObs, VecEnvStepReturn, VecEnvWrapper$/;"	i
+VecEnvObs	algos/torch_ppo/vec_env/vec_monitor.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvObs, VecEnvStepReturn, VecEnvWrapper$/;"	i
+VecEnvObs	algos/torch_ppo/vec_env/vec_video_recorder.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvObs, VecEnvStepReturn, VecEnvWrapper$/;"	i
+VecEnvStepReturn	algos/torch_ppo/vec_env/base_vec_env.py	/^VecEnvStepReturn = Tuple[VecEnvObs, np.ndarray, np.ndarray, List[Dict]]$/;"	v
+VecEnvStepReturn	algos/torch_ppo/vec_env/dummy_vec_env.py	/^from .base_vec_env import VecEnv, VecEnvIndices, VecEnvObs, VecEnvStepReturn$/;"	i
+VecEnvStepReturn	algos/torch_ppo/vec_env/vec_check_nan.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvObs, VecEnvStepReturn, VecEnvWrapper$/;"	i
+VecEnvStepReturn	algos/torch_ppo/vec_env/vec_extract_dict_obs.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvStepReturn, VecEnvWrapper$/;"	i
+VecEnvStepReturn	algos/torch_ppo/vec_env/vec_monitor.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvObs, VecEnvStepReturn, VecEnvWrapper$/;"	i
+VecEnvStepReturn	algos/torch_ppo/vec_env/vec_normalize.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvStepReturn, VecEnvWrapper$/;"	i
+VecEnvStepReturn	algos/torch_ppo/vec_env/vec_transpose.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvStepReturn, VecEnvWrapper$/;"	i
+VecEnvStepReturn	algos/torch_ppo/vec_env/vec_video_recorder.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvObs, VecEnvStepReturn, VecEnvWrapper$/;"	i
+VecEnvWrapper	algos/torch_ppo/vec_env/__init__.py	/^from .base_vec_env import CloudpickleWrapper, VecEnv, VecEnvWrapper$/;"	i
+VecEnvWrapper	algos/torch_ppo/vec_env/base_vec_env.py	/^class VecEnvWrapper(VecEnv):$/;"	c
+VecEnvWrapper	algos/torch_ppo/vec_env/vec_check_nan.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvObs, VecEnvStepReturn, VecEnvWrapper$/;"	i
+VecEnvWrapper	algos/torch_ppo/vec_env/vec_extract_dict_obs.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvStepReturn, VecEnvWrapper$/;"	i
+VecEnvWrapper	algos/torch_ppo/vec_env/vec_frame_stack.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvWrapper$/;"	i
+VecEnvWrapper	algos/torch_ppo/vec_env/vec_monitor.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvObs, VecEnvStepReturn, VecEnvWrapper$/;"	i
+VecEnvWrapper	algos/torch_ppo/vec_env/vec_normalize.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvStepReturn, VecEnvWrapper$/;"	i
+VecEnvWrapper	algos/torch_ppo/vec_env/vec_transpose.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvStepReturn, VecEnvWrapper$/;"	i
+VecEnvWrapper	algos/torch_ppo/vec_env/vec_video_recorder.py	/^from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvObs, VecEnvStepReturn, VecEnvWrapper$/;"	i
+VecExtractDictObs	algos/torch_ppo/vec_env/__init__.py	/^from .vec_extract_dict_obs import VecExtractDictObs$/;"	i
+VecExtractDictObs	algos/torch_ppo/vec_env/vec_extract_dict_obs.py	/^class VecExtractDictObs(VecEnvWrapper):$/;"	c
+VecFrameStack	algos/torch_ppo/vec_env/__init__.py	/^from .vec_frame_stack import VecFrameStack$/;"	i
+VecFrameStack	algos/torch_ppo/vec_env/vec_frame_stack.py	/^class VecFrameStack(VecEnvWrapper):$/;"	c
+VecMonitor	algos/torch_ppo/vec_env/__init__.py	/^from .vec_monitor import VecMonitor$/;"	i
+VecMonitor	algos/torch_ppo/vec_env/vec_monitor.py	/^class VecMonitor(VecEnvWrapper):$/;"	c
+VecNormalize	algos/torch_ppo/vec_env/__init__.py	/^from .vec_normalize import VecNormalize$/;"	i
+VecNormalize	algos/torch_ppo/vec_env/vec_normalize.py	/^class VecNormalize(VecEnvWrapper):$/;"	c
+VecTransposeImage	algos/torch_ppo/vec_env/__init__.py	/^from .vec_transpose import VecTransposeImage$/;"	i
+VecTransposeImage	algos/torch_ppo/vec_env/vec_transpose.py	/^class VecTransposeImage(VecEnvWrapper):$/;"	c
+VecVideoRecorder	algos/torch_ppo/vec_env/__init__.py	/^from .vec_video_recorder import VecVideoRecorder$/;"	i
+VecVideoRecorder	algos/torch_ppo/vec_env/vec_video_recorder.py	/^class VecVideoRecorder(VecEnvWrapper):$/;"	c
+WAIT_BEFORE_LAUNCH	algos/torch_ppo/utils/run_utils.py	/^                               DEFAULT_SHORTHAND, WAIT_BEFORE_LAUNCH$/;"	i
+WorkerStem	core/stems.py	/^class WorkerStem(object):$/;"	c
+ZFilter	algos/torch_ppo/torch_utils.py	/^class ZFilter:$/;"	c
+ZFilter	algos/torch_trpo/torch_utils.py	/^class ZFilter:$/;"	c
+_LRScheduler	algos/torch_ppo/ippo.py	/^from torch.optim.lr_scheduler import _LRScheduler$/;"	i
+_LRScheduler	algos/torch_ppo/ppo.py	/^from torch.optim.lr_scheduler import _LRScheduler$/;"	i
+_MAX_INT	env.py	/^    _MAX_INT = 2147483647  # Max int for Unity ML Seed$/;"	v	class:TanksWorldEnv
+_MAX_INT	env.py	/^    _MAX_INT = 2147483647  # Max int for Unity ML Seed$/;"	v	class:TanksWorldStackedEnv
+__call__	algos/torch_ppo/torch_utils.py	/^    def __call__(self, x, **kwargs):$/;"	m	class:ConstantFilter	file:
+__call__	algos/torch_ppo/torch_utils.py	/^    def __call__(self, x, **kwargs):$/;"	m	class:RewardFilter	file:
+__call__	algos/torch_ppo/torch_utils.py	/^    def __call__(self, x, **kwargs):$/;"	m	class:ZFilter	file:
+__call__	algos/torch_ppo/torch_utils.py	/^    def __call__(self, x, *args, **kwargs):$/;"	m	class:Identity	file:
+__call__	algos/torch_ppo/torch_utils.py	/^    def __call__(self, x, reset=False, count=True, **kwargs):$/;"	m	class:StateWithTime	file:
+__call__	algos/torch_ppo/utils/normalizer.py	/^    def __call__(self, x):$/;"	m	class:MeanStdNormalizer	file:
+__call__	algos/torch_ppo/utils/normalizer.py	/^    def __call__(self, x):$/;"	m	class:RescaleNormalizer	file:
+__call__	algos/torch_ppo/utils/normalizer.py	/^    def __call__(self, x):$/;"	m	class:SignNormalizer	file:
+__call__	algos/torch_trpo/torch_utils.py	/^    def __call__(self, x, **kwargs):$/;"	m	class:ConstantFilter	file:
+__call__	algos/torch_trpo/torch_utils.py	/^    def __call__(self, x, **kwargs):$/;"	m	class:RewardFilter	file:
+__call__	algos/torch_trpo/torch_utils.py	/^    def __call__(self, x, **kwargs):$/;"	m	class:ZFilter	file:
+__call__	algos/torch_trpo/torch_utils.py	/^    def __call__(self, x, *args, **kwargs):$/;"	m	class:Identity	file:
+__call__	algos/torch_trpo/torch_utils.py	/^    def __call__(self, x, reset=False, count=True, **kwargs):$/;"	m	class:StateWithTime	file:
+__del__	algos/torch_ppo/vec_env/vec_video_recorder.py	/^    def __del__(self):$/;"	m	class:VecVideoRecorder	file:
+__getattr__	algos/torch_ppo/torch_utils.py	/^    def __getattr__(self, x):$/;"	m	class:Parameters	file:
+__getattr__	algos/torch_ppo/vec_env/base_vec_env.py	/^    def __getattr__(self, name: str) -> Any:$/;"	m	class:VecEnvWrapper	file:
+__getattr__	algos/torch_trpo/torch_utils.py	/^    def __getattr__(self, x):$/;"	m	class:Parameters	file:
+__getstate__	algos/torch_ppo/vec_env/base_vec_env.py	/^    def __getstate__(self) -> Any:$/;"	m	class:CloudpickleWrapper	file:
+__getstate__	algos/torch_ppo/vec_env/vec_normalize.py	/^    def __getstate__(self) -> Dict[str, Any]:$/;"	m	class:VecNormalize	file:
+__getstate__	env_wrappers.py	/^    def __getstate__(self):$/;"	m	class:CloudpickleWrapper	file:
+__init__	algos/maddpg/core.py	/^    def __init__(self, obs_dim, act_dim, activation, cnn_net):$/;"	m	class:MLPQFunction
+__init__	algos/maddpg/core.py	/^    def __init__(self, obs_dim, act_dim, hidden_sizes, activation, act_limit, cnn_net):$/;"	m	class:MLPActor
+__init__	algos/maddpg/core.py	/^    def __init__(self, observation_space, action_space, common_actor, hidden_sizes=(256,256),$/;"	m	class:MLPActorCritic
+__init__	algos/maddpg/maddpg.py	/^    def __init__(self, N, obs_dim, act_dim, size):$/;"	m	class:ReplayBuffer
+__init__	algos/maddpg/maddpg.py	/^    def __init__(self, env, callback, eval_mode=False, **kargs):$/;"	m	class:MADDPGPolicy
+__init__	algos/random/random_policy.py	/^    def __init__(self, env, policy_comm):$/;"	m	class:RandomPolicy
+__init__	algos/torch_ppo/callbacks.py	/^    def __init__(self, env, policy_record, eval_steps=10, val_env=None, eval_env=None):$/;"	m	class:EvalCallback
+__init__	algos/torch_ppo/coppo.py	/^    def __init__(self, env, callback, eval_mode=False, **kargs):$/;"	m	class:PPOPolicy
+__init__	algos/torch_ppo/coppo.py	/^    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95):$/;"	m	class:RolloutBuffer
+__init__	algos/torch_ppo/core.py	/^    def __init__(self):$/;"	m	class:RNDNetwork
+__init__	algos/torch_ppo/core.py	/^    def __init__(self, observation_space, act_dim, activation, cnn_net, init_log_std=-0.5):$/;"	m	class:CentralizedGaussianActor_v2
+__init__	algos/torch_ppo/core.py	/^    def __init__(self, observation_space, act_dim, activation, cnn_net, init_log_std=-0.5, local_std=False):$/;"	m	class:GaussianActor_v2
+__init__	algos/torch_ppo/core.py	/^    def __init__(self, observation_space, act_dim, activation, cnn_net, init_log_std=-0.5, local_std=False,$/;"	m	class:GaussianActor
+__init__	algos/torch_ppo/core.py	/^    def __init__(self, observation_space, act_dim, activation, cnn_net, init_log_std=-0.5, num_agents=5):$/;"	m	class:CentralizedGaussianActor
+__init__	algos/torch_ppo/core.py	/^    def __init__(self, observation_space, act_dim, activation, init_log_std=-0.5, num_agents=5, hidden_sizes=[128,128]):$/;"	m	class:MLPCentralizedGaussianActor
+__init__	algos/torch_ppo/core.py	/^    def __init__(self, observation_space, act_dim, cnn_net):$/;"	m	class:BetaActor
+__init__	algos/torch_ppo/core.py	/^    def __init__(self, observation_space, action_space, activation=nn.Tanh,$/;"	m	class:ActorCritic
+__init__	algos/torch_ppo/core.py	/^    def __init__(self, observation_space, action_space, activation=nn.Tanh,$/;"	m	class:MLPActorCritic
+__init__	algos/torch_ppo/core.py	/^    def __init__(self, observation_space, activation, cnn_net):$/;"	m	class:CentralizedCritic_v2
+__init__	algos/torch_ppo/core.py	/^    def __init__(self, observation_space, activation, cnn_net):$/;"	m	class:SoftmaxActor
+__init__	algos/torch_ppo/core.py	/^    def __init__(self, observation_space, activation, cnn_net, noisy=False):$/;"	m	class:Critic
+__init__	algos/torch_ppo/core.py	/^    def __init__(self, observation_space, activation, cnn_net, num_agents=5):$/;"	m	class:CentralizedCritic
+__init__	algos/torch_ppo/core.py	/^    def __init__(self, observation_space, activation, hidden_sizes=[128,128], num_agents=5):$/;"	m	class:MLPCritic
+__init__	algos/torch_ppo/core_ind.py	/^    def __init__(self, observation_space, act_dim, activation, cnn_net):$/;"	m	class:GaussianActor
+__init__	algos/torch_ppo/core_ind.py	/^    def __init__(self, observation_space, action_space, activation=nn.Tanh, use_beta=False):$/;"	m	class:ActorCritic
+__init__	algos/torch_ppo/core_ind.py	/^    def __init__(self, observation_space, activation, cnn_net=None):$/;"	m	class:Critic
+__init__	algos/torch_ppo/core_old.py	/^    def __init__(self, input_shape, output_shape, norm_axes=1, beta=0.99999, epsilon=1e-5):$/;"	m	class:PopArt
+__init__	algos/torch_ppo/core_old.py	/^    def __init__(self, observation_space, act_dim, cnn_net=None):$/;"	m	class:MLPBetaActor
+__init__	algos/torch_ppo/core_old.py	/^    def __init__(self, observation_space, act_dim, hidden_sizes, activation, cnn_net=None):$/;"	m	class:MLPCategoricalActor
+__init__	algos/torch_ppo/core_old.py	/^    def __init__(self, observation_space, act_dim, hidden_sizes, activation, cnn_net=None):$/;"	m	class:MLPSDEActor
+__init__	algos/torch_ppo/core_old.py	/^    def __init__(self, observation_space, act_dim, hidden_sizes, activation, cnn_net=None, rnn_net=None, two_fc_layers=False,$/;"	m	class:MLPGaussianActor
+__init__	algos/torch_ppo/core_old.py	/^    def __init__(self, observation_space, action_space):$/;"	m	class:ICM
+__init__	algos/torch_ppo/core_old.py	/^    def __init__(self, observation_space, action_space,$/;"	m	class:MLPActorCritic
+__init__	algos/torch_ppo/core_old.py	/^    def __init__(self, observation_space, hidden_sizes, activation, cnn_net=None, rnn_net=None,$/;"	m	class:MLPCentralCritic
+__init__	algos/torch_ppo/core_old.py	/^    def __init__(self, observation_space, hidden_sizes, activation, cnn_net=None, rnn_net=None,$/;"	m	class:MLPCentralCritic_v2
+__init__	algos/torch_ppo/core_old.py	/^    def __init__(self, observation_space, hidden_sizes, activation, cnn_net=None, rnn_net=None,$/;"	m	class:MLPCritic
+__init__	algos/torch_ppo/curiosity.py	/^    def __init__(self):$/;"	m	class:ForwardBackwardModel
+__init__	algos/torch_ppo/curiosity.py	/^    def __init__(self, cnn_model):$/;"	m	class:BackwardModel
+__init__	algos/torch_ppo/curiosity.py	/^    def __init__(self, cnn_model):$/;"	m	class:ForwardModel
+__init__	algos/torch_ppo/distributions.py	/^    def __init__($/;"	m	class:StateDependentNoiseDistribution
+__init__	algos/torch_ppo/distributions.py	/^    def __init__(self):$/;"	m	class:Distribution
+__init__	algos/torch_ppo/distributions.py	/^    def __init__(self, epsilon: float = 1e-6):$/;"	m	class:TanhBijector
+__init__	algos/torch_ppo/ippo.py	/^    def __init__(self, env, callback, eval_mode=False, **kargs):$/;"	m	class:PPOPolicy
+__init__	algos/torch_ppo/ippo.py	/^    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95):$/;"	m	class:RolloutBuffer
+__init__	algos/torch_ppo/mappo.py	/^    def __init__(self, env, callback, eval_mode=False, visual_mode=False, data_mode=False, **kargs):$/;"	m	class:PPOPolicy
+__init__	algos/torch_ppo/mappo.py	/^    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95,$/;"	m	class:RolloutBuffer
+__init__	algos/torch_ppo/mappo_bonus.py	/^    def __init__(self, env, callback, eval_mode=False, visual_mode=False, data_mode=False, **kargs):$/;"	m	class:PPOBonusPolicy
+__init__	algos/torch_ppo/mappo_old.py	/^    def __init__(self, env, callback, eval_mode=False, **kargs):$/;"	m	class:PPOPolicy
+__init__	algos/torch_ppo/mappo_old.py	/^    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95, n_envs=1, use_sde=False,$/;"	m	class:RolloutBuffer
+__init__	algos/torch_ppo/mappo_utils/valuenorm.py	/^    def __init__(self, input_shape, norm_axes=1, beta=0.99999, per_element_update=False, epsilon=1e-5,$/;"	m	class:ValueNorm
+__init__	algos/torch_ppo/matrpo.py	/^    def __init__(self, env, callback, eval_mode=False, **kargs):$/;"	m	class:TRPOPolicy
+__init__	algos/torch_ppo/matrpo.py	/^    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95,$/;"	m	class:RolloutBuffer
+__init__	algos/torch_ppo/noisy.py	/^    def __init__(self, in_features, out_features, bias=True, factorized=True, std_init=None):$/;"	m	class:NoisyLinear
+__init__	algos/torch_ppo/norm.py	/^    def __init__(self, num_features=None, eps=1e-5):$/;"	m	class:LayerNorm
+__init__	algos/torch_ppo/pcpg.py	/^    def __init__(self, env, callback, eval_mode=False, visual_mode=False, data_mode=False, **kargs):$/;"	m	class:PCPGPolicy
+__init__	algos/torch_ppo/pcpg.py	/^    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95,$/;"	m	class:RolloutBuffer
+__init__	algos/torch_ppo/ppo.py	/^    def __init__(self, env, policy_comm, eval_mode=False, **kargs):$/;"	m	class:PPOPolicy
+__init__	algos/torch_ppo/ppo.py	/^    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95, use_rnn=False):$/;"	m	class:PPOBuffer
+__init__	algos/torch_ppo/ppo.py	/^    def __init__(self, optimizer, start_factor=1.0 \/ 3, end_factor=1.0, total_iters=5, last_epoch=-1,$/;"	m	class:LinearLR
+__init__	algos/torch_ppo/rnn.py	/^    def __init__(self, input_dim, hidden_dim, output_dim, n_layers, drop_prob=0.0):$/;"	m	class:GRUNet
+__init__	algos/torch_ppo/torch_utils.py	/^    def __init__(self, params):$/;"	m	class:Parameters
+__init__	algos/torch_ppo/torch_utils.py	/^    def __init__(self, prev_filter, constant):$/;"	m	class:ConstantFilter
+__init__	algos/torch_ppo/torch_utils.py	/^    def __init__(self, prev_filter, horizon):$/;"	m	class:StateWithTime
+__init__	algos/torch_ppo/torch_utils.py	/^    def __init__(self, prev_filter, shape, center=True, scale=True, clip=None):$/;"	m	class:ZFilter
+__init__	algos/torch_ppo/torch_utils.py	/^    def __init__(self, prev_filter, shape, gamma, clip=None):$/;"	m	class:RewardFilter
+__init__	algos/torch_ppo/torch_utils.py	/^    def __init__(self, shape):$/;"	m	class:RunningStat
+__init__	algos/torch_ppo/torch_utils.py	/^    def __init__(self, states=None, rewards=None, returns=None, not_dones=None,$/;"	m	class:Trajectories
+__init__	algos/torch_ppo/utils/config.py	/^    def __init__(self):$/;"	m	class:Config
+__init__	algos/torch_ppo/utils/logx.py	/^    def __init__(self, *args, **kwargs):$/;"	m	class:EpochLogger
+__init__	algos/torch_ppo/utils/logx.py	/^    def __init__(self, output_dir=None, output_fname='progress.txt', exp_name=None):$/;"	m	class:Logger
+__init__	algos/torch_ppo/utils/mpi_tf.py	/^    def __init__(self, **kwargs):$/;"	m	class:MpiAdamOptimizer
+__init__	algos/torch_ppo/utils/normalizer.py	/^    def __init__(self):$/;"	m	class:ImageNormalizer
+__init__	algos/torch_ppo/utils/normalizer.py	/^    def __init__(self, coef=1.0):$/;"	m	class:RescaleNormalizer
+__init__	algos/torch_ppo/utils/normalizer.py	/^    def __init__(self, read_only=False):$/;"	m	class:BaseNormalizer
+__init__	algos/torch_ppo/utils/normalizer.py	/^    def __init__(self, read_only=False, clip=10.0, epsilon=1e-8):$/;"	m	class:MeanStdNormalizer
+__init__	algos/torch_ppo/utils/replay.py	/^    def __init__(self, memory_size, batch_size, drop_prob=0, to_np=True):$/;"	m	class:Replay
+__init__	algos/torch_ppo/utils/run_utils.py	/^    def __init__(self, name=''):$/;"	m	class:ExperimentGrid
+__init__	algos/torch_ppo/vec_env/base_vec_env.py	/^    def __init__($/;"	m	class:VecEnvWrapper
+__init__	algos/torch_ppo/vec_env/base_vec_env.py	/^    def __init__(self, num_envs: int, observation_space: gym.spaces.Space, action_space: gym.spaces.Space):$/;"	m	class:VecEnv
+__init__	algos/torch_ppo/vec_env/base_vec_env.py	/^    def __init__(self, var: Any):$/;"	m	class:CloudpickleWrapper
+__init__	algos/torch_ppo/vec_env/dummy_vec_env.py	/^    def __init__(self, env_fns: List[Callable[[], gym.Env]], use_state_vector=False, num_agents=5):$/;"	m	class:DummyVecEnv
+__init__	algos/torch_ppo/vec_env/stacked_observations.py	/^    def __init__($/;"	m	class:StackedDictObservations
+__init__	algos/torch_ppo/vec_env/stacked_observations.py	/^    def __init__($/;"	m	class:StackedObservations
+__init__	algos/torch_ppo/vec_env/subproc_vec_env.py	/^    def __init__(self, env_fns: List[Callable[[], gym.Env]], start_method: Optional[str] = None):$/;"	m	class:SubprocVecEnv
+__init__	algos/torch_ppo/vec_env/vec_check_nan.py	/^    def __init__(self, venv: VecEnv, raise_exception: bool = False, warn_once: bool = True, check_inf: bool = True):$/;"	m	class:VecCheckNan
+__init__	algos/torch_ppo/vec_env/vec_extract_dict_obs.py	/^    def __init__(self, venv: VecEnv, key: str):$/;"	m	class:VecExtractDictObs
+__init__	algos/torch_ppo/vec_env/vec_frame_stack.py	/^    def __init__(self, venv: VecEnv, n_stack: int, channels_order: Optional[Union[str, Dict[str, str]]] = None):$/;"	m	class:VecFrameStack
+__init__	algos/torch_ppo/vec_env/vec_monitor.py	/^    def __init__($/;"	m	class:VecMonitor
+__init__	algos/torch_ppo/vec_env/vec_normalize.py	/^    def __init__($/;"	m	class:VecNormalize
+__init__	algos/torch_ppo/vec_env/vec_transpose.py	/^    def __init__(self, venv: VecEnv):$/;"	m	class:VecTransposeImage
+__init__	algos/torch_ppo/vec_env/vec_video_recorder.py	/^    def __init__($/;"	m	class:VecVideoRecorder
+__init__	algos/torch_sac/core.py	/^    def __init__(self, observation_space, act_dim, hidden_sizes, activation, act_limit, cnn_net=None):$/;"	m	class:SquashedGaussianMLPActor
+__init__	algos/torch_sac/core.py	/^    def __init__(self, observation_space, act_dim, hidden_sizes, activation, cnn_net=None):$/;"	m	class:MLPQFunction
+__init__	algos/torch_sac/core.py	/^    def __init__(self, observation_space, action_space, hidden_sizes=(256,256),$/;"	m	class:MLPActorCritic
+__init__	algos/torch_sac/sac.py	/^    def __init__(self, env, policy_comm, eval_mode=False, **kargs):$/;"	m	class:SACPolicy
+__init__	algos/torch_sac/sac.py	/^    def __init__(self, obs_dim, act_dim, size):$/;"	m	class:ReplayBuffer
+__init__	algos/torch_sac/sac_new.py	/^    def __init__(self, env, callback, eval_mode=False, **kargs):$/;"	m	class:SACPolicy
+__init__	algos/torch_sac/sac_new.py	/^    def __init__(self, obs_dim, act_dim, size, n_envs=1):$/;"	m	class:ReplayBuffer
+__init__	algos/torch_trpo/core.py	/^    def __init__(self):$/;"	m	class:RNDNetwork
+__init__	algos/torch_trpo/core.py	/^    def __init__(self, observation_space, act_dim, activation, cnn_net, init_log_std=-0.5):$/;"	m	class:CentralizedGaussianActor_v2
+__init__	algos/torch_trpo/core.py	/^    def __init__(self, observation_space, act_dim, activation, cnn_net, init_log_std=-0.5, local_std=False):$/;"	m	class:GaussianActor_v2
+__init__	algos/torch_trpo/core.py	/^    def __init__(self, observation_space, act_dim, activation, cnn_net, init_log_std=-0.5, local_std=False,$/;"	m	class:GaussianActor
+__init__	algos/torch_trpo/core.py	/^    def __init__(self, observation_space, act_dim, activation, cnn_net, init_log_std=-0.5, num_agents=5):$/;"	m	class:CentralizedGaussianActor
+__init__	algos/torch_trpo/core.py	/^    def __init__(self, observation_space, act_dim, cnn_net):$/;"	m	class:BetaActor
+__init__	algos/torch_trpo/core.py	/^    def __init__(self, observation_space, action_space, activation=nn.Tanh,$/;"	m	class:ActorCritic
+__init__	algos/torch_trpo/core.py	/^    def __init__(self, observation_space, activation, cnn_net):$/;"	m	class:CentralizedCritic_v2
+__init__	algos/torch_trpo/core.py	/^    def __init__(self, observation_space, activation, cnn_net):$/;"	m	class:SoftmaxActor
+__init__	algos/torch_trpo/core.py	/^    def __init__(self, observation_space, activation, cnn_net, noisy=False):$/;"	m	class:Critic
+__init__	algos/torch_trpo/core.py	/^    def __init__(self, observation_space, activation, cnn_net, num_agents=5):$/;"	m	class:CentralizedCritic
+__init__	algos/torch_trpo/matrpo.py	/^    def __init__(self, env, callback, eval_mode=False, **kargs):$/;"	m	class:TRPOPolicy
+__init__	algos/torch_trpo/matrpo.py	/^    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95,$/;"	m	class:RolloutBuffer
+__init__	algos/torch_trpo/torch_utils.py	/^    def __init__(self, params):$/;"	m	class:Parameters
+__init__	algos/torch_trpo/torch_utils.py	/^    def __init__(self, prev_filter, constant):$/;"	m	class:ConstantFilter
+__init__	algos/torch_trpo/torch_utils.py	/^    def __init__(self, prev_filter, horizon):$/;"	m	class:StateWithTime
+__init__	algos/torch_trpo/torch_utils.py	/^    def __init__(self, prev_filter, shape, center=True, scale=True, clip=None):$/;"	m	class:ZFilter
+__init__	algos/torch_trpo/torch_utils.py	/^    def __init__(self, prev_filter, shape, gamma, clip=None):$/;"	m	class:RewardFilter
+__init__	algos/torch_trpo/torch_utils.py	/^    def __init__(self, shape):$/;"	m	class:RunningStat
+__init__	algos/torch_trpo/torch_utils.py	/^    def __init__(self, states=None, rewards=None, returns=None, not_dones=None,$/;"	m	class:Trajectories
+__init__	core/policy_record.py	/^    def __init__(self, data_dir, color='#eb0033', ylabel='Episodic Damage',$/;"	m	class:RecordChannel
+__init__	core/policy_record.py	/^    def __init__(self, policy_folder_name, log_comms_dir, plot_color="#eb0033", intrinsic_reward=False, std=False):$/;"	m	class:PolicyRecord
+__init__	core/stems.py	/^	def __init__(self, make_env_method, log_comms_dir, obs_spaces, act_spaces, additional_policies):$/;"	m	class:UserStem
+__init__	core/stems.py	/^	def __init__(self, make_env_method, log_comms_dir, obs_spaces, act_spaces, additional_policies):$/;"	m	class:WorkerStem
+__init__	env.py	/^    def __init__($/;"	m	class:TanksWorldEnv
+__init__	env.py	/^    def __init__(self, exe):$/;"	m	class:TanksWorldStackedEnv
+__init__	env_wrappers.py	/^    def __init__(self, env_fns):$/;"	m	class:ChooseDummyVecEnv
+__init__	env_wrappers.py	/^    def __init__(self, env_fns):$/;"	m	class:ChooseSimpleDummyVecEnv
+__init__	env_wrappers.py	/^    def __init__(self, env_fns):$/;"	m	class:DummyVecEnv
+__init__	env_wrappers.py	/^    def __init__(self, env_fns):$/;"	m	class:ShareDummyVecEnv
+__init__	env_wrappers.py	/^    def __init__(self, env_fns, spaces=None):$/;"	m	class:ChooseGuardSubprocVecEnv
+__init__	env_wrappers.py	/^    def __init__(self, env_fns, spaces=None):$/;"	m	class:ChooseSimpleSubprocVecEnv
+__init__	env_wrappers.py	/^    def __init__(self, env_fns, spaces=None):$/;"	m	class:ChooseSubprocVecEnv
+__init__	env_wrappers.py	/^    def __init__(self, env_fns, spaces=None):$/;"	m	class:GuardSubprocVecEnv
+__init__	env_wrappers.py	/^    def __init__(self, env_fns, spaces=None):$/;"	m	class:ShareSubprocVecEnv
+__init__	env_wrappers.py	/^    def __init__(self, env_fns, spaces=None):$/;"	m	class:SubprocVecEnv
+__init__	env_wrappers.py	/^    def __init__(self, num_envs, observation_space, share_observation_space, action_space):$/;"	m	class:ShareVecEnv
+__init__	env_wrappers.py	/^    def __init__(self, x):$/;"	m	class:CloudpickleWrapper
+__init__	trainer.py	/^    def __init__(self, config):$/;"	m	class:Trainer
+__init__	trainer_new.py	/^    def __init__(self, config):$/;"	m	class:Trainer
+__init__	trainer_old.py	/^    def __init__(self, config):$/;"	m	class:Trainer
+__init__	trainer_pcpg.py	/^    def __init__(self, config):$/;"	m	class:Trainer
+__repr__	algos/torch_ppo/noisy.py	/^    def __repr__(self):$/;"	m	class:NoisyLinear	file:
+__repr__	algos/torch_ppo/norm.py	/^    def __repr__(self):$/;"	m	class:LayerNorm	file:
+__setstate__	algos/torch_ppo/vec_env/base_vec_env.py	/^    def __setstate__(self, var: Any) -> None:$/;"	m	class:CloudpickleWrapper	file:
+__setstate__	algos/torch_ppo/vec_env/vec_normalize.py	/^    def __setstate__(self, state: Dict[str, Any]) -> None:$/;"	m	class:VecNormalize	file:
+__setstate__	env_wrappers.py	/^    def __setstate__(self, ob):$/;"	m	class:CloudpickleWrapper	file:
+_broadcast	algos/torch_ppo/utils/mpi_tf.py	/^    def _broadcast(x):$/;"	f	function:sync_params
+_check_val	algos/torch_ppo/vec_env/vec_check_nan.py	/^    def _check_val(self, *, async_step: bool, **kwargs) -> None:$/;"	m	class:VecCheckNan
+_collect_grads	algos/torch_ppo/utils/mpi_tf.py	/^        def _collect_grads(flat_grad):$/;"	f	function:MpiAdamOptimizer.compute_gradients
+_default_shorthand	algos/torch_ppo/utils/run_utils.py	/^    def _default_shorthand(self, key):$/;"	m	class:ExperimentGrid
+_distribution	algos/torch_ppo/core.py	/^    def _distribution(self, obs):$/;"	m	class:Actor
+_distribution	algos/torch_ppo/core.py	/^    def _distribution(self, obs):$/;"	m	class:BetaActor
+_distribution	algos/torch_ppo/core.py	/^    def _distribution(self, obs):$/;"	m	class:CentralizedGaussianActor
+_distribution	algos/torch_ppo/core.py	/^    def _distribution(self, obs):$/;"	m	class:CentralizedGaussianActor_v2
+_distribution	algos/torch_ppo/core.py	/^    def _distribution(self, obs):$/;"	m	class:GaussianActor
+_distribution	algos/torch_ppo/core.py	/^    def _distribution(self, obs):$/;"	m	class:GaussianActor_v2
+_distribution	algos/torch_ppo/core.py	/^    def _distribution(self, obs):$/;"	m	class:MLPCentralizedGaussianActor
+_distribution	algos/torch_ppo/core.py	/^    def _distribution(self, obs):$/;"	m	class:SoftmaxActor
+_distribution	algos/torch_ppo/core_ind.py	/^    def _distribution(self, obs):$/;"	m	class:Actor
+_distribution	algos/torch_ppo/core_ind.py	/^    def _distribution(self, obs):$/;"	m	class:GaussianActor
+_distribution	algos/torch_ppo/core_old.py	/^    def _distribution(self, obs):$/;"	m	class:Actor
+_distribution	algos/torch_ppo/core_old.py	/^    def _distribution(self, obs):$/;"	m	class:MLPBetaActor
+_distribution	algos/torch_ppo/core_old.py	/^    def _distribution(self, obs):$/;"	m	class:MLPCategoricalActor
+_distribution	algos/torch_ppo/core_old.py	/^    def _distribution(self, obs):$/;"	m	class:MLPGaussianActor
+_distribution	algos/torch_ppo/core_old.py	/^    def _distribution(self, obs):$/;"	m	class:MLPSDEActor
+_distribution	algos/torch_trpo/core.py	/^    def _distribution(self, obs):$/;"	m	class:Actor
+_distribution	algos/torch_trpo/core.py	/^    def _distribution(self, obs):$/;"	m	class:BetaActor
+_distribution	algos/torch_trpo/core.py	/^    def _distribution(self, obs):$/;"	m	class:CentralizedGaussianActor
+_distribution	algos/torch_trpo/core.py	/^    def _distribution(self, obs):$/;"	m	class:CentralizedGaussianActor_v2
+_distribution	algos/torch_trpo/core.py	/^    def _distribution(self, obs):$/;"	m	class:GaussianActor
+_distribution	algos/torch_trpo/core.py	/^    def _distribution(self, obs):$/;"	m	class:GaussianActor_v2
+_distribution	algos/torch_trpo/core.py	/^    def _distribution(self, obs):$/;"	m	class:SoftmaxActor
+_env	env.py	/^    _env = None$/;"	v	class:TanksWorldEnv
+_env	env.py	/^    _env = None$/;"	v	class:TanksWorldStackedEnv
+_env_params	env.py	/^    _env_params = {}$/;"	v	class:TanksWorldEnv
+_env_params	env.py	/^    _env_params = {}$/;"	v	class:TanksWorldStackedEnv
+_flatten_obs	algos/torch_ppo/vec_env/subproc_vec_env.py	/^def _flatten_obs(obs: Union[List[VecEnvObs], Tuple[VecEnvObs]], space: gym.spaces.Space) -> VecEnvObs:$/;"	f
+_get_all_attributes	algos/torch_ppo/vec_env/base_vec_env.py	/^    def _get_all_attributes(self) -> Dict[str, Any]:$/;"	m	class:VecEnvWrapper
+_get_closed_form_lr	algos/torch_ppo/ppo.py	/^    def _get_closed_form_lr(self):$/;"	m	class:LinearLR
+_get_indices	algos/torch_ppo/vec_env/base_vec_env.py	/^    def _get_indices(self, indices: VecEnvIndices) -> Iterable[int]:$/;"	m	class:VecEnv
+_get_target_envs	algos/torch_ppo/vec_env/dummy_vec_env.py	/^    def _get_target_envs(self, indices: VecEnvIndices) -> List[gym.Env]:$/;"	m	class:DummyVecEnv
+_get_target_remotes	algos/torch_ppo/vec_env/subproc_vec_env.py	/^    def _get_target_remotes(self, indices: VecEnvIndices) -> List[Any]:$/;"	m	class:SubprocVecEnv
+_log_prob_from_distribution	algos/torch_ppo/core.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:Actor
+_log_prob_from_distribution	algos/torch_ppo/core.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:BetaActor
+_log_prob_from_distribution	algos/torch_ppo/core.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:CentralizedGaussianActor
+_log_prob_from_distribution	algos/torch_ppo/core.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:CentralizedGaussianActor_v2
+_log_prob_from_distribution	algos/torch_ppo/core.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:GaussianActor
+_log_prob_from_distribution	algos/torch_ppo/core.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:GaussianActor_v2
+_log_prob_from_distribution	algos/torch_ppo/core.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:MLPCentralizedGaussianActor
+_log_prob_from_distribution	algos/torch_ppo/core.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:SoftmaxActor
+_log_prob_from_distribution	algos/torch_ppo/core_ind.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:Actor
+_log_prob_from_distribution	algos/torch_ppo/core_ind.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:GaussianActor
+_log_prob_from_distribution	algos/torch_ppo/core_old.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:Actor
+_log_prob_from_distribution	algos/torch_ppo/core_old.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:MLPBetaActor
+_log_prob_from_distribution	algos/torch_ppo/core_old.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:MLPCategoricalActor
+_log_prob_from_distribution	algos/torch_ppo/core_old.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:MLPGaussianActor
+_log_prob_from_distribution	algos/torch_ppo/core_old.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:MLPSDEActor
+_log_prob_from_distribution	algos/torch_trpo/core.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:Actor
+_log_prob_from_distribution	algos/torch_trpo/core.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:BetaActor
+_log_prob_from_distribution	algos/torch_trpo/core.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:CentralizedGaussianActor
+_log_prob_from_distribution	algos/torch_trpo/core.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:CentralizedGaussianActor_v2
+_log_prob_from_distribution	algos/torch_trpo/core.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:GaussianActor
+_log_prob_from_distribution	algos/torch_trpo/core.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:GaussianActor_v2
+_log_prob_from_distribution	algos/torch_trpo/core.py	/^    def _log_prob_from_distribution(self, pi, act):$/;"	m	class:SoftmaxActor
+_mean_std	algos/torch_trpo/core.py	/^    def _mean_std(self, obs):$/;"	m	class:GaussianActor
+_mean_std	algos/torch_trpo/core.py	/^    def _mean_std(self, obs):$/;"	m	class:GaussianActor_v2
+_normalize_obs	algos/torch_ppo/vec_env/vec_normalize.py	/^    def _normalize_obs(self, obs: np.ndarray, obs_rms: RunningMeanStd) -> np.ndarray:$/;"	m	class:VecNormalize
+_obs_from_buf	algos/torch_ppo/vec_env/dummy_vec_env.py	/^    def _obs_from_buf(self) -> VecEnvObs:$/;"	m	class:DummyVecEnv
+_pytorch_simple_save	algos/torch_ppo/utils/logx.py	/^    def _pytorch_simple_save(self, itr=None):$/;"	m	class:Logger
+_sanity_checks	algos/torch_ppo/vec_env/vec_normalize.py	/^    def _sanity_checks(self) -> None:$/;"	m	class:VecNormalize
+_save_obs	algos/torch_ppo/vec_env/dummy_vec_env.py	/^    def _save_obs(self, env_idx: int, obs: VecEnvObs) -> None:$/;"	m	class:DummyVecEnv
+_scale_noise	algos/torch_ppo/noisy.py	/^    def _scale_noise(self, size):$/;"	m	class:NoisyLinear
+_tank_data_len	env.py	/^    _tank_data_len = 9$/;"	v	class:TanksWorldEnv
+_tf_simple_save	algos/torch_ppo/utils/logx.py	/^    def _tf_simple_save(self, itr=None):$/;"	m	class:Logger
+_unnormalize_obs	algos/torch_ppo/vec_env/vec_normalize.py	/^    def _unnormalize_obs(self, obs: np.ndarray, obs_rms: RunningMeanStd) -> np.ndarray:$/;"	m	class:VecNormalize
+_update_reward	algos/torch_ppo/vec_env/vec_normalize.py	/^    def _update_reward(self, reward: np.ndarray) -> None:$/;"	m	class:VecNormalize
+_variants	algos/torch_ppo/utils/run_utils.py	/^    def _variants(self, keys, vals):$/;"	m	class:ExperimentGrid
+_video_enabled	algos/torch_ppo/vec_env/vec_video_recorder.py	/^    def _video_enabled(self) -> bool:$/;"	m	class:VecVideoRecorder
+_worker	algos/torch_ppo/vec_env/subproc_vec_env.py	/^def _worker($/;"	f
+abstractmethod	algos/torch_ppo/distributions.py	/^from abc import ABC, abstractmethod$/;"	i
+abstractmethod	algos/torch_ppo/vec_env/base_vec_env.py	/^from abc import ABC, abstractmethod$/;"	i
+abstractmethod	env_wrappers.py	/^from abc import ABC, abstractmethod$/;"	i
+act	algos/maddpg/core.py	/^    def act(self, obs):$/;"	m	class:MLPActorCritic
+act	algos/torch_ppo/core.py	/^    def act(self, obs):$/;"	m	class:ActorCritic
+act	algos/torch_ppo/core.py	/^    def act(self, obs):$/;"	m	class:MLPActorCritic
+act	algos/torch_ppo/core_ind.py	/^    def act(self, obs):$/;"	m	class:ActorCritic
+act	algos/torch_ppo/core_old.py	/^    def act(self, obs):$/;"	m	class:MLPActorCritic
+act	algos/torch_sac/core.py	/^    def act(self, obs, deterministic=False):$/;"	m	class:MLPActorCritic
+act	algos/torch_trpo/core.py	/^    def act(self, obs):$/;"	m	class:ActorCritic
+actions_from_params	algos/torch_ppo/distributions.py	/^    def actions_from_params($/;"	m	class:StateDependentNoiseDistribution
+actions_from_params	algos/torch_ppo/distributions.py	/^    def actions_from_params(self, *args, **kwargs) -> th.Tensor:$/;"	m	class:Distribution
+add	algos/torch_ppo/utils/run_utils.py	/^    def add(self, key, vals, shorthand=None, in_name=False):$/;"	m	class:ExperimentGrid
+add_channel	core/policy_record.py	/^    def add_channel(self, channel_name, **kwargs):$/;"	m	class:PolicyRecord
+add_gaussian_noise	algos/torch_ppo/torch_utils.py	/^def add_gaussian_noise(reward, std):$/;"	f
+add_gaussian_noise	algos/torch_trpo/torch_utils.py	/^def add_gaussian_noise(reward, std):$/;"	f
+add_result	core/policy_record.py	/^    def add_result(self, total_reward, red_blue_damage, red_red_damage, blue_red_damage, ep_len, channel="main",$/;"	m	class:PolicyRecord
+add_sparsity_noise	algos/torch_ppo/torch_utils.py	/^def add_sparsity_noise(reward, p):$/;"	f
+add_sparsity_noise	algos/torch_trpo/torch_utils.py	/^def add_sparsity_noise(reward, p):$/;"	f
+add_uniform_noise	algos/torch_ppo/torch_utils.py	/^def add_uniform_noise(reward, p, high=1., low=-1.):$/;"	f
+add_uniform_noise	algos/torch_trpo/torch_utils.py	/^def add_uniform_noise(reward, p, high=1., low=-1.):$/;"	f
+all_bools	algos/torch_ppo/utils/run_utils.py	/^def all_bools(vals):$/;"	f
+all_rewards	algos/torch_ppo/mappo_old.py	/^all_rewards = []$/;"	v
+allreduce	algos/torch_ppo/utils/mpi_tools.py	/^def allreduce(comm, *args, **kwargs):$/;"	f
+apply_gradients	algos/torch_ppo/utils/mpi_tf.py	/^    def apply_gradients(self, grads_and_vars, global_step=None, name=None):$/;"	m	class:MpiAdamOptimizer
+arg_value	generate_task.py	/^    arg_value = config[arg_name]$/;"	v
+argparse	algos/torch_ppo/ppo.py	/^    import argparse$/;"	i
+argparse	algos/torch_ppo/utils/plot.py	/^    import argparse$/;"	i
+argparse	algos/torch_ppo/utils/run_entrypoint.py	/^    import argparse$/;"	i
+argparse	algos/torch_ppo/utils/test_policy.py	/^    import argparse$/;"	i
+argparse	algos/torch_sac/sac.py	/^    import argparse$/;"	i
+argparse	evaluate_baseline.py	/^import argparse$/;"	i
+argparse	generate_task.py	/^import argparse$/;"	i
+argparse	trainer_config.py	/^import argparse$/;"	i
+argparse	trainer_old.py	/^import argparse$/;"	i
+args	algos/torch_ppo/ppo.py	/^    args = parser.parse_args()$/;"	v	class:PPOPolicy
+args	algos/torch_ppo/utils/run_entrypoint.py	/^    args = parser.parse_args()$/;"	v
+args	algos/torch_ppo/utils/test_policy.py	/^    args = parser.parse_args()$/;"	v
+args	algos/torch_sac/sac.py	/^    args = parser.parse_args()$/;"	v	class:SACPolicy
+args	trainer.py	/^    args = trainer_config.config$/;"	v	class:Trainer
+args	trainer_new.py	/^    args = trainer_config.config$/;"	v	class:Trainer
+args	trainer_old.py	/^    args = trainer_config.config$/;"	v	class:Trainer
+args	trainer_pcpg.py	/^    args = trainer_config.config$/;"	v	class:Trainer
+assign	algos/torch_trpo/matrpo.py	/^from torch.nn.utils import vector_to_parameters as assign$/;"	i
+assign_params_from_flat	algos/torch_ppo/utils/mpi_tf.py	/^def assign_params_from_flat(x, params):$/;"	f
+atanh	algos/torch_ppo/distributions.py	/^    def atanh(x: th.Tensor) -> th.Tensor:$/;"	m	class:TanhBijector
+atexit	algos/torch_ppo/utils/logx.py	/^import os.path as osp, time, atexit, os$/;"	i
+backtrack_fn	algos/torch_trpo/matrpo.py	/^            def backtrack_fn(s):$/;"	f	function:TRPOPolicy.compute_loss_pi.fisher_product
+backtracking_line_search	algos/torch_ppo/torch_utils.py	/^def backtracking_line_search(f, x, expected_improve_rate,$/;"	f
+backtracking_line_search	algos/torch_trpo/torch_utils.py	/^def backtracking_line_search(f, x, expected_improve_rate,$/;"	f
+barriers_for_player	minimap_util.py	/^def barriers_for_player(barriers, reference_tank):$/;"	f
+base64	algos/torch_ppo/utils/run_entrypoint.py	/^import base64$/;"	i
+base64	algos/torch_ppo/utils/run_utils.py	/^import base64$/;"	i
+batch	create_eval_metrics.py	/^        batch = int(policy_folder.split('__H=')[1].split('__')[0])$/;"	v
+batch	evaluate_baseline.py	/^    batch = int(policy_folder.split('__H=')[1].split('__')[0])$/;"	v
+blue	algos/torch_ppo/utils/logx.py	/^    blue=34,$/;"	v
+broadcast	algos/torch_ppo/utils/mpi_pytorch.py	/^from .mpi_tools import broadcast, mpi_avg, num_procs, proc_id$/;"	i
+broadcast	algos/torch_ppo/utils/mpi_tf.py	/^from spinup.utils.mpi_tools import broadcast$/;"	i
+broadcast	algos/torch_ppo/utils/mpi_tools.py	/^def broadcast(comm, x, root=0):$/;"	f
+calc_kl	algos/torch_trpo/core.py	/^    def calc_kl(self, p, q, npg_approx=False, get_mean=True):$/;"	m	class:GaussianActor
+call_experiment	algos/torch_ppo/utils/run_utils.py	/^def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None, $/;"	f
+ceil	algos/torch_ppo/ppo.py	/^from math import ceil, sqrt$/;"	i
+cg_solve	algos/torch_ppo/torch_utils.py	/^def cg_solve(fvp_func, b, nsteps):$/;"	f
+cg_solve	algos/torch_trpo/torch_utils.py	/^def cg_solve(fvp_func, b, nsteps):$/;"	f
+ch	algos/torch_ppo/torch_utils.py	/^import torch as ch$/;"	i
+ch	algos/torch_trpo/torch_utils.py	/^import torch as ch$/;"	i
+check_for_nested_spaces	algos/torch_ppo/vec_env/util.py	/^from stable_baselines3.common.preprocessing import check_for_nested_spaces$/;"	i
+chooseguardworker	env_wrappers.py	/^def chooseguardworker(remote, parent_remote, env_fn_wrapper):$/;"	f
+choosesimpleworker	env_wrappers.py	/^def choosesimpleworker(remote, parent_remote, env_fn_wrapper):$/;"	f
+chooseworker	env_wrappers.py	/^def chooseworker(remote, parent_remote, env_fn_wrapper):$/;"	f
+ckpt_file	create_portable_directory.py	/^                ckpt_file = os.path.join(ckpt_folder, '999999.pth')$/;"	v
+ckpt_folder	create_portable_directory.py	/^                ckpt_folder = os.path.join(ckpt_folder, subfolder1)$/;"	v
+ckpt_folder	create_portable_directory.py	/^                ckpt_folder = os.path.join(ckpt_folder, subfolder2)$/;"	v
+ckpt_folder	create_portable_directory.py	/^                ckpt_folder = os.path.join(main_directory, folder, seed_folder, 'checkpoints')$/;"	v
+clear	algos/torch_ppo/utils/replay.py	/^    def clear(self):$/;"	m	class:Replay
+close	algos/torch_ppo/vec_env/base_vec_env.py	/^    def close(self) -> None:$/;"	m	class:VecEnv
+close	algos/torch_ppo/vec_env/base_vec_env.py	/^    def close(self) -> None:$/;"	m	class:VecEnvWrapper
+close	algos/torch_ppo/vec_env/dummy_vec_env.py	/^    def close(self) -> None:$/;"	m	class:DummyVecEnv
+close	algos/torch_ppo/vec_env/subproc_vec_env.py	/^    def close(self) -> None:$/;"	m	class:SubprocVecEnv
+close	algos/torch_ppo/vec_env/vec_frame_stack.py	/^    def close(self) -> None:$/;"	m	class:VecFrameStack
+close	algos/torch_ppo/vec_env/vec_monitor.py	/^    def close(self) -> None:$/;"	m	class:VecMonitor
+close	algos/torch_ppo/vec_env/vec_transpose.py	/^    def close(self) -> None:$/;"	m	class:VecTransposeImage
+close	algos/torch_ppo/vec_env/vec_video_recorder.py	/^    def close(self) -> None:$/;"	m	class:VecVideoRecorder
+close	env_wrappers.py	/^    def close(self):$/;"	m	class:ChooseDummyVecEnv
+close	env_wrappers.py	/^    def close(self):$/;"	m	class:ChooseGuardSubprocVecEnv
+close	env_wrappers.py	/^    def close(self):$/;"	m	class:ChooseSimpleDummyVecEnv
+close	env_wrappers.py	/^    def close(self):$/;"	m	class:ChooseSimpleSubprocVecEnv
+close	env_wrappers.py	/^    def close(self):$/;"	m	class:ChooseSubprocVecEnv
+close	env_wrappers.py	/^    def close(self):$/;"	m	class:DummyVecEnv
+close	env_wrappers.py	/^    def close(self):$/;"	m	class:GuardSubprocVecEnv
+close	env_wrappers.py	/^    def close(self):$/;"	m	class:ShareDummyVecEnv
+close	env_wrappers.py	/^    def close(self):$/;"	m	class:ShareSubprocVecEnv
+close	env_wrappers.py	/^    def close(self):$/;"	m	class:ShareVecEnv
+close	env_wrappers.py	/^    def close(self):$/;"	m	class:SubprocVecEnv
+close_env	env.py	/^    def close_env(cls):$/;"	m	class:TanksWorldEnv
+close_extras	env_wrappers.py	/^    def close_extras(self):$/;"	m	class:ShareVecEnv
+close_video_recorder	algos/torch_ppo/vec_env/vec_video_recorder.py	/^    def close_video_recorder(self) -> None:$/;"	m	class:VecVideoRecorder
+closed	env_wrappers.py	/^    closed = False$/;"	v	class:ShareVecEnv
+cloudpickle	algos/torch_ppo/utils/run_utils.py	/^import cloudpickle$/;"	i
+cloudpickle	algos/torch_ppo/vec_env/base_vec_env.py	/^import cloudpickle$/;"	i
+cloudpickle	env_wrappers.py	/^        import cloudpickle$/;"	i
+cnn	algos/maddpg/core.py	/^def cnn(observation_space):$/;"	f
+cnn	algos/torch_ppo/core.py	/^def cnn(n_channels):$/;"	f
+cnn	algos/torch_ppo/core_ind.py	/^def cnn(observation_space):$/;"	f
+cnn	algos/torch_ppo/core_old.py	/^def cnn(observation_space):$/;"	f
+cnn	algos/torch_ppo/curiosity.py	/^from .core import cnn$/;"	i
+cnn	algos/torch_sac/core.py	/^def cnn(observation_space):$/;"	f
+cnn	algos/torch_trpo/core.py	/^def cnn(n_channels):$/;"	f
+cnn3	algos/torch_ppo/core_old.py	/^def cnn3():$/;"	f
+cnt	minimap_util.py	/^cnt = 0$/;"	v
+collect_data	algos/torch_ppo/mappo.py	/^    def collect_data(self, episodes_to_run, model_path, actor_critic=core.ActorCritic, ac_kwargs=dict()):$/;"	m	class:PPOPolicy
+collect_data	algos/torch_ppo/mappo_old.py	/^    def collect_data(self, steps_to_run, model_path, actor_critic=core.MLPActorCritic, ac_kwargs=dict()):$/;"	m	class:PPOPolicy
+color2num	algos/torch_ppo/utils/logx.py	/^color2num = dict($/;"	v
+colorize	algos/torch_ppo/utils/logx.py	/^def colorize(string, color, bold=False, highlight=False):$/;"	f
+colorize	algos/torch_ppo/utils/run_utils.py	/^from spinup.utils.logx import colorize$/;"	i
+colorsys	core/plot_utils.py	/^import random, colorsys$/;"	i
+combined_shape	algos/maddpg/core.py	/^def combined_shape(length, shape=None):$/;"	f
+combined_shape	algos/torch_ppo/core.py	/^def combined_shape(length, shape=None):$/;"	f
+combined_shape	algos/torch_ppo/core_ind.py	/^def combined_shape(length, shape=None):$/;"	f
+combined_shape	algos/torch_ppo/core_old.py	/^def combined_shape(length, shape=None):$/;"	f
+combined_shape	algos/torch_sac/core.py	/^def combined_shape(length, shape=None):$/;"	f
+combined_shape	algos/torch_trpo/core.py	/^def combined_shape(length, shape=None):$/;"	f
+combined_shape_v2	algos/torch_ppo/core.py	/^def combined_shape_v2(length, seq_len, shape=None):$/;"	f
+combined_shape_v2	algos/torch_ppo/core_ind.py	/^def combined_shape_v2(length, seq_len, shape=None):$/;"	f
+combined_shape_v2	algos/torch_ppo/core_old.py	/^def combined_shape_v2(length, seq_len, shape=None):$/;"	f
+combined_shape_v2	algos/torch_trpo/core.py	/^def combined_shape_v2(length, seq_len, shape=None):$/;"	f
+combined_shape_v3	algos/torch_ppo/core.py	/^def combined_shape_v3(length, batch_len, seq_len, shape=None):$/;"	f
+combined_shape_v3	algos/torch_ppo/core_ind.py	/^def combined_shape_v3(length, batch_len, seq_len, shape=None):$/;"	f
+combined_shape_v3	algos/torch_ppo/core_old.py	/^def combined_shape_v3(length, batch_len, seq_len, shape=None):$/;"	f
+combined_shape_v3	algos/torch_sac/core.py	/^def combined_shape_v3(length, batch_len, seq_len, shape=None):$/;"	f
+combined_shape_v3	algos/torch_trpo/core.py	/^def combined_shape_v3(length, batch_len, seq_len, shape=None):$/;"	f
+combined_shape_v4	algos/torch_ppo/core_old.py	/^def combined_shape_v4(length, num_envs, num_agents, seq_len, shape=None):$/;"	f
+command	create_eval_metrics.py	/^        command = ['python', 'grid_search_vectorized.py', '--exe', exe,$/;"	v
+command	evaluate_baseline.py	/^    command = ['python', 'trainer.py', '--exe',$/;"	v
+command	generate_task.py	/^command = []$/;"	v
+compute_gradients	algos/torch_ppo/utils/mpi_tf.py	/^    def compute_gradients(self, loss, var_list, **kwargs):$/;"	m	class:MpiAdamOptimizer
+compute_kernel	algos/torch_ppo/mappo_bonus.py	/^    def compute_kernel(self, states, actions):$/;"	m	class:PPOBonusPolicy
+compute_kernel	algos/torch_ppo/pcpg.py	/^    def compute_kernel(self, states, actions):$/;"	m	class:PCPGPolicy
+compute_loss_entropy	algos/torch_ppo/mappo.py	/^    def compute_loss_entropy(self, data):$/;"	m	class:PPOPolicy
+compute_loss_entropy	algos/torch_ppo/mappo_old.py	/^    def compute_loss_entropy(self, data):$/;"	m	class:PPOPolicy
+compute_loss_pi	algos/maddpg/maddpg.py	/^    def compute_loss_pi(self, data):$/;"	m	class:MADDPGPolicy
+compute_loss_pi	algos/torch_ppo/coppo.py	/^    def compute_loss_pi(self, data, clip_ratio_1, clip_ratio_2):$/;"	m	class:PPOPolicy
+compute_loss_pi	algos/torch_ppo/ippo.py	/^    def compute_loss_pi(self, data, clip_ratio, agent_idx):$/;"	m	class:PPOPolicy
+compute_loss_pi	algos/torch_ppo/mappo.py	/^    def compute_loss_pi(self, data, clip_ratio):$/;"	m	class:PPOPolicy
+compute_loss_pi	algos/torch_ppo/mappo_old.py	/^    def compute_loss_pi(self, data, clip_ratio):$/;"	m	class:PPOPolicy
+compute_loss_pi	algos/torch_ppo/ppo.py	/^        def compute_loss_pi(data):$/;"	f	function:PPOPolicy.learn
+compute_loss_pi	algos/torch_sac/sac.py	/^        def compute_loss_pi(data):$/;"	f	function:SACPolicy.learn
+compute_loss_pi	algos/torch_sac/sac_new.py	/^    def compute_loss_pi(self, data, alpha):$/;"	m	class:SACPolicy
+compute_loss_pi	algos/torch_trpo/matrpo.py	/^    def compute_loss_pi(self, data, fisher_frac_samples, damping, cg_steps, max_kl, max_backtrack):$/;"	m	class:TRPOPolicy
+compute_loss_q	algos/maddpg/maddpg.py	/^    def compute_loss_q(self, data, gamma):$/;"	m	class:MADDPGPolicy
+compute_loss_q	algos/torch_sac/sac.py	/^        def compute_loss_q(data):$/;"	f	function:SACPolicy.learn
+compute_loss_q	algos/torch_sac/sac_new.py	/^    def compute_loss_q(self, data, gamma, alpha):$/;"	m	class:SACPolicy
+compute_loss_rnd	algos/torch_ppo/mappo.py	/^    def compute_loss_rnd(self, data):$/;"	m	class:PPOPolicy
+compute_loss_v	algos/torch_ppo/coppo.py	/^    def compute_loss_v(self, data):$/;"	m	class:PPOPolicy
+compute_loss_v	algos/torch_ppo/ippo.py	/^    def compute_loss_v(self, data):$/;"	m	class:PPOPolicy
+compute_loss_v	algos/torch_ppo/mappo.py	/^    def compute_loss_v(self, data):$/;"	m	class:PPOPolicy
+compute_loss_v	algos/torch_ppo/mappo_old.py	/^    def compute_loss_v(self, data, value_clip=-1):$/;"	m	class:PPOPolicy
+compute_loss_v	algos/torch_ppo/matrpo.py	/^    def compute_loss_v(self, data):$/;"	m	class:TRPOPolicy
+compute_loss_v	algos/torch_ppo/ppo.py	/^        def compute_loss_v(data):$/;"	f	function:PPOPolicy.learn
+compute_loss_v	algos/torch_trpo/matrpo.py	/^    def compute_loss_v(self, data):$/;"	m	class:TRPOPolicy
+compute_returns_and_advantage	algos/torch_ppo/mappo_old.py	/^    def compute_returns_and_advantage(self, last_val, dones):$/;"	m	class:RolloutBuffer
+compute_reward_bonus	algos/torch_ppo/mappo_bonus.py	/^    def compute_reward_bonus(self, states, actions):$/;"	m	class:PPOBonusPolicy
+compute_reward_bonus	algos/torch_ppo/pcpg.py	/^    def compute_reward_bonus(self, states, actions):$/;"	m	class:PCPGPolicy
+compute_stacking	algos/torch_ppo/vec_env/stacked_observations.py	/^    def compute_stacking($/;"	m	class:StackedObservations
+config	generate_task.py	/^config = vars(parser.parse_args())$/;"	v
+config	trainer_config.py	/^config = vars(parser.parse_args())$/;"	v
+conjugate_gradients	algos/torch_ppo/matrpo.py	/^    def conjugate_gradients(Avp, b, nsteps, residual_tol=1e-10):$/;"	m	class:TRPOPolicy
+continuous_uniform_prob	algos/torch_ppo/pcpg.py	/^    def continuous_uniform_prob(self):$/;"	m	class:PCPGPolicy
+convert_json	algos/torch_ppo/utils/logx.py	/^from .serialization_utils import convert_json$/;"	i
+convert_json	algos/torch_ppo/utils/run_utils.py	/^from spinup.utils.serialization_utils import convert_json$/;"	i
+convert_json	algos/torch_ppo/utils/serialization_utils.py	/^def convert_json(obj):$/;"	f
+copy	algos/torch_ppo/pcpg.py	/^import copy$/;"	i
+copy	core/policy_record.py	/^from shutil import copy$/;"	i
+copy_obs_dict	algos/torch_ppo/vec_env/dummy_vec_env.py	/^from .util import copy_obs_dict, dict_to_obs, obs_space_info$/;"	i
+copy_obs_dict	algos/torch_ppo/vec_env/util.py	/^def copy_obs_dict(obs: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:$/;"	f
+core	algos/maddpg/maddpg.py	/^from . import core$/;"	i
+core	algos/torch_ppo/coppo.py	/^from . import core_ind as core$/;"	i
+core	algos/torch_ppo/ippo.py	/^from . import core_ind as core$/;"	i
+core	algos/torch_ppo/mappo.py	/^from . import core$/;"	i
+core	algos/torch_ppo/mappo_bonus.py	/^from . import core$/;"	i
+core	algos/torch_ppo/mappo_old.py	/^from . import core$/;"	i
+core	algos/torch_ppo/matrpo.py	/^from . import core$/;"	i
+core	algos/torch_ppo/pcpg.py	/^from . import core$/;"	i
+core	algos/torch_ppo/ppo.py	/^from . import core$/;"	i
+core	algos/torch_sac/sac.py	/^from . import core$/;"	i
+core	algos/torch_sac/sac_new.py	/^from . import core$/;"	i
+core	algos/torch_trpo/matrpo.py	/^from . import core$/;"	i
+count_needed_procs	core/stems.py	/^from arena5.core.utils import mpi_print, count_needed_procs$/;"	i
+count_vars	algos/maddpg/core.py	/^def count_vars(module):$/;"	f
+count_vars	algos/torch_ppo/core_old.py	/^def count_vars(module):$/;"	f
+count_vars	algos/torch_sac/core.py	/^def count_vars(module):$/;"	f
+cpu_tensorize	algos/torch_ppo/torch_utils.py	/^def cpu_tensorize(t):$/;"	f
+cpu_tensorize	algos/torch_trpo/torch_utils.py	/^def cpu_tensorize(t):$/;"	f
+crimson	algos/torch_ppo/utils/logx.py	/^    crimson=38$/;"	v
+cu_tensorize	algos/torch_ppo/torch_utils.py	/^def cu_tensorize(t):$/;"	f
+cu_tensorize	algos/torch_trpo/torch_utils.py	/^def cu_tensorize(t):$/;"	f
+cuda_idx	generate_task.py	/^cuda_idx = config['cuda_idx']$/;"	v
+cv2	algos/torch_ppo/coppo.py	/^import cv2$/;"	i
+cv2	algos/torch_ppo/mappo.py	/^import cv2$/;"	i
+cv2	algos/torch_ppo/mappo_bonus.py	/^import cv2$/;"	i
+cv2	algos/torch_ppo/matrpo.py	/^import cv2$/;"	i
+cv2	algos/torch_ppo/ppo.py	/^import cv2$/;"	i
+cv2	algos/torch_ppo/vec_env/base_vec_env.py	/^            import cv2  # pytype:disable=import-error$/;"	i
+cv2	algos/torch_trpo/matrpo.py	/^import cv2$/;"	i
+cv2	env.py	/^import cv2$/;"	i
+cv2	minimap_util.py	/^import cv2$/;"	i
+cyan	algos/torch_ppo/utils/logx.py	/^    cyan=36,$/;"	v
+datetime	algos/torch_ppo/ppo.py	/^from datetime import datetime$/;"	i
+debiased_mean_var	algos/torch_ppo/core_old.py	/^    def debiased_mean_var(self):$/;"	m	class:PopArt
+dedent	algos/torch_ppo/utils/run_utils.py	/^from textwrap import dedent$/;"	i
+deepcopy	algos/maddpg/maddpg.py	/^from copy import deepcopy$/;"	i
+deepcopy	algos/torch_ppo/utils/run_utils.py	/^from copy import deepcopy$/;"	i
+deepcopy	algos/torch_ppo/vec_env/__init__.py	/^from copy import deepcopy$/;"	i
+deepcopy	algos/torch_ppo/vec_env/dummy_vec_env.py	/^from copy import deepcopy$/;"	i
+deepcopy	algos/torch_ppo/vec_env/vec_normalize.py	/^from copy import deepcopy$/;"	i
+deepcopy	algos/torch_ppo/vec_env/vec_transpose.py	/^from copy import deepcopy$/;"	i
+deepcopy	algos/torch_sac/sac.py	/^from copy import deepcopy$/;"	i
+deepcopy	algos/torch_sac/sac_new.py	/^from copy import deepcopy$/;"	i
+denormalize	algos/torch_ppo/core_old.py	/^    def denormalize(self, input_vector):$/;"	m	class:PopArt
+denormalize	algos/torch_ppo/mappo_utils/valuenorm.py	/^    def denormalize(self, input_vector):$/;"	m	class:ValueNorm
+determinant	algos/torch_ppo/torch_utils.py	/^def determinant(mat):$/;"	f
+determinant	algos/torch_trpo/torch_utils.py	/^def determinant(mat):$/;"	f
+device	algos/torch_ppo/coppo.py	/^device = torch.device('cuda')$/;"	v
+device	algos/torch_ppo/ippo.py	/^device = torch.device('cuda')$/;"	v
+device	algos/torch_ppo/mappo.py	/^device = torch.device('cuda')$/;"	v
+device	algos/torch_ppo/mappo_bonus.py	/^device = torch.device('cuda')$/;"	v
+device	algos/torch_ppo/mappo_old.py	/^device = torch.device('cuda')$/;"	v
+device	algos/torch_ppo/matrpo.py	/^device = torch.device('cuda')$/;"	v
+device	algos/torch_ppo/pcpg.py	/^device = torch.device('cuda')$/;"	v
+device	algos/torch_ppo/ppo.py	/^device = torch.device('cpu')$/;"	v
+device	algos/torch_trpo/matrpo.py	/^device = torch.device('cuda')$/;"	v
+dict_to_obs	algos/torch_ppo/vec_env/dummy_vec_env.py	/^from .util import copy_obs_dict, dict_to_obs, obs_space_info$/;"	i
+dict_to_obs	algos/torch_ppo/vec_env/util.py	/^def dict_to_obs(obs_space: gym.spaces.Space, obs_dict: Dict[Any, np.ndarray]) -> VecEnvObs:$/;"	f
+disable	algos/torch_ppo/vec_env/base_vec_env.py	/^            import cv2  # pytype:disable=import-error$/;"	i
+discount_cumsum	algos/torch_ppo/core.py	/^def discount_cumsum(x, discount):$/;"	f
+discount_cumsum	algos/torch_ppo/core_ind.py	/^def discount_cumsum(x, discount):$/;"	f
+discount_cumsum	algos/torch_ppo/core_old.py	/^def discount_cumsum(x, discount):$/;"	f
+discount_cumsum	algos/torch_trpo/core.py	/^def discount_cumsum(x, discount):$/;"	f
+discount_path	algos/torch_ppo/torch_utils.py	/^def discount_path(path, h):$/;"	f
+discount_path	algos/torch_trpo/torch_utils.py	/^def discount_path(path, h):$/;"	f
+display_cvimage	minimap_util.py	/^def display_cvimage(window_name, img):$/;"	f
+displayable_rgb_map	minimap_util.py	/^def displayable_rgb_map(minimap):$/;"	f
+distance_to_closest_enemy	algos/torch_ppo/heuristics.py	/^def distance_to_closest_enemy(state_vector, observation, num_agents=5):$/;"	f
+draw_arrow	minimap_util.py	/^def draw_arrow(image, x, y, heading, health):$/;"	f
+draw_bullet	minimap_util.py	/^def draw_bullet(image, x, y):$/;"	f
+draw_tanks_in_channel	minimap_util.py	/^def draw_tanks_in_channel(tank_data, reference_tank):$/;"	f
+draw_tanks_in_channel_v2	minimap_util.py	/^def draw_tanks_in_channel_v2(tank_data):$/;"	f
+dump_tabular	algos/torch_ppo/utils/logx.py	/^    def dump_tabular(self):$/;"	m	class:Logger
+empty	algos/torch_ppo/utils/replay.py	/^    def empty(self):$/;"	m	class:Replay
+entropy	algos/torch_ppo/distributions.py	/^    def entropy(self) -> Optional[th.Tensor]:$/;"	m	class:Distribution
+entropy	algos/torch_ppo/distributions.py	/^    def entropy(self) -> Optional[th.Tensor]:$/;"	m	class:StateDependentNoiseDistribution
+env	env.py	/^    env = TanksWorldEnv($/;"	v	class:TanksWorldStackedEnv
+env_is_wrapped	algos/torch_ppo/vec_env/base_vec_env.py	/^    def env_is_wrapped(self, wrapper_class: Type[gym.Wrapper], indices: VecEnvIndices = None) -> List[bool]:$/;"	m	class:VecEnv
+env_is_wrapped	algos/torch_ppo/vec_env/base_vec_env.py	/^    def env_is_wrapped(self, wrapper_class: Type[gym.Wrapper], indices: VecEnvIndices = None) -> List[bool]:$/;"	m	class:VecEnvWrapper
+env_is_wrapped	algos/torch_ppo/vec_env/dummy_vec_env.py	/^    def env_is_wrapped(self, wrapper_class: Type[gym.Wrapper], indices: VecEnvIndices = None) -> List[bool]:$/;"	m	class:DummyVecEnv
+env_is_wrapped	algos/torch_ppo/vec_env/subproc_vec_env.py	/^    def env_is_wrapped(self, wrapper_class: Type[gym.Wrapper], indices: VecEnvIndices = None) -> List[bool]:$/;"	m	class:SubprocVecEnv
+env_method	algos/torch_ppo/vec_env/base_vec_env.py	/^    def env_method(self, method_name: str, *method_args, indices: VecEnvIndices = None, **method_kwargs) -> List[Any]:$/;"	m	class:VecEnv
+env_method	algos/torch_ppo/vec_env/base_vec_env.py	/^    def env_method(self, method_name: str, *method_args, indices: VecEnvIndices = None, **method_kwargs) -> List[Any]:$/;"	m	class:VecEnvWrapper
+env_method	algos/torch_ppo/vec_env/dummy_vec_env.py	/^    def env_method(self, method_name: str, *method_args, indices: VecEnvIndices = None, **method_kwargs) -> List[Any]:$/;"	m	class:DummyVecEnv
+env_method	algos/torch_ppo/vec_env/subproc_vec_env.py	/^    def env_method(self, method_name: str, *method_args, indices: VecEnvIndices = None, **method_kwargs) -> List[Any]:$/;"	m	class:SubprocVecEnv
+env_util	algos/torch_ppo/vec_env/dummy_vec_env.py	/^        from stable_baselines3.common import env_util$/;"	i
+error	algos/torch_ppo/vec_env/base_vec_env.py	/^            import cv2  # pytype:disable=import-error$/;"	i
+evaluate	algos/torch_ppo/ippo.py	/^    def evaluate(self, steps_to_run, model_path, actor_critic=core.ActorCritic, ac_kwargs=dict()):$/;"	m	class:PPOPolicy
+evaluate	algos/torch_ppo/mappo.py	/^    def evaluate(self, episodes_to_run, model_path, num_envs=10, actor_critic=core.ActorCritic, ac_kwargs=dict()):$/;"	m	class:PPOPolicy
+evaluate	algos/torch_ppo/mappo_old.py	/^    def evaluate(self, steps_to_run, model_path, actor_critic=core.MLPActorCritic, ac_kwargs=dict()):$/;"	m	class:PPOPolicy
+evaluate	algos/torch_ppo/ppo.py	/^    def evaluate(self, policy_record, total_timesteps, ac=None, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), **kargs):$/;"	m	class:PPOPolicy
+evaluate	algos/torch_sac/sac.py	/^    def evaluate(self, policy_record, total_timesteps, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), **kargs):$/;"	m	class:SACPolicy
+evaluate_modified	algos/torch_ppo/matrpo.py	/^    def evaluate_modified(self, steps_to_run, model_path, actor_critic=core.MLPActorCritic, ac_kwargs=dict()):$/;"	m	class:TRPOPolicy
+evaluate_policy	algos/torch_ppo/callbacks.py	/^    def evaluate_policy(self, model_state_dict, device, step=0):$/;"	m	class:EvalCallback
+evaluated	evaluate_baseline.py	/^evaluated = []$/;"	v
+evaluated_params	create_eval_metrics.py	/^    evaluated_params = pickle.load(f)$/;"	v
+exe	create_eval_metrics.py	/^exe = '\/home\/telgin1\/ai-safety-challenge\/exe\/aisafetytanks_017_headless\/aisafetytanks_017_headless.x86_64'$/;"	v
+exe	env.py	/^    exe = "\/home\/rivercg1\/projects\/aisafety\/git\/ai-safety-challenge\/exe\/aisafetytanks_017_headless\/aisafetytanks_017_headless.x86_64"$/;"	v	class:TanksWorldStackedEnv
+exp_idx	algos/torch_ppo/utils/plot.py	/^exp_idx = 0$/;"	v
+extract_features	algos/torch_ppo/core_old.py	/^    def extract_features(self, obs):$/;"	m	class:MLPCentralCritic
+extract_features	algos/torch_ppo/core_old.py	/^    def extract_features(self, obs):$/;"	m	class:MLPCentralCritic_v2
+feed	algos/torch_ppo/utils/replay.py	/^    def feed(self, experience):$/;"	m	class:Replay
+feed_batch	algos/torch_ppo/utils/replay.py	/^    def feed_batch(self, experience):$/;"	m	class:Replay
+finish_path	algos/torch_ppo/coppo.py	/^    def finish_path(self, last_val):$/;"	m	class:RolloutBuffer
+finish_path	algos/torch_ppo/ippo.py	/^    def finish_path(self, last_val):$/;"	m	class:RolloutBuffer
+finish_path	algos/torch_ppo/mappo.py	/^    def finish_path(self, last_val, env_idx):$/;"	m	class:RolloutBuffer
+finish_path	algos/torch_ppo/mappo_old.py	/^    def finish_path(self, last_val, env_idx):$/;"	m	class:RolloutBuffer
+finish_path	algos/torch_ppo/matrpo.py	/^    def finish_path(self, last_val, env_idx):$/;"	m	class:RolloutBuffer
+finish_path	algos/torch_ppo/pcpg.py	/^    def finish_path(self, last_val, env_idx):$/;"	m	class:RolloutBuffer
+finish_path	algos/torch_ppo/ppo.py	/^    def finish_path(self, last_val=0):$/;"	m	class:PPOBuffer
+finish_path	algos/torch_trpo/matrpo.py	/^    def finish_path(self, last_val, env_idx):$/;"	m	class:RolloutBuffer
+fisher_product	algos/torch_trpo/matrpo.py	/^        def fisher_product(x, damp_coef=1.):$/;"	f	function:TRPOPolicy.compute_loss_pi
+flat_concat	algos/torch_ppo/utils/mpi_tf.py	/^def flat_concat(xs):$/;"	f
+flatten	algos/torch_trpo/matrpo.py	/^from torch.nn.utils import parameters_to_vector as flatten$/;"	i
+flatten_lists	algos/torch_ppo/ppo.py	/^from stable_baselines.trpo_mpi.utils import flatten_lists$/;"	i
+flatten_lists	algos/torch_sac/sac.py	/^from stable_baselines.trpo_mpi.utils import flatten_lists$/;"	i
+folder_	create_portable_directory.py	/^                folder_ = folder.replace('cons', '')$/;"	v
+folder_	create_portable_directory.py	/^                folder_ = folder_.replace('H=128__', 'H=128')$/;"	v
+folder_	create_portable_directory.py	/^                folder_ = folder_.replace('H=16__', 'H=16')$/;"	v
+folder_	create_portable_directory.py	/^                folder_ = folder_.replace('H=32__', 'H=32')$/;"	v
+folder_	create_portable_directory.py	/^                folder_ = folder_.replace('H=64__', 'H=64')$/;"	v
+folder_	create_portable_directory.py	/^                folder_ = folder_.replace('H=8__', 'H=8')$/;"	v
+folder_	create_portable_directory.py	/^                folder_ = folder_.replace('ff=0.0__', '')$/;"	v
+folder_	create_portable_directory.py	/^                folder_ = folder_.replace('ff=0.5__', '')$/;"	v
+folder_	create_portable_directory.py	/^                folder_ = folder_.replace('ff=1.0__', '')$/;"	v
+fork	core/policy_record.py	/^    def fork(self, new_id):$/;"	m	class:PolicyRecord
+forward	algos/maddpg/core.py	/^    def forward(self, obs):$/;"	m	class:MLPActor
+forward	algos/maddpg/core.py	/^    def forward(self, obs, act):$/;"	m	class:MLPQFunction
+forward	algos/torch_ppo/core.py	/^    def forward(self, obs):$/;"	m	class:CentralizedCritic
+forward	algos/torch_ppo/core.py	/^    def forward(self, obs):$/;"	m	class:CentralizedCritic_v2
+forward	algos/torch_ppo/core.py	/^    def forward(self, obs):$/;"	m	class:Critic
+forward	algos/torch_ppo/core.py	/^    def forward(self, obs):$/;"	m	class:MLPCritic
+forward	algos/torch_ppo/core.py	/^    def forward(self, obs):$/;"	m	class:RNDNetwork
+forward	algos/torch_ppo/core.py	/^    def forward(self, obs, act=None):$/;"	m	class:Actor
+forward	algos/torch_ppo/core.py	/^    def forward(self, obs, act=None):$/;"	m	class:BetaActor
+forward	algos/torch_ppo/core_ind.py	/^    def forward(self, obs):$/;"	m	class:Critic
+forward	algos/torch_ppo/core_ind.py	/^    def forward(self, obs, act=None):$/;"	m	class:Actor
+forward	algos/torch_ppo/core_old.py	/^    def forward(self, input_vector):$/;"	m	class:PopArt
+forward	algos/torch_ppo/core_old.py	/^    def forward(self, obs):$/;"	m	class:MLPCentralCritic
+forward	algos/torch_ppo/core_old.py	/^    def forward(self, obs):$/;"	m	class:MLPCentralCritic_v2
+forward	algos/torch_ppo/core_old.py	/^    def forward(self, obs):$/;"	m	class:MLPCritic
+forward	algos/torch_ppo/core_old.py	/^    def forward(self, obs, act=None):$/;"	m	class:Actor
+forward	algos/torch_ppo/core_old.py	/^    def forward(self, obs, act=None):$/;"	m	class:MLPBetaActor
+forward	algos/torch_ppo/core_old.py	/^    def forward(self, obs, action, next_obs):$/;"	m	class:ICM
+forward	algos/torch_ppo/curiosity.py	/^    def forward(self, obs, action, next_obs):$/;"	m	class:ForwardBackwardModel
+forward	algos/torch_ppo/curiosity.py	/^    def forward(self, obs, action, next_obs):$/;"	m	class:ForwardModel
+forward	algos/torch_ppo/curiosity.py	/^    def forward(self, obs, next_obs):$/;"	m	class:BackwardModel
+forward	algos/torch_ppo/distributions.py	/^    def forward(x: th.Tensor) -> th.Tensor:$/;"	m	class:TanhBijector
+forward	algos/torch_ppo/noisy.py	/^    def forward(self, input):$/;"	m	class:NoisyLinear
+forward	algos/torch_ppo/norm.py	/^    def forward(self, input):$/;"	m	class:LayerNorm
+forward	algos/torch_ppo/rnn.py	/^    def forward(self, x, h):$/;"	m	class:GRUNet
+forward	algos/torch_sac/core.py	/^    def forward(self, obs, act):$/;"	m	class:MLPQFunction
+forward	algos/torch_sac/core.py	/^    def forward(self, obs, deterministic=False, with_logprob=True):$/;"	m	class:SquashedGaussianMLPActor
+forward	algos/torch_trpo/core.py	/^    def forward(self, obs):$/;"	m	class:CentralizedCritic
+forward	algos/torch_trpo/core.py	/^    def forward(self, obs):$/;"	m	class:CentralizedCritic_v2
+forward	algos/torch_trpo/core.py	/^    def forward(self, obs):$/;"	m	class:Critic
+forward	algos/torch_trpo/core.py	/^    def forward(self, obs):$/;"	m	class:RNDNetwork
+forward	algos/torch_trpo/core.py	/^    def forward(self, obs, act=None):$/;"	m	class:Actor
+forward	algos/torch_trpo/core.py	/^    def forward(self, obs, act=None):$/;"	m	class:BetaActor
+gather_trajectories	algos/torch_ppo/mappo_bonus.py	/^    def gather_trajectories(self, batch_size):$/;"	m	class:PPOBonusPolicy
+gather_trajectories	algos/torch_ppo/pcpg.py	/^    def gather_trajectories(self, roll_in=True, add_bonus_reward=True, mode=None, record_return=False):$/;"	m	class:PCPGPolicy
+get	algos/torch_ppo/coppo.py	/^    def get(self):$/;"	m	class:RolloutBuffer
+get	algos/torch_ppo/ippo.py	/^    def get(self):$/;"	m	class:RolloutBuffer
+get	algos/torch_ppo/mappo.py	/^    def get(self):$/;"	m	class:RolloutBuffer
+get	algos/torch_ppo/mappo_old.py	/^    def get(self):$/;"	m	class:RolloutBuffer
+get	algos/torch_ppo/matrpo.py	/^    def get(self):$/;"	m	class:RolloutBuffer
+get	algos/torch_ppo/pcpg.py	/^    def get(self):$/;"	m	class:RolloutBuffer
+get	algos/torch_ppo/ppo.py	/^    def get(self, comm):$/;"	m	class:PPOBuffer
+get	algos/torch_trpo/matrpo.py	/^    def get(self):$/;"	m	class:RolloutBuffer
+get_action	algos/maddpg/maddpg.py	/^    def get_action(self, o, noise_scale):$/;"	m	class:MADDPGPolicy
+get_action	algos/torch_ppo/utils/test_policy.py	/^    def get_action(x):$/;"	f	function:load_pytorch_policy
+get_action	algos/torch_sac/sac.py	/^        def get_action(o, deterministic=False):$/;"	f	function:SACPolicy.learn
+get_action	algos/torch_sac/sac_new.py	/^    def get_action(self, obs, deterministic=False):$/;"	m	class:SACPolicy
+get_actions	algos/torch_ppo/distributions.py	/^    def get_actions(self, deterministic: bool = False) -> th.Tensor:$/;"	m	class:Distribution
+get_all_datasets	algos/torch_ppo/utils/plot.py	/^def get_all_datasets(all_logdirs, legend=None, select=None, exclude=None):$/;"	f
+get_ally_heuristic	algos/torch_ppo/heuristics.py	/^def get_ally_heuristic(state_vector):$/;"	f
+get_ally_heuristic	algos/torch_ppo/mappo_old.py	/^    def get_ally_heuristic(self, state_vector, obs):$/;"	m	class:PPOPolicy
+get_ally_heuristic_2	algos/torch_ppo/heuristics.py	/^def get_ally_heuristic_2(state_vector):$/;"	f
+get_ally_heuristic_2	algos/torch_ppo/mappo_old.py	/^    def get_ally_heuristic_2(self, state_vector, obs):$/;"	m	class:PPOPolicy
+get_attr	algos/torch_ppo/vec_env/base_vec_env.py	/^    def get_attr(self, attr_name: str, indices: VecEnvIndices = None) -> List[Any]:$/;"	m	class:VecEnv
+get_attr	algos/torch_ppo/vec_env/base_vec_env.py	/^    def get_attr(self, attr_name: str, indices: VecEnvIndices = None) -> List[Any]:$/;"	m	class:VecEnvWrapper
+get_attr	algos/torch_ppo/vec_env/dummy_vec_env.py	/^    def get_attr(self, attr_name: str, indices: VecEnvIndices = None) -> List[Any]:$/;"	m	class:DummyVecEnv
+get_attr	algos/torch_ppo/vec_env/subproc_vec_env.py	/^    def get_attr(self, attr_name: str, indices: VecEnvIndices = None) -> List[Any]:$/;"	m	class:SubprocVecEnv
+get_copy	core/policy_record.py	/^    def get_copy(self):$/;"	m	class:RecordChannel
+get_datasets	algos/torch_ppo/utils/plot.py	/^def get_datasets(logdir, condition=None):$/;"	f
+get_dir_for_policy	core/policy_record.py	/^def get_dir_for_policy(policy_id, log_comms_dir):$/;"	f
+get_dir_for_policy	core/stems.py	/^from core.policy_record import PolicyRecord, get_dir_for_policy$/;"	i
+get_enemy_heuristic	algos/torch_ppo/heuristics.py	/^def get_enemy_heuristic(state_vector):$/;"	f
+get_folder_name	trainer.py	/^    def get_folder_name(self):$/;"	m	class:Trainer
+get_folder_name	trainer_new.py	/^    def get_folder_name(self):$/;"	m	class:Trainer
+get_folder_name	trainer_old.py	/^    def get_folder_name(self):$/;"	m	class:Trainer
+get_folder_name	trainer_pcpg.py	/^    def get_folder_name(self):$/;"	m	class:Trainer
+get_images	algos/torch_ppo/vec_env/base_vec_env.py	/^    def get_images(self) -> Sequence[np.ndarray]:$/;"	m	class:VecEnv
+get_images	algos/torch_ppo/vec_env/base_vec_env.py	/^    def get_images(self) -> Sequence[np.ndarray]:$/;"	m	class:VecEnvWrapper
+get_images	algos/torch_ppo/vec_env/dummy_vec_env.py	/^    def get_images(self) -> Sequence[np.ndarray]:$/;"	m	class:DummyVecEnv
+get_images	algos/torch_ppo/vec_env/subproc_vec_env.py	/^    def get_images(self) -> Sequence[np.ndarray]:$/;"	m	class:SubprocVecEnv
+get_images	env_wrappers.py	/^    def get_images(self):$/;"	m	class:ShareVecEnv
+get_loglikelihood	algos/torch_trpo/core.py	/^    def get_loglikelihood(self, p, actions):$/;"	m	class:GaussianActor
+get_lr	algos/torch_ppo/ppo.py	/^    def get_lr(self):$/;"	m	class:LinearLR
+get_noise	algos/torch_ppo/distributions.py	/^    def get_noise(self, latent_sde: th.Tensor) -> th.Tensor:$/;"	m	class:StateDependentNoiseDistribution
+get_obstacles_bound_boxes	env.py	/^    def get_obstacles_bound_boxes(self):$/;"	m	class:TanksWorldEnv
+get_original_obs	algos/torch_ppo/vec_env/vec_normalize.py	/^    def get_original_obs(self) -> Union[np.ndarray, Dict[str, np.ndarray]]:$/;"	m	class:VecNormalize
+get_original_reward	algos/torch_ppo/vec_env/vec_normalize.py	/^    def get_original_reward(self) -> np.ndarray:$/;"	m	class:VecNormalize
+get_params	algos/torch_ppo/core_old.py	/^    def get_params(self, obs):$/;"	m	class:MLPBetaActor
+get_path_indices	algos/torch_ppo/torch_utils.py	/^def get_path_indices(not_dones):$/;"	f
+get_path_indices	algos/torch_trpo/torch_utils.py	/^def get_path_indices(not_dones):$/;"	f
+get_policy_parameters	algos/torch_trpo/matrpo.py	/^    def get_policy_parameters(self):$/;"	m	class:TRPOPolicy
+get_policy_params	trainer.py	/^    def get_policy_params(self):$/;"	m	class:Trainer
+get_policy_params	trainer_new.py	/^    def get_policy_params(self):$/;"	m	class:Trainer
+get_policy_params	trainer_old.py	/^    def get_policy_params(self):$/;"	m	class:Trainer
+get_policy_params	trainer_pcpg.py	/^    def get_policy_params(self):$/;"	m	class:Trainer
+get_state	env.py	/^    def get_state(self):$/;"	m	class:TanksWorldEnv
+get_state	env.py	/^    def get_state(self):$/;"	m	class:TanksWorldStackedEnv
+get_state_vector	env.py	/^    def get_state_vector(self):$/;"	m	class:TanksWorldEnv
+get_state_vector_v2	env.py	/^    def get_state_vector_v2(self):#State vector with obstackles$/;"	m	class:TanksWorldEnv
+get_stats	algos/torch_ppo/utils/logx.py	/^    def get_stats(self, key):$/;"	m	class:EpochLogger
+get_std	algos/torch_ppo/distributions.py	/^    def get_std(self, log_std: th.Tensor) -> th.Tensor:$/;"	m	class:StateDependentNoiseDistribution
+get_val	algos/torch_ppo/utils/run_utils.py	/^        def get_val(v, k):$/;"	f	function:ExperimentGrid.variant_name
+get_viewer	env_wrappers.py	/^    def get_viewer(self):$/;"	m	class:ShareVecEnv
+getattr_depth_check	algos/torch_ppo/vec_env/base_vec_env.py	/^    def getattr_depth_check(self, name: str, already_found: bool) -> Optional[str]:$/;"	m	class:VecEnv
+getattr_depth_check	algos/torch_ppo/vec_env/base_vec_env.py	/^    def getattr_depth_check(self, name: str, already_found: bool) -> str:$/;"	m	class:VecEnvWrapper
+getattr_recursive	algos/torch_ppo/vec_env/base_vec_env.py	/^    def getattr_recursive(self, name: str) -> Any:$/;"	m	class:VecEnvWrapper
+gpu_mapper	algos/torch_ppo/torch_utils.py	/^def gpu_mapper():$/;"	f
+gpu_mapper	algos/torch_trpo/torch_utils.py	/^def gpu_mapper():$/;"	f
+gray	algos/torch_ppo/utils/logx.py	/^    gray=30,$/;"	v
+green	algos/torch_ppo/utils/logx.py	/^    green=32,$/;"	v
+gym	algos/maddpg/maddpg.py	/^import gym$/;"	i
+gym	algos/torch_ppo/distributions.py	/^import gym$/;"	i
+gym	algos/torch_ppo/mappo.py	/^import gym$/;"	i
+gym	algos/torch_ppo/ppo.py	/^import gym$/;"	i
+gym	algos/torch_ppo/utils/run_utils.py	/^            import gym$/;"	i
+gym	algos/torch_ppo/vec_env/base_vec_env.py	/^import gym$/;"	i
+gym	algos/torch_ppo/vec_env/dummy_vec_env.py	/^import gym$/;"	i
+gym	algos/torch_ppo/vec_env/subproc_vec_env.py	/^import gym$/;"	i
+gym	algos/torch_ppo/vec_env/util.py	/^import gym$/;"	i
+gym	algos/torch_ppo/vec_env/vec_normalize.py	/^import gym$/;"	i
+gym	algos/torch_sac/sac.py	/^import gym$/;"	i
+gym	algos/torch_sac/sac_new.py	/^import gym$/;"	i
+gym	env.py	/^import gym$/;"	i
+gym	trainer.py	/^import gym$/;"	i
+h	minimap_util.py	/^        h = 0$/;"	v
+hp	minimap_util.py	/^        hp = 100.0$/;"	v
+huber_loss	algos/torch_ppo/mappo_utils/util.py	/^def huber_loss(e, d):$/;"	f
+huber_loss	algos/torch_ppo/ppo.py	/^from algos.torch_ppo.mappo_utils.util import huber_loss$/;"	i
+import	algos/torch_ppo/vec_env/base_vec_env.py	/^            import cv2  # pytype:disable=import-error$/;"	i
+init_	trainer.py	/^                            def init_():$/;"	f	function:Trainer.set_eval_env.make_env_
+init_	trainer.py	/^                            def init_():$/;"	f	function:Trainer.set_eval_env.make_env_gym
+init_	trainer.py	/^                            def init_():$/;"	f	function:Trainer.set_training_env.make_env_
+init_	trainer.py	/^                            def init_():$/;"	f	function:Trainer.set_training_env.make_env_gym
+init_	trainer.py	/^                        def init_():$/;"	f	function:Trainer.set_eval_env.make_env_
+init_	trainer.py	/^                        def init_():$/;"	f	function:Trainer.set_training_env.make_env_
+init_	trainer.py	/^                        def init_():$/;"	f	function:Trainer.set_training_env.make_env_gym
+init_	trainer.py	/^                def init_():$/;"	f	function:Trainer.run_policy.make_env_
+init_	trainer_new.py	/^                        def init_():$/;"	f	function:Trainer.set_eval_env.make_env_
+init_	trainer_new.py	/^                        def init_():$/;"	f	function:Trainer.set_training_env.make_env_
+init_	trainer_old.py	/^                            def init_():$/;"	f	function:Trainer.set_eval_env.make_env_
+init_	trainer_old.py	/^                            def init_():$/;"	f	function:Trainer.set_training_env.make_env_
+init_	trainer_old.py	/^                        def init_():$/;"	f	function:Trainer.set_eval_env.make_env_
+init_	trainer_old.py	/^                        def init_():$/;"	f	function:Trainer.set_training_env.make_env_
+init_	trainer_old.py	/^                def init_():$/;"	f	function:Trainer.run_policy.make_env_
+init_	trainer_pcpg.py	/^                            def init_():$/;"	f	function:Trainer.set_eval_env.make_env_
+init_	trainer_pcpg.py	/^                            def init_():$/;"	f	function:Trainer.set_training_env.make_env_
+init_	trainer_pcpg.py	/^                        def init_():$/;"	f	function:Trainer.set_eval_env.make_env_
+init_	trainer_pcpg.py	/^                        def init_():$/;"	f	function:Trainer.set_training_env.make_env_
+init_	trainer_pcpg.py	/^                def init_():$/;"	f	function:Trainer.run_policy.make_env_
+init_hidden	algos/torch_ppo/rnn.py	/^    def init_hidden(self, batch_size):$/;"	m	class:GRUNet
+init_model	algos/torch_ppo/callbacks.py	/^    def init_model(self, model):$/;"	m	class:EvalCallback
+initialize_new_policy	algos/torch_ppo/pcpg.py	/^    def initialize_new_policy(self, mode):$/;"	m	class:PCPGPolicy
+inspect	algos/torch_ppo/vec_env/base_vec_env.py	/^import inspect$/;"	i
+inverse	algos/torch_ppo/distributions.py	/^    def inverse(y: th.Tensor) -> th.Tensor:$/;"	m	class:TanhBijector
+is_done	env.py	/^    def is_done(self, state):$/;"	m	class:TanksWorldEnv
+is_image_space	algos/torch_ppo/vec_env/stacked_observations.py	/^from stable_baselines3.common.preprocessing import is_image_space, is_image_space_channels_first$/;"	i
+is_image_space	algos/torch_ppo/vec_env/vec_transpose.py	/^from stable_baselines3.common.preprocessing import is_image_space, is_image_space_channels_first$/;"	i
+is_image_space_channels_first	algos/torch_ppo/vec_env/stacked_observations.py	/^from stable_baselines3.common.preprocessing import is_image_space, is_image_space_channels_first$/;"	i
+is_image_space_channels_first	algos/torch_ppo/vec_env/vec_transpose.py	/^from stable_baselines3.common.preprocessing import is_image_space, is_image_space_channels_first$/;"	i
+is_json_serializable	algos/torch_ppo/utils/serialization_utils.py	/^def is_json_serializable(v):$/;"	f
+is_vecenv_wrapped	algos/torch_ppo/vec_env/__init__.py	/^def is_vecenv_wrapped(env: Union["GymEnv", VecEnv], vec_wrapper_class: Type[VecEnvWrapper]) -> bool:$/;"	f
+is_wrapped	algos/torch_ppo/vec_env/subproc_vec_env.py	/^    from stable_baselines3.common.env_util import is_wrapped$/;"	i
+itertools	algos/torch_sac/sac.py	/^import itertools$/;"	i
+itertools	algos/torch_sac/sac_new.py	/^import itertools$/;"	i
+joblib	algos/torch_ppo/utils/logx.py	/^import joblib$/;"	i
+joblib	algos/torch_ppo/utils/test_policy.py	/^import joblib$/;"	i
+json	algos/random/random_policy.py	/^import json$/;"	i
+json	algos/torch_ppo/callbacks.py	/^import json, os$/;"	i
+json	algos/torch_ppo/coppo.py	/^import json$/;"	i
+json	algos/torch_ppo/ippo.py	/^import json$/;"	i
+json	algos/torch_ppo/mappo.py	/^import json$/;"	i
+json	algos/torch_ppo/mappo_bonus.py	/^import json$/;"	i
+json	algos/torch_ppo/mappo_old.py	/^import json$/;"	i
+json	algos/torch_ppo/matrpo.py	/^import json$/;"	i
+json	algos/torch_ppo/pcpg.py	/^import json$/;"	i
+json	algos/torch_ppo/ppo.py	/^import json$/;"	i
+json	algos/torch_ppo/utils/logx.py	/^import json$/;"	i
+json	algos/torch_ppo/utils/plot.py	/^import json$/;"	i
+json	algos/torch_ppo/utils/run_utils.py	/^import json$/;"	i
+json	algos/torch_ppo/utils/serialization_utils.py	/^import json$/;"	i
+json	algos/torch_ppo/vec_env/vec_monitor.py	/^import json$/;"	i
+json	algos/torch_trpo/matrpo.py	/^import json$/;"	i
+json	create_eval_metrics.py	/^import json$/;"	i
+json	evaluate_baseline.py	/^import json$/;"	i
+json	evaluate_mean_std_max.py	/^import os, json$/;"	i
+json	trainer.py	/^import json$/;"	i
+json	trainer_new.py	/^import json$/;"	i
+json	trainer_old.py	/^import json$/;"	i
+json	trainer_pcpg.py	/^import json$/;"	i
+jvp	algos/torch_ppo/torch_utils.py	/^def jvp(f_x, theta, v):$/;"	f
+jvp	algos/torch_trpo/torch_utils.py	/^def jvp(f_x, theta, v):$/;"	f
+kickoff	core/stems.py	/^	def kickoff(self, match_list, policy_types, steps_per_match, entity_remaps=[], render=False, scale=False, $/;"	m	class:UserStem
+layer_norm	algos/torch_ppo/norm.py	/^def layer_norm(input, weight=None, bias=None, eps=1e-5):$/;"	f
+learn	algos/maddpg/maddpg.py	/^    def learn(self, common_actor=False,$/;"	m	class:MADDPGPolicy
+learn	algos/torch_ppo/coppo.py	/^    def learn(self, actor_critic=core.ActorCritic, ac_kwargs=dict(), seed=-1,$/;"	m	class:PPOPolicy
+learn	algos/torch_ppo/ippo.py	/^    def learn(self, actor_critic=core.ActorCritic, ac_kwargs=dict(), seed=-1,$/;"	m	class:PPOPolicy
+learn	algos/torch_ppo/mappo.py	/^    def learn(self, actor_critic=core.ActorCritic, ac_kwargs=dict(), seed=-1,$/;"	m	class:PPOPolicy
+learn	algos/torch_ppo/mappo_bonus.py	/^    def learn(self, actor_critic=core.ActorCritic, ac_kwargs=dict(), seed=-1,$/;"	m	class:PPOBonusPolicy
+learn	algos/torch_ppo/mappo_old.py	/^    def learn(self, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=-1,$/;"	m	class:PPOPolicy
+learn	algos/torch_ppo/matrpo.py	/^    def learn(self, actor_critic=core_new.MLPActorCritic, ac_kwargs=dict(), seed=-1,$/;"	m	class:TRPOPolicy
+learn	algos/torch_ppo/pcpg.py	/^    def learn(self, **config):$/;"	m	class:PCPGPolicy
+learn	algos/torch_ppo/ppo.py	/^    def learn(self, policy_record, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=-1,$/;"	m	class:PPOPolicy
+learn	algos/torch_sac/sac.py	/^    def learn(self, policy_record, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,$/;"	m	class:SACPolicy
+learn	algos/torch_sac/sac_new.py	/^    def learn(self, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,$/;"	m	class:SACPolicy
+learn	algos/torch_trpo/matrpo.py	/^    def learn(self, actor_critic=core.ActorCritic, ac_kwargs=dict(), seed=-1,$/;"	m	class:TRPOPolicy
+linesearch	algos/torch_ppo/matrpo.py	/^    def linesearch(model,$/;"	m	class:TRPOPolicy
+load	algos/torch_ppo/vec_env/vec_normalize.py	/^    def load(load_path: str, venv: VecEnv) -> "VecNormalize":$/;"	m	class:VecNormalize
+load	core/policy_record.py	/^    def load(self):$/;"	m	class:PolicyRecord
+load	core/policy_record.py	/^    def load(self):$/;"	m	class:RecordChannel
+load_model	algos/torch_ppo/coppo.py	/^    def load_model(self, model_path, cnn_model_path, freeze_rep, steps_per_epoch):$/;"	m	class:PPOPolicy
+load_model	algos/torch_ppo/ippo.py	/^    def load_model(self, model_path, cnn_model_path, freeze_rep, steps_per_epoch):$/;"	m	class:PPOPolicy
+load_model	algos/torch_ppo/mappo.py	/^    def load_model(self, model_path, cnn_model_path, freeze_rep, steps_per_epoch):$/;"	m	class:PPOPolicy
+load_model	algos/torch_ppo/mappo_old.py	/^    def load_model(self, model_path, cnn_model_path, freeze_rep, steps_per_epoch):$/;"	m	class:PPOPolicy
+load_model	algos/torch_ppo/matrpo.py	/^    def load_model(self, model_path, cnn_model_path, freeze_rep, steps_per_epoch):$/;"	m	class:TRPOPolicy
+load_model	algos/torch_sac/sac_new.py	/^    def load_model(self, model_path, cnn_model_path, freeze_rep, steps_per_epoch):$/;"	m	class:SACPolicy
+load_model	algos/torch_trpo/matrpo.py	/^    def load_model(self, model_path, cnn_model_path, freeze_rep, steps_per_epoch):$/;"	m	class:TRPOPolicy
+load_policy_and_env	algos/torch_ppo/utils/test_policy.py	/^def load_policy_and_env(fpath, itr='last', deterministic=False):$/;"	f
+load_pytorch_policy	algos/torch_ppo/utils/test_policy.py	/^def load_pytorch_policy(fpath, itr, deterministic=False):$/;"	f
+load_representation	algos/torch_ppo/pcpg.py	/^    def load_representation(self):$/;"	m	class:PCPGPolicy
+load_state_dict	algos/torch_ppo/utils/normalizer.py	/^    def load_state_dict(self, _):$/;"	m	class:BaseNormalizer
+load_state_dict	algos/torch_ppo/utils/normalizer.py	/^    def load_state_dict(self, saved):$/;"	m	class:MeanStdNormalizer
+load_tf_policy	algos/torch_ppo/utils/test_policy.py	/^def load_tf_policy(fpath, itr, deterministic=False):$/;"	f
+log	algos/torch_ppo/utils/logx.py	/^    def log(self, msg, color='green'):$/;"	m	class:Logger
+log_determinant	algos/torch_ppo/torch_utils.py	/^def log_determinant(mat):$/;"	f
+log_determinant	algos/torch_trpo/torch_utils.py	/^def log_determinant(mat):$/;"	f
+log_prob	algos/torch_ppo/distributions.py	/^    def log_prob(self, actions: th.Tensor) -> th.Tensor:$/;"	m	class:StateDependentNoiseDistribution
+log_prob	algos/torch_ppo/distributions.py	/^    def log_prob(self, x: th.Tensor) -> th.Tensor:$/;"	m	class:Distribution
+log_prob_correction	algos/torch_ppo/distributions.py	/^    def log_prob_correction(self, x: th.Tensor) -> th.Tensor:$/;"	m	class:TanhBijector
+log_prob_from_params	algos/torch_ppo/distributions.py	/^    def log_prob_from_params($/;"	m	class:StateDependentNoiseDistribution
+log_prob_from_params	algos/torch_ppo/distributions.py	/^    def log_prob_from_params(self, *args, **kwargs) -> Tuple[th.Tensor, th.Tensor]:$/;"	m	class:Distribution
+log_stats	env.py	/^    def log_stats(self):$/;"	m	class:TanksWorldEnv
+log_tabular	algos/torch_ppo/utils/logx.py	/^    def log_tabular(self, key, val):$/;"	m	class:Logger
+log_tabular	algos/torch_ppo/utils/logx.py	/^    def log_tabular(self, key, val=None, with_min_and_max=False, average_only=False):$/;"	m	class:EpochLogger
+logger_kwargs	algos/torch_ppo/ppo.py	/^    logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed)$/;"	v	class:PPOPolicy
+logger_kwargs	algos/torch_sac/sac.py	/^    logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed)$/;"	v	class:SACPolicy
+loop	core/stems.py	/^	def loop(self):$/;"	m	class:WorkerStem
+magenta	algos/torch_ppo/utils/logx.py	/^    magenta=35,$/;"	v
+main	algos/torch_ppo/utils/plot.py	/^def main():$/;"	f
+main_directory	create_portable_directory.py	/^main_directory = '.\/logs\/final-baseline-v2-backup\/Tanksworld Baseline v2'$/;"	v
+main_eval_folder	evaluate_baseline.py	/^main_eval_folder = '.\/logs\/final-baseline-eval-final'$/;"	v
+main_eval_folder	evaluate_mean_std_max.py	/^main_eval_folder = '.\/logs\/final-baseline-eval-final'$/;"	v
+main_folder	evaluate_baseline.py	/^main_folder = '.\/logs\/final-baseline-v2-portable'$/;"	v
+make_env	make_env.py	/^def make_env(exe, friendly_fire=True, take_damage_penalty=True, kill_bonus=True, death_penalty=True,$/;"	f
+make_env	trainer.py	/^from make_env import make_env$/;"	i
+make_env	trainer_new.py	/^from make_env import make_env$/;"	i
+make_env	trainer_old.py	/^from make_env import make_env$/;"	i
+make_env	trainer_pcpg.py	/^from make_env import make_env$/;"	i
+make_env_	trainer.py	/^                        def make_env_(seed):$/;"	f	function:Trainer.set_eval_env
+make_env_	trainer.py	/^                        def make_env_(seed):$/;"	f	function:Trainer.set_training_env
+make_env_	trainer.py	/^                    def make_env_(seed):$/;"	f	function:Trainer.set_eval_env
+make_env_	trainer.py	/^                    def make_env_(seed):$/;"	f	function:Trainer.set_training_env
+make_env_	trainer.py	/^            def make_env_(seed):$/;"	f	function:Trainer.run_policy
+make_env_	trainer_new.py	/^                    def make_env_(seed):$/;"	f	function:Trainer.set_eval_env
+make_env_	trainer_new.py	/^                    def make_env_(seed):$/;"	f	function:Trainer.set_training_env
+make_env_	trainer_old.py	/^                        def make_env_(seed):$/;"	f	function:Trainer.set_eval_env
+make_env_	trainer_old.py	/^                        def make_env_(seed):$/;"	f	function:Trainer.set_training_env
+make_env_	trainer_old.py	/^                    def make_env_(seed):$/;"	f	function:Trainer.set_eval_env
+make_env_	trainer_old.py	/^                    def make_env_(seed):$/;"	f	function:Trainer.set_training_env
+make_env_	trainer_old.py	/^            def make_env_(seed):$/;"	f	function:Trainer.run_policy
+make_env_	trainer_pcpg.py	/^                        def make_env_(seed):$/;"	f	function:Trainer.set_eval_env
+make_env_	trainer_pcpg.py	/^                        def make_env_(seed):$/;"	f	function:Trainer.set_training_env
+make_env_	trainer_pcpg.py	/^                    def make_env_(seed):$/;"	f	function:Trainer.set_eval_env
+make_env_	trainer_pcpg.py	/^                    def make_env_(seed):$/;"	f	function:Trainer.set_training_env
+make_env_	trainer_pcpg.py	/^            def make_env_(seed):$/;"	f	function:Trainer.run_policy
+make_env_gym	trainer.py	/^                        def make_env_gym(seed):$/;"	f	function:Trainer.set_eval_env
+make_env_gym	trainer.py	/^                        def make_env_gym(seed):$/;"	f	function:Trainer.set_training_env
+make_env_gym	trainer.py	/^                    def make_env_gym(seed):$/;"	f	function:Trainer.set_training_env
+make_plots	algos/torch_ppo/utils/plot.py	/^def make_plots(all_logdirs, legend=None, xaxis=None, values=None, count=False,  $/;"	f
+make_proxy_env	core/stems.py	/^from arena5.core.proxy_env import make_proxy_env$/;"	i
+make_stem	core/stems.py	/^def make_stem(make_env_method, log_comms_dir, obs_spaces, act_spaces, additional_policies={}):$/;"	f
+math	algos/torch_ppo/coppo.py	/^import math$/;"	i
+math	algos/torch_ppo/core_ind.py	/^import math$/;"	i
+math	algos/torch_ppo/core_old.py	/^import math$/;"	i
+math	algos/torch_ppo/heuristics.py	/^import math$/;"	i
+math	algos/torch_ppo/mappo_old.py	/^import math$/;"	i
+math	algos/torch_ppo/noisy.py	/^import math$/;"	i
+math	minimap_util.py	/^import math, random, time$/;"	i
+math	trainer_old.py	/^import math, time, random$/;"	i
+matplotlib	algos/torch_ppo/coppo.py	/^import matplotlib$/;"	i
+matplotlib	algos/torch_ppo/coppo.py	/^import matplotlib.pyplot as plt$/;"	i
+matplotlib	algos/torch_ppo/heuristics.py	/^    import matplotlib.pyplot as plt$/;"	i
+matplotlib	algos/torch_ppo/mappo.py	/^import matplotlib$/;"	i
+matplotlib	algos/torch_ppo/mappo.py	/^import matplotlib.pyplot as plt$/;"	i
+matplotlib	algos/torch_ppo/mappo_bonus.py	/^import matplotlib$/;"	i
+matplotlib	algos/torch_ppo/mappo_bonus.py	/^import matplotlib.pyplot as plt$/;"	i
+matplotlib	algos/torch_ppo/mappo_old.py	/^        import matplotlib.pyplot as plt$/;"	i
+matplotlib	algos/torch_ppo/matrpo.py	/^import matplotlib$/;"	i
+matplotlib	algos/torch_ppo/matrpo.py	/^import matplotlib.pyplot as plt$/;"	i
+matplotlib	algos/torch_ppo/utils/plot.py	/^import matplotlib.pyplot as plt$/;"	i
+matplotlib	algos/torch_trpo/matrpo.py	/^import matplotlib$/;"	i
+matplotlib	algos/torch_trpo/matrpo.py	/^import matplotlib.pyplot as plt$/;"	i
+matplotlib	core/plot_utils.py	/^import matplotlib$/;"	i
+matplotlib	core/plot_utils.py	/^import matplotlib.pyplot as plt$/;"	i
+matplotlib	core/policy_record.py	/^import matplotlib.pyplot as plt$/;"	i
+matplotlib	env.py	/^import matplotlib.pyplot as plt$/;"	i
+mean	algos/torch_ppo/torch_utils.py	/^    def mean(self):$/;"	m	class:RunningStat
+mean	algos/torch_trpo/torch_utils.py	/^    def mean(self):$/;"	m	class:RunningStat
+metadata	algos/torch_ppo/vec_env/base_vec_env.py	/^    metadata = {"render.modes": ["human", "rgb_array"]}$/;"	v	class:VecEnv
+metadata	env_wrappers.py	/^    metadata = {$/;"	v	class:ShareVecEnv
+minimap0	minimap_util.py	/^        minimap0 = minimap_for_player(tank_data, 0, no_barriers)$/;"	v
+minimap1	minimap_util.py	/^        minimap1 = minimap_for_player(tank_data, 1, no_barriers)$/;"	v
+minimap6	minimap_util.py	/^        minimap6 = minimap_for_player(tank_data, 5, no_barriers)$/;"	v
+minimap6	minimap_util.py	/^        minimap6 = minimap_for_player(tank_data, 6, no_barriers)$/;"	v
+minimap_for_player	minimap_util.py	/^def minimap_for_player(tank_data_original, tank_idx, barriers):$/;"	f
+mlp	algos/maddpg/core.py	/^def mlp(sizes, activation, output_activation=nn.Identity):$/;"	f
+mlp	algos/torch_ppo/core.py	/^def mlp(sizes, activation, output_activation=nn.Identity):$/;"	f
+mlp	algos/torch_ppo/core_old.py	/^def mlp(sizes, activation, output_activation=nn.Identity):$/;"	f
+mlp	algos/torch_sac/core.py	/^def mlp(sizes, activation, output_activation=nn.Identity):$/;"	f
+mode	algos/torch_ppo/distributions.py	/^    def mode(self) -> th.Tensor:$/;"	m	class:Distribution
+mode	algos/torch_ppo/distributions.py	/^    def mode(self) -> th.Tensor:$/;"	m	class:StateDependentNoiseDistribution
+mp	algos/torch_ppo/callbacks.py	/^import multiprocessing as mp$/;"	i
+mp	algos/torch_ppo/vec_env/subproc_vec_env.py	/^import multiprocessing as mp$/;"	i
+mpi_avg	algos/torch_ppo/ppo.py	/^from .utils.mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs$/;"	i
+mpi_avg	algos/torch_ppo/utils/mpi_pytorch.py	/^from .mpi_tools import broadcast, mpi_avg, num_procs, proc_id$/;"	i
+mpi_avg	algos/torch_ppo/utils/mpi_tools.py	/^def mpi_avg(comm, x):$/;"	f
+mpi_avg_grads	algos/torch_ppo/ppo.py	/^from .utils.mpi_pytorch import setup_pytorch_for_mpi, sync_params, mpi_avg_grads$/;"	i
+mpi_avg_grads	algos/torch_ppo/utils/mpi_pytorch.py	/^def mpi_avg_grads(comm, module):$/;"	f
+mpi_fork	algos/torch_ppo/ppo.py	/^from .utils.mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs$/;"	i
+mpi_fork	algos/torch_ppo/utils/mpi_tools.py	/^def mpi_fork(n, bind_to_core=False):$/;"	f
+mpi_fork	algos/torch_ppo/utils/run_utils.py	/^from spinup.utils.mpi_tools import mpi_fork, msg$/;"	i
+mpi_op	algos/torch_ppo/utils/mpi_tools.py	/^def mpi_op(comm, x, op):$/;"	f
+mpi_print	algos/random/random_policy.py	/^from arena5.core.utils import mpi_print$/;"	i
+mpi_print	algos/torch_ppo/ppo.py	/^from arena5.core.utils import mpi_print$/;"	i
+mpi_print	algos/torch_ppo/utils/mpi_pytorch.py	/^from arena5.core.utils import mpi_print$/;"	i
+mpi_print	core/stems.py	/^from arena5.core.utils import mpi_print, count_needed_procs$/;"	i
+mpi_statistics_scalar	algos/torch_ppo/ppo.py	/^from .utils.mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs$/;"	i
+mpi_statistics_scalar	algos/torch_ppo/utils/logx.py	/^from .mpi_tools import proc_id, mpi_statistics_scalar$/;"	i
+mpi_statistics_scalar	algos/torch_ppo/utils/mpi_tools.py	/^def mpi_statistics_scalar(comm, x, with_min_and_max=False):$/;"	f
+mpi_sum	algos/torch_ppo/utils/mpi_tools.py	/^def mpi_sum(comm, x):$/;"	f
+msg	algos/torch_ppo/utils/mpi_tools.py	/^def msg(m, string=''):$/;"	f
+msg	algos/torch_ppo/utils/run_utils.py	/^from spinup.utils.mpi_tools import mpi_fork, msg$/;"	i
+multiprocessing	algos/torch_ppo/utils/mpi_pytorch.py	/^import multiprocessing$/;"	i
+n	algos/torch_ppo/torch_utils.py	/^    def n(self):$/;"	m	class:RunningStat
+n	algos/torch_trpo/torch_utils.py	/^    def n(self):$/;"	m	class:RunningStat
+name	algos/torch_ppo/utils/run_utils.py	/^    def name(self, _name):$/;"	m	class:ExperimentGrid
+nn	algos/maddpg/core.py	/^import torch.nn as nn$/;"	i
+nn	algos/torch_ppo/core.py	/^import torch.nn as nn$/;"	i
+nn	algos/torch_ppo/core.py	/^import torch.nn.functional as F$/;"	i
+nn	algos/torch_ppo/core_ind.py	/^import torch.nn as nn$/;"	i
+nn	algos/torch_ppo/core_ind.py	/^import torch.nn.functional as F$/;"	i
+nn	algos/torch_ppo/core_old.py	/^import torch.nn as nn$/;"	i
+nn	algos/torch_ppo/core_old.py	/^import torch.nn.functional as F$/;"	i
+nn	algos/torch_ppo/curiosity.py	/^import torch.nn as nn$/;"	i
+nn	algos/torch_ppo/distributions.py	/^from torch import nn$/;"	i
+nn	algos/torch_ppo/ippo.py	/^from torch import nn$/;"	i
+nn	algos/torch_ppo/mappo.py	/^import torch.nn.functional as F$/;"	i
+nn	algos/torch_ppo/mappo_bonus.py	/^import torch.nn.functional as F$/;"	i
+nn	algos/torch_ppo/mappo_utils/valuenorm.py	/^import torch.nn as nn$/;"	i
+nn	algos/torch_ppo/matrpo.py	/^import torch.nn.functional as F$/;"	i
+nn	algos/torch_ppo/noisy.py	/^import torch.nn.functional as F$/;"	i
+nn	algos/torch_ppo/pcpg.py	/^import torch.nn.functional as F$/;"	i
+nn	algos/torch_ppo/ppo.py	/^from torch import nn$/;"	i
+nn	algos/torch_ppo/rnn.py	/^import torch.nn as nn$/;"	i
+nn	algos/torch_sac/core.py	/^import torch.nn as nn$/;"	i
+nn	algos/torch_sac/core.py	/^import torch.nn.functional as F$/;"	i
+nn	algos/torch_trpo/core.py	/^import torch.nn as nn$/;"	i
+nn	algos/torch_trpo/core.py	/^import torch.nn.functional as F$/;"	i
+nn	algos/torch_trpo/matrpo.py	/^import torch.nn.functional as F$/;"	i
+no_barriers	minimap_util.py	/^    no_barriers = np.zeros((40,40,1))$/;"	v
+normalize	algos/torch_ppo/core_old.py	/^    def normalize(self, input_vector):$/;"	m	class:PopArt
+normalize	algos/torch_ppo/mappo_utils/valuenorm.py	/^    def normalize(self, input_vector):$/;"	m	class:ValueNorm
+normalize_obs	algos/torch_ppo/vec_env/vec_normalize.py	/^    def normalize_obs(self, obs: Union[np.ndarray, Dict[str, np.ndarray]]) -> Union[np.ndarray, Dict[str, np.ndarray]]:$/;"	m	class:VecNormalize
+normalize_reward	algos/torch_ppo/vec_env/vec_normalize.py	/^    def normalize_reward(self, reward: np.ndarray) -> np.ndarray:$/;"	m	class:VecNormalize
+np	algos/maddpg/core.py	/^import numpy as np$/;"	i
+np	algos/maddpg/maddpg.py	/^import numpy as np$/;"	i
+np	algos/random/random_policy.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/callbacks.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/coppo.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/core.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/core_ind.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/core_old.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/heuristics.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/ippo.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/mappo.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/mappo_bonus.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/mappo_old.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/mappo_utils/valuenorm.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/matrpo.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/pcpg.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/ppo.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/torch_utils.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/utils/logx.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/utils/mpi_pytorch.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/utils/mpi_tf.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/utils/mpi_tools.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/utils/normalizer.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/utils/plot.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/utils/replay.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/utils/run_utils.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/vec_env/base_vec_env.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/vec_env/dummy_vec_env.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/vec_env/stacked_observations.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/vec_env/subproc_vec_env.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/vec_env/util.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/vec_env/vec_check_nan.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/vec_env/vec_extract_dict_obs.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/vec_env/vec_frame_stack.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/vec_env/vec_monitor.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/vec_env/vec_normalize.py	/^import numpy as np$/;"	i
+np	algos/torch_ppo/vec_env/vec_transpose.py	/^import numpy as np$/;"	i
+np	algos/torch_sac/core.py	/^import numpy as np$/;"	i
+np	algos/torch_sac/sac.py	/^import numpy as np$/;"	i
+np	algos/torch_sac/sac_new.py	/^import numpy as np$/;"	i
+np	algos/torch_trpo/core.py	/^import numpy as np$/;"	i
+np	algos/torch_trpo/matrpo.py	/^import numpy as np$/;"	i
+np	algos/torch_trpo/torch_utils.py	/^import numpy as np$/;"	i
+np	core/plot_utils.py	/^import numpy as np$/;"	i
+np	env.py	/^import numpy as np$/;"	i
+np	env_wrappers.py	/^import numpy as np$/;"	i
+np	evaluate_mean_std_max.py	/^import numpy as np$/;"	i
+np	make_env.py	/^import numpy as np$/;"	i
+np	minimap_util.py	/^import numpy as np$/;"	i
+np	trainer.py	/^import numpy as np$/;"	i
+np	trainer_new.py	/^import numpy as np$/;"	i
+np	trainer_old.py	/^import numpy as np$/;"	i
+np	trainer_pcpg.py	/^import numpy as np$/;"	i
+num_procs	algos/torch_ppo/ppo.py	/^from .utils.mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs$/;"	i
+num_procs	algos/torch_ppo/utils/mpi_pytorch.py	/^from .mpi_tools import broadcast, mpi_avg, num_procs, proc_id$/;"	i
+num_procs	algos/torch_ppo/utils/mpi_tools.py	/^def num_procs(comm):$/;"	f
+num_runs	trainer.py	/^    num_runs = args['num_iter'] if not args['eval_mode'] else args['num_eval_episodes']$/;"	v	class:Trainer
+num_runs	trainer_new.py	/^        else args['num_eval_episodes']$/;"	v	class:Trainer
+num_runs	trainer_pcpg.py	/^        else args['num_eval_episodes']$/;"	v	class:Trainer
+objectives	env.py	/^    def objectives(self):$/;"	m	class:TanksWorldEnv
+obs_space_info	algos/torch_ppo/vec_env/dummy_vec_env.py	/^from .util import copy_obs_dict, dict_to_obs, obs_space_info$/;"	i
+obs_space_info	algos/torch_ppo/vec_env/util.py	/^def obs_space_info(obs_space: gym.spaces.Space) -> Tuple[List[str], Dict[Any, Tuple[int, ...]], Dict[Any, np.dtype]]:$/;"	f
+op	algos/torch_ppo/torch_utils.py	/^            def op(*args):$/;"	f	function:Trajectories.tensor_op
+op	algos/torch_trpo/torch_utils.py	/^            def op(*args):$/;"	f	function:Trajectories.tensor_op
+optimize_policy	algos/torch_ppo/pcpg.py	/^    def optimize_policy(self):$/;"	m	class:PCPGPolicy
+optimize_policy_mixture_weights	algos/torch_ppo/pcpg.py	/^    def optimize_policy_mixture_weights(self, covariance_matrices):$/;"	m	class:PCPGPolicy
+orthogonal_init	algos/torch_ppo/torch_utils.py	/^def orthogonal_init(tensor, gain=1):$/;"	f
+orthogonal_init	algos/torch_trpo/torch_utils.py	/^def orthogonal_init(tensor, gain=1):$/;"	f
+os	algos/maddpg/core.py	/^import os$/;"	i
+os	algos/maddpg/maddpg.py	/^import os$/;"	i
+os	algos/random/random_policy.py	/^import os$/;"	i
+os	algos/torch_ppo/callbacks.py	/^import json, os$/;"	i
+os	algos/torch_ppo/coppo.py	/^import os$/;"	i
+os	algos/torch_ppo/ippo.py	/^import os$/;"	i
+os	algos/torch_ppo/mappo.py	/^import os$/;"	i
+os	algos/torch_ppo/mappo_bonus.py	/^import os$/;"	i
+os	algos/torch_ppo/mappo_old.py	/^import os$/;"	i
+os	algos/torch_ppo/matrpo.py	/^import os$/;"	i
+os	algos/torch_ppo/pcpg.py	/^import os$/;"	i
+os	algos/torch_ppo/ppo.py	/^import os$/;"	i
+os	algos/torch_ppo/utils/logx.py	/^import os.path as osp, time, atexit, os$/;"	i
+os	algos/torch_ppo/utils/mpi_pytorch.py	/^import os$/;"	i
+os	algos/torch_ppo/utils/mpi_tools.py	/^import os, subprocess, sys$/;"	i
+os	algos/torch_ppo/utils/plot.py	/^import os$/;"	i
+os	algos/torch_ppo/utils/plot.py	/^import os.path as osp$/;"	i
+os	algos/torch_ppo/utils/run_utils.py	/^import os$/;"	i
+os	algos/torch_ppo/utils/run_utils.py	/^import os.path as osp$/;"	i
+os	algos/torch_ppo/utils/test_policy.py	/^import os$/;"	i
+os	algos/torch_ppo/utils/test_policy.py	/^import os.path as osp$/;"	i
+os	algos/torch_ppo/vec_env/vec_monitor.py	/^import os$/;"	i
+os	algos/torch_ppo/vec_env/vec_video_recorder.py	/^import os$/;"	i
+os	algos/torch_sac/sac_new.py	/^import os$/;"	i
+os	algos/torch_trpo/matrpo.py	/^import os$/;"	i
+os	core/policy_record.py	/^import pickle, os$/;"	i
+os	create_eval_metrics.py	/^import os, subprocess$/;"	i
+os	create_portable_directory.py	/^import os$/;"	i
+os	env.py	/^import os$/;"	i
+os	evaluate_baseline.py	/^import os$/;"	i
+os	evaluate_mean_std_max.py	/^import os, json$/;"	i
+os	trainer.py	/^import os$/;"	i
+os	trainer_new.py	/^import os$/;"	i
+os	trainer_old.py	/^import os$/;"	i
+os	trainer_pcpg.py	/^import os$/;"	i
+osp	algos/torch_ppo/utils/logx.py	/^import os.path as osp, time, atexit, os$/;"	i
+osp	algos/torch_ppo/utils/plot.py	/^import os.path as osp$/;"	i
+osp	algos/torch_ppo/utils/run_utils.py	/^import os.path as osp$/;"	i
+osp	algos/torch_ppo/utils/test_policy.py	/^import os.path as osp$/;"	i
+overviewmap_for_player	minimap_util.py	/^def overviewmap_for_player(tank_data_original, barriers):$/;"	f
+parser	algos/torch_ppo/ppo.py	/^    parser = argparse.ArgumentParser()$/;"	v	class:PPOPolicy
+parser	algos/torch_ppo/utils/run_entrypoint.py	/^    parser = argparse.ArgumentParser()$/;"	v
+parser	algos/torch_ppo/utils/test_policy.py	/^    parser = argparse.ArgumentParser()$/;"	v
+parser	algos/torch_sac/sac.py	/^    parser = argparse.ArgumentParser()$/;"	v	class:SACPolicy
+parser	evaluate_baseline.py	/^parser = argparse.ArgumentParser()$/;"	v
+parser	generate_task.py	/^parser = argparse.ArgumentParser()$/;"	v
+parser	trainer_config.py	/^parser = argparse.ArgumentParser()$/;"	v
+pathlib	env.py	/^import pathlib$/;"	i
+pd	algos/torch_ppo/utils/plot.py	/^import pandas as pd$/;"	i
+pdb	algos/maddpg/core.py	/^import pdb$/;"	i
+pdb	algos/maddpg/maddpg.py	/^import pdb$/;"	i
+pdb	algos/torch_ppo/callbacks.py	/^import pdb$/;"	i
+pdb	algos/torch_ppo/coppo.py	/^import pdb$/;"	i
+pdb	algos/torch_ppo/core.py	/^import pdb, sys$/;"	i
+pdb	algos/torch_ppo/core_ind.py	/^import pdb$/;"	i
+pdb	algos/torch_ppo/core_old.py	/^import pdb$/;"	i
+pdb	algos/torch_ppo/distributions.py	/^import pdb$/;"	i
+pdb	algos/torch_ppo/heuristics.py	/^import pdb$/;"	i
+pdb	algos/torch_ppo/ippo.py	/^import pdb$/;"	i
+pdb	algos/torch_ppo/mappo.py	/^import pdb$/;"	i
+pdb	algos/torch_ppo/mappo_bonus.py	/^import pdb$/;"	i
+pdb	algos/torch_ppo/mappo_old.py	/^import pdb$/;"	i
+pdb	algos/torch_ppo/mappo_utils/valuenorm.py	/^import pdb$/;"	i
+pdb	algos/torch_ppo/matrpo.py	/^import pdb$/;"	i
+pdb	algos/torch_ppo/noisy.py	/^import pdb$/;"	i
+pdb	algos/torch_ppo/pcpg.py	/^import pdb$/;"	i
+pdb	algos/torch_ppo/vec_env/dummy_vec_env.py	/^import pdb$/;"	i
+pdb	algos/torch_ppo/vec_env/subproc_vec_env.py	/^import pdb$/;"	i
+pdb	algos/torch_ppo/vec_env/vec_monitor.py	/^import pdb$/;"	i
+pdb	algos/torch_sac/core.py	/^import pdb$/;"	i
+pdb	algos/torch_sac/sac_new.py	/^import pdb$/;"	i
+pdb	algos/torch_trpo/core.py	/^import pdb$/;"	i
+pdb	algos/torch_trpo/matrpo.py	/^import pdb$/;"	i
+pdb	algos/torch_trpo/torch_utils.py	/^import pdb$/;"	i
+pdb	core/plot_utils.py	/^import pdb$/;"	i
+pdb	core/policy_record.py	/^import pdb$/;"	i
+pdb	create_eval_metrics.py	/^import pdb$/;"	i
+pdb	create_portable_directory.py	/^import pdb$/;"	i
+pdb	env.py	/^import pdb$/;"	i
+pdb	evaluate_mean_std_max.py	/^import pdb$/;"	i
+pdb	minimap_util.py	/^import pdb$/;"	i
+pdb	trainer.py	/^import pdb$/;"	i
+pdb	trainer_new.py	/^import pdb$/;"	i
+pdb	trainer_old.py	/^import pdb$/;"	i
+pdb	trainer_pcpg.py	/^import pdb$/;"	i
+penalty	create_eval_metrics.py	/^        penalty = float(policy_folder.split('__p=')[1].split('__')[0])$/;"	v
+penalty	evaluate_baseline.py	/^    penalty = float(policy_folder.split('__p=')[1].split('__')[0])$/;"	v
+pi_lr	create_eval_metrics.py	/^        pi_lr = float(policy_folder.split('lrp=')[1].split('cons')[0])$/;"	v
+pi_lr	evaluate_baseline.py	/^    pi_lr = float(policy_folder.split('lrp=')[1].split('__')[0])$/;"	v
+pickle	algos/torch_ppo/coppo.py	/^import pickle$/;"	i
+pickle	algos/torch_ppo/mappo.py	/^import pickle$/;"	i
+pickle	algos/torch_ppo/mappo_bonus.py	/^import pickle$/;"	i
+pickle	algos/torch_ppo/mappo_old.py	/^import pickle$/;"	i
+pickle	algos/torch_ppo/matrpo.py	/^import pickle$/;"	i
+pickle	algos/torch_ppo/utils/run_entrypoint.py	/^import pickle$/;"	i
+pickle	algos/torch_ppo/vec_env/vec_normalize.py	/^import pickle$/;"	i
+pickle	algos/torch_trpo/matrpo.py	/^import pickle$/;"	i
+pickle	core/policy_record.py	/^import pickle, os$/;"	i
+pickle	create_eval_metrics.py	/^import pickle$/;"	i
+pickle	env_wrappers.py	/^        import pickle$/;"	i
+pickle	evaluate_baseline.py	/^import pickle$/;"	i
+plot_data	algos/torch_ppo/utils/plot.py	/^def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1", smooth=1, **kwargs):$/;"	f
+plot_policy_records	core/plot_utils.py	/^def plot_policy_records(records, windows, alphas, filename, colors=None, offsets=None, $/;"	f
+plot_policy_records_damage	core/plot_utils.py	/^def plot_policy_records_damage(records, windows, alphas, filename, colors=None, offsets=None,$/;"	f
+plot_policy_records_std	core/plot_utils.py	/^def plot_policy_records_std(records, windows, alphas, filename, colors=None, offsets=None,$/;"	f
+plt	algos/torch_ppo/coppo.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	algos/torch_ppo/heuristics.py	/^    import matplotlib.pyplot as plt$/;"	i
+plt	algos/torch_ppo/mappo.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	algos/torch_ppo/mappo_bonus.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	algos/torch_ppo/mappo_old.py	/^        import matplotlib.pyplot as plt$/;"	i
+plt	algos/torch_ppo/matrpo.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	algos/torch_ppo/utils/plot.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	algos/torch_trpo/matrpo.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	core/plot_utils.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	core/policy_record.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	env.py	/^import matplotlib.pyplot as plt$/;"	i
+point_offset_point	minimap_util.py	/^def point_offset_point(p_origin, angle, radius):$/;"	f
+point_relative_point_heading	minimap_util.py	/^def point_relative_point_heading(point, new_origin, heading):$/;"	f
+points_relative_point_heading	minimap_util.py	/^def points_relative_point_heading(points, new_origin, heading):$/;"	f
+portable_directory	create_portable_directory.py	/^portable_directory = '.\/logs\/final-baseline-v2-portable'$/;"	v
+portable_folder	create_portable_directory.py	/^                portable_folder = os.path.join(portable_directory, folder_, seed_folder, 'checkpoints')$/;"	v
+pprint	algos/torch_ppo/ippo.py	/^import pprint$/;"	i
+pprint	algos/torch_ppo/ppo.py	/^import pprint$/;"	i
+print	algos/torch_ppo/utils/run_utils.py	/^    def print(self):$/;"	m	class:ExperimentGrid
+proba_distribution	algos/torch_ppo/distributions.py	/^    def proba_distribution($/;"	m	class:StateDependentNoiseDistribution
+proba_distribution	algos/torch_ppo/distributions.py	/^    def proba_distribution(self, *args, **kwargs) -> "Distribution":$/;"	m	class:Distribution
+proba_distribution_net	algos/torch_ppo/distributions.py	/^    def proba_distribution_net($/;"	m	class:StateDependentNoiseDistribution
+proba_distribution_net	algos/torch_ppo/distributions.py	/^    def proba_distribution_net(self, *args, **kwargs) -> Union[nn.Module, Tuple[nn.Module, nn.Parameter]]:$/;"	m	class:Distribution
+proc_id	algos/torch_ppo/ppo.py	/^from .utils.mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs$/;"	i
+proc_id	algos/torch_ppo/utils/logx.py	/^from .mpi_tools import proc_id, mpi_statistics_scalar$/;"	i
+proc_id	algos/torch_ppo/utils/mpi_pytorch.py	/^from .mpi_tools import broadcast, mpi_avg, num_procs, proc_id$/;"	i
+proc_id	algos/torch_ppo/utils/mpi_tools.py	/^def proc_id(comm):$/;"	f
+psutil	algos/torch_ppo/utils/run_utils.py	/^import psutil$/;"	i
+push	algos/torch_ppo/torch_utils.py	/^    def push(self, x):$/;"	m	class:RunningStat
+push	algos/torch_trpo/torch_utils.py	/^    def push(self, x):$/;"	m	class:RunningStat
+pytype	algos/torch_ppo/vec_env/base_vec_env.py	/^            import cv2  # pytype:disable=import-error$/;"	i
+random	algos/random/random_policy.py	/^import random$/;"	i
+random	algos/torch_ppo/coppo.py	/^import random$/;"	i
+random	algos/torch_ppo/mappo_old.py	/^import random$/;"	i
+random	algos/torch_ppo/pcpg.py	/^import random$/;"	i
+random	core/plot_utils.py	/^import random, colorsys$/;"	i
+random	env.py	/^import sys, time, random$/;"	i
+random	minimap_util.py	/^import math, random, time$/;"	i
+random	trainer_old.py	/^import math, time, random$/;"	i
+randomRGBPure	core/plot_utils.py	/^def randomRGBPure(hue=None):$/;"	f
+random_sample	algos/torch_ppo/pcpg.py	/^def random_sample(indices, batch_size):$/;"	f
+red	algos/torch_ppo/utils/logx.py	/^    red=31,$/;"	v
+render	algos/torch_ppo/vec_env/base_vec_env.py	/^    def render(self, mode: str = "human") -> Optional[np.ndarray]:$/;"	m	class:VecEnv
+render	algos/torch_ppo/vec_env/base_vec_env.py	/^    def render(self, mode: str = "human") -> Optional[np.ndarray]:$/;"	m	class:VecEnvWrapper
+render	algos/torch_ppo/vec_env/dummy_vec_env.py	/^    def render(self, mode: str = "human") -> Optional[np.ndarray]:$/;"	m	class:DummyVecEnv
+render	env.py	/^    def render(self):$/;"	m	class:TanksWorldEnv
+render	env_wrappers.py	/^    def render(self, mode="human"):$/;"	m	class:ChooseDummyVecEnv
+render	env_wrappers.py	/^    def render(self, mode="human"):$/;"	m	class:ChooseSimpleDummyVecEnv
+render	env_wrappers.py	/^    def render(self, mode="human"):$/;"	m	class:DummyVecEnv
+render	env_wrappers.py	/^    def render(self, mode="human"):$/;"	m	class:ShareDummyVecEnv
+render	env_wrappers.py	/^    def render(self, mode="rgb_array"):$/;"	m	class:ChooseSimpleSubprocVecEnv
+render	env_wrappers.py	/^    def render(self, mode="rgb_array"):$/;"	m	class:SubprocVecEnv
+render	env_wrappers.py	/^    def render(self, mode='human'):$/;"	m	class:ShareVecEnv
+rendering	env_wrappers.py	/^            from gym.envs.classic_control import rendering$/;"	i
+resample	algos/torch_ppo/core.py	/^    def resample(self):$/;"	m	class:ActorCritic
+resample	algos/torch_ppo/core.py	/^    def resample(self):$/;"	m	class:Critic
+resample	algos/torch_ppo/core.py	/^    def resample(self):$/;"	m	class:GaussianActor
+resample	algos/torch_ppo/core.py	/^    def resample(self):$/;"	m	class:MLPActorCritic
+resample	algos/torch_ppo/core_old.py	/^    def resample(self):$/;"	m	class:MLPActorCritic
+resample	algos/torch_ppo/noisy.py	/^    def resample(self):$/;"	m	class:NoisyLinear
+resample	algos/torch_trpo/core.py	/^    def resample(self):$/;"	m	class:ActorCritic
+resample	algos/torch_trpo/core.py	/^    def resample(self):$/;"	m	class:Critic
+resample	algos/torch_trpo/core.py	/^    def resample(self):$/;"	m	class:GaussianActor
+reset	algos/torch_ppo/torch_utils.py	/^    def reset(self):$/;"	m	class:ConstantFilter
+reset	algos/torch_ppo/torch_utils.py	/^    def reset(self):$/;"	m	class:Identity
+reset	algos/torch_ppo/torch_utils.py	/^    def reset(self):$/;"	m	class:RewardFilter
+reset	algos/torch_ppo/torch_utils.py	/^    def reset(self):$/;"	m	class:StateWithTime
+reset	algos/torch_ppo/torch_utils.py	/^    def reset(self):$/;"	m	class:ZFilter
+reset	algos/torch_ppo/vec_env/base_vec_env.py	/^    def reset(self) -> VecEnvObs:$/;"	m	class:VecEnv
+reset	algos/torch_ppo/vec_env/base_vec_env.py	/^    def reset(self) -> VecEnvObs:$/;"	m	class:VecEnvWrapper
+reset	algos/torch_ppo/vec_env/dummy_vec_env.py	/^    def reset(self) -> VecEnvObs:$/;"	m	class:DummyVecEnv
+reset	algos/torch_ppo/vec_env/stacked_observations.py	/^    def reset(self, observation: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:$/;"	m	class:StackedDictObservations
+reset	algos/torch_ppo/vec_env/stacked_observations.py	/^    def reset(self, observation: np.ndarray) -> np.ndarray:$/;"	m	class:StackedObservations
+reset	algos/torch_ppo/vec_env/subproc_vec_env.py	/^    def reset(self) -> VecEnvObs:$/;"	m	class:SubprocVecEnv
+reset	algos/torch_ppo/vec_env/vec_check_nan.py	/^    def reset(self) -> VecEnvObs:$/;"	m	class:VecCheckNan
+reset	algos/torch_ppo/vec_env/vec_extract_dict_obs.py	/^    def reset(self) -> np.ndarray:$/;"	m	class:VecExtractDictObs
+reset	algos/torch_ppo/vec_env/vec_frame_stack.py	/^    def reset(self) -> Union[np.ndarray, Dict[str, np.ndarray]]:$/;"	m	class:VecFrameStack
+reset	algos/torch_ppo/vec_env/vec_monitor.py	/^    def reset(self) -> VecEnvObs:$/;"	m	class:VecMonitor
+reset	algos/torch_ppo/vec_env/vec_normalize.py	/^    def reset(self) -> Union[np.ndarray, Dict[str, np.ndarray]]:$/;"	m	class:VecNormalize
+reset	algos/torch_ppo/vec_env/vec_transpose.py	/^    def reset(self) -> Union[np.ndarray, Dict]:$/;"	m	class:VecTransposeImage
+reset	algos/torch_ppo/vec_env/vec_video_recorder.py	/^    def reset(self) -> VecEnvObs:$/;"	m	class:VecVideoRecorder
+reset	algos/torch_trpo/torch_utils.py	/^    def reset(self):$/;"	m	class:ConstantFilter
+reset	algos/torch_trpo/torch_utils.py	/^    def reset(self):$/;"	m	class:Identity
+reset	algos/torch_trpo/torch_utils.py	/^    def reset(self):$/;"	m	class:RewardFilter
+reset	algos/torch_trpo/torch_utils.py	/^    def reset(self):$/;"	m	class:StateWithTime
+reset	algos/torch_trpo/torch_utils.py	/^    def reset(self):$/;"	m	class:ZFilter
+reset	env.py	/^    def reset(self, **kwargs):$/;"	m	class:TanksWorldEnv
+reset	env.py	/^    def reset(self, **kwargs):$/;"	m	class:TanksWorldStackedEnv
+reset	env_wrappers.py	/^    def reset(self):$/;"	m	class:DummyVecEnv
+reset	env_wrappers.py	/^    def reset(self):$/;"	m	class:GuardSubprocVecEnv
+reset	env_wrappers.py	/^    def reset(self):$/;"	m	class:ShareDummyVecEnv
+reset	env_wrappers.py	/^    def reset(self):$/;"	m	class:ShareSubprocVecEnv
+reset	env_wrappers.py	/^    def reset(self):$/;"	m	class:ShareVecEnv
+reset	env_wrappers.py	/^    def reset(self):$/;"	m	class:SubprocVecEnv
+reset	env_wrappers.py	/^    def reset(self, reset_choose):$/;"	m	class:ChooseDummyVecEnv
+reset	env_wrappers.py	/^    def reset(self, reset_choose):$/;"	m	class:ChooseGuardSubprocVecEnv
+reset	env_wrappers.py	/^    def reset(self, reset_choose):$/;"	m	class:ChooseSimpleDummyVecEnv
+reset	env_wrappers.py	/^    def reset(self, reset_choose):$/;"	m	class:ChooseSimpleSubprocVecEnv
+reset	env_wrappers.py	/^    def reset(self, reset_choose):$/;"	m	class:ChooseSubprocVecEnv
+reset_noise	algos/torch_ppo/core_old.py	/^    def reset_noise(self):$/;"	m	class:MLPSDEActor
+reset_parameters	algos/torch_ppo/core_old.py	/^    def reset_parameters(self):$/;"	m	class:PopArt
+reset_parameters	algos/torch_ppo/mappo_utils/valuenorm.py	/^    def reset_parameters(self):$/;"	m	class:ValueNorm
+reset_parameters	algos/torch_ppo/noisy.py	/^    def reset_parameters(self):$/;"	m	class:NoisyLinear
+reset_parameters	algos/torch_ppo/norm.py	/^    def reset_parameters(self):$/;"	m	class:LayerNorm
+reset_single_env	algos/torch_ppo/vec_env/subproc_vec_env.py	/^    def reset_single_env(self, idx) -> VecEnvObs:$/;"	m	class:SubprocVecEnv
+reset_task	env_wrappers.py	/^    def reset_task(self):$/;"	m	class:ChooseGuardSubprocVecEnv
+reset_task	env_wrappers.py	/^    def reset_task(self):$/;"	m	class:ChooseSimpleSubprocVecEnv
+reset_task	env_wrappers.py	/^    def reset_task(self):$/;"	m	class:ChooseSubprocVecEnv
+reset_task	env_wrappers.py	/^    def reset_task(self):$/;"	m	class:GuardSubprocVecEnv
+reset_task	env_wrappers.py	/^    def reset_task(self):$/;"	m	class:ShareSubprocVecEnv
+reset_task	env_wrappers.py	/^    def reset_task(self):$/;"	m	class:SubprocVecEnv
+reshape_obs	algos/torch_ppo/core.py	/^    def reshape_obs(self, obs):$/;"	m	class:Actor
+reshape_obs	algos/torch_ppo/core.py	/^    def reshape_obs(self, obs):$/;"	m	class:CentralizedCritic
+reshape_obs	algos/torch_ppo/core.py	/^    def reshape_obs(self, obs):$/;"	m	class:CentralizedCritic_v2
+reshape_obs	algos/torch_ppo/core.py	/^    def reshape_obs(self, obs):$/;"	m	class:Critic
+reshape_obs	algos/torch_ppo/core.py	/^    def reshape_obs(self, obs):$/;"	m	class:RNDNetwork
+reshape_obs	algos/torch_ppo/core_ind.py	/^    def reshape_obs(self, obs):$/;"	m	class:Actor
+reshape_obs	algos/torch_ppo/core_ind.py	/^    def reshape_obs(self, obs):$/;"	m	class:Critic
+reshape_obs	algos/torch_trpo/core.py	/^    def reshape_obs(self, obs):$/;"	m	class:Actor
+reshape_obs	algos/torch_trpo/core.py	/^    def reshape_obs(self, obs):$/;"	m	class:CentralizedCritic
+reshape_obs	algos/torch_trpo/core.py	/^    def reshape_obs(self, obs):$/;"	m	class:CentralizedCritic_v2
+reshape_obs	algos/torch_trpo/core.py	/^    def reshape_obs(self, obs):$/;"	m	class:Critic
+reshape_obs	algos/torch_trpo/core.py	/^    def reshape_obs(self, obs):$/;"	m	class:RNDNetwork
+restore_tf_graph	algos/torch_ppo/utils/test_policy.py	/^from spinup.utils.logx import restore_tf_graph$/;"	i
+ret	algos/torch_ppo/vec_env/vec_normalize.py	/^    def ret(self) -> np.ndarray:$/;"	m	class:VecNormalize
+rnn	algos/torch_ppo/core_old.py	/^from algos.torch_ppo import rnn$/;"	i
+run	algos/maddpg/maddpg.py	/^    def run(self, num_steps):$/;"	m	class:MADDPGPolicy
+run	algos/random/random_policy.py	/^    def run(self, num_steps, data_dir, policy_record=None):$/;"	m	class:RandomPolicy
+run	algos/torch_ppo/coppo.py	/^    def run(self, num_steps):$/;"	m	class:PPOPolicy
+run	algos/torch_ppo/ippo.py	/^    def run(self, num_steps):$/;"	m	class:PPOPolicy
+run	algos/torch_ppo/mappo.py	/^    def run(self, num_steps):$/;"	m	class:PPOPolicy
+run	algos/torch_ppo/mappo_old.py	/^    def run(self, num_steps):$/;"	m	class:PPOPolicy
+run	algos/torch_ppo/matrpo.py	/^    def run(self, num_steps):$/;"	m	class:TRPOPolicy
+run	algos/torch_ppo/pcpg.py	/^    def run(self, num_steps):$/;"	m	class:PCPGPolicy
+run	algos/torch_ppo/ppo.py	/^    def run(self, num_steps, data_dir, policy_record=None):$/;"	m	class:PPOPolicy
+run	algos/torch_ppo/utils/run_utils.py	/^    def run(self, thunk, num_cpu=1, data_dir=None, datestamp=False):$/;"	m	class:ExperimentGrid
+run	algos/torch_sac/sac.py	/^    def run(self, num_steps, data_dir, policy_record=None):$/;"	m	class:SACPolicy
+run	algos/torch_sac/sac_new.py	/^    def run(self, num_steps):$/;"	m	class:SACPolicy
+run	algos/torch_trpo/matrpo.py	/^    def run(self, num_steps):$/;"	m	class:TRPOPolicy
+run_policy	algos/torch_ppo/utils/test_policy.py	/^def run_policy(env, get_action, max_ep_len=None, num_episodes=100, render=True):$/;"	f
+run_policy	trainer.py	/^    def run_policy(pol, env):$/;"	m	class:Trainer
+run_policy	trainer_new.py	/^    def run_policy(pol, env):$/;"	m	class:Trainer
+run_policy	trainer_old.py	/^    def run_policy(pol, env):$/;"	m	class:Trainer
+run_policy	trainer_pcpg.py	/^    def run_policy(pol, env):$/;"	m	class:Trainer
+running_mean_var	algos/torch_ppo/mappo_utils/valuenorm.py	/^    def running_mean_var(self):$/;"	m	class:ValueNorm
+safe_op_or_neg_one	algos/torch_ppo/torch_utils.py	/^def safe_op_or_neg_one(maybe_empty, op):$/;"	f
+safe_op_or_neg_one	algos/torch_trpo/torch_utils.py	/^def safe_op_or_neg_one(maybe_empty, op):$/;"	f
+sample	algos/torch_ppo/distributions.py	/^    def sample(self) -> th.Tensor:$/;"	m	class:Distribution
+sample	algos/torch_ppo/distributions.py	/^    def sample(self) -> th.Tensor:$/;"	m	class:StateDependentNoiseDistribution
+sample	algos/torch_ppo/utils/replay.py	/^    def sample(self, batch_size=None):$/;"	m	class:Replay
+sample_batch	algos/maddpg/maddpg.py	/^    def sample_batch(self, batch_size=32):$/;"	m	class:ReplayBuffer
+sample_batch	algos/torch_sac/sac.py	/^    def sample_batch(self, batch_size=32):$/;"	m	class:ReplayBuffer
+sample_batch	algos/torch_sac/sac_new.py	/^    def sample_batch(self, batch_size=32):$/;"	m	class:ReplayBuffer
+sample_weights	algos/torch_ppo/distributions.py	/^    def sample_weights(self, log_std: th.Tensor, batch_size: int=1) -> None:$/;"	m	class:StateDependentNoiseDistribution
+save	algos/torch_ppo/pcpg.py	/^    def save(self, save_dir, step, is_best=False):$/;"	m	class:PCPGPolicy
+save	algos/torch_ppo/vec_env/vec_normalize.py	/^    def save(self, save_path: str) -> None:$/;"	m	class:VecNormalize
+save	core/policy_record.py	/^    def save(self):$/;"	m	class:PolicyRecord
+save	core/policy_record.py	/^    def save(self):$/;"	m	class:RecordChannel
+save_config	algos/torch_ppo/utils/logx.py	/^    def save_config(self, config):$/;"	m	class:Logger
+save_metrics	algos/torch_ppo/callbacks.py	/^    def save_metrics(self, episode_returns, episode_lengths, episode_red_blue_damages, episode_red_red_damages,$/;"	m	class:EvalCallback
+save_metrics	algos/torch_ppo/ppo.py	/^    def save_metrics(self, episode_statistics, policy_record):$/;"	m	class:PPOPolicy
+save_metrics	algos/torch_ppo/vec_env/vec_monitor.py	/^    def save_metrics(self, episode_statistics, policy_record):$/;"	m	class:VecMonitor
+save_metrics_multienv	algos/torch_ppo/callbacks.py	/^    def save_metrics_multienv(self, episode_returns, episode_lengths, episode_red_blue_damages, episode_red_red_damages,$/;"	m	class:EvalCallback
+save_model	algos/maddpg/maddpg.py	/^    def save_model(self, save_dir, model_id, step):$/;"	m	class:MADDPGPolicy
+save_model	algos/torch_ppo/coppo.py	/^    def save_model(self, save_dir, step, is_best=False):$/;"	m	class:PPOPolicy
+save_model	algos/torch_ppo/ippo.py	/^    def save_model(self, save_dir, step, is_best=False):$/;"	m	class:PPOPolicy
+save_model	algos/torch_ppo/mappo.py	/^    def save_model(self, save_dir, step, is_best=False):$/;"	m	class:PPOPolicy
+save_model	algos/torch_ppo/mappo_old.py	/^    def save_model(self, save_dir, step, is_best=False):$/;"	m	class:PPOPolicy
+save_model	algos/torch_ppo/matrpo.py	/^    def save_model(self, save_dir, model_id, step):$/;"	m	class:TRPOPolicy
+save_model	algos/torch_sac/sac_new.py	/^    def save_model(self, save_dir, model_id, step):$/;"	m	class:SACPolicy
+save_model	algos/torch_trpo/matrpo.py	/^    def save_model(self, save_dir, step, is_best=False):$/;"	m	class:TRPOPolicy
+save_state	algos/torch_ppo/utils/logx.py	/^    def save_state(self, state_dict, itr=None):$/;"	m	class:Logger
+scale_by_action_bounds	algos/torch_ppo/core.py	/^    def scale_by_action_bounds(self, beta_dist_samples):$/;"	m	class:ActorCritic
+scale_by_action_bounds	algos/torch_ppo/core.py	/^    def scale_by_action_bounds(self, beta_dist_samples):$/;"	m	class:MLPActorCritic
+scale_by_action_bounds	algos/torch_ppo/core_ind.py	/^    def scale_by_action_bounds(self, beta_dist_samples):$/;"	m	class:ActorCritic
+scale_by_action_bounds	algos/torch_ppo/core_old.py	/^    def scale_by_action_bounds(self, beta_dist_samples):$/;"	m	class:MLPActorCritic
+scale_by_action_bounds	algos/torch_trpo/core.py	/^    def scale_by_action_bounds(self, beta_dist_samples):$/;"	m	class:ActorCritic
+scat	algos/torch_ppo/torch_utils.py	/^def scat(a, b, axis):$/;"	f
+scat	algos/torch_trpo/torch_utils.py	/^def scat(a, b, axis):$/;"	f
+scipy	algos/maddpg/core.py	/^import scipy.signal$/;"	i
+scipy	algos/torch_ppo/core.py	/^import scipy.signal$/;"	i
+scipy	algos/torch_ppo/core_ind.py	/^import scipy.signal$/;"	i
+scipy	algos/torch_ppo/core_old.py	/^import scipy.signal$/;"	i
+scipy	algos/torch_ppo/mappo_bonus.py	/^import scipy$/;"	i
+scipy	algos/torch_ppo/pcpg.py	/^import scipy$/;"	i
+scipy	algos/torch_sac/core.py	/^import scipy.signal$/;"	i
+scipy	algos/torch_trpo/core.py	/^import scipy.signal$/;"	i
+seed	algos/torch_ppo/vec_env/base_vec_env.py	/^    def seed(self, seed: Optional[int] = None) -> List[Union[None, int]]:$/;"	m	class:VecEnv
+seed	algos/torch_ppo/vec_env/base_vec_env.py	/^    def seed(self, seed: Optional[int] = None) -> List[Union[None, int]]:$/;"	m	class:VecEnvWrapper
+seed	algos/torch_ppo/vec_env/dummy_vec_env.py	/^    def seed(self, seed: Optional[int] = None) -> List[Union[None, int]]:$/;"	m	class:DummyVecEnv
+seed	algos/torch_ppo/vec_env/subproc_vec_env.py	/^    def seed(self, seed: Optional[int] = None) -> List[Union[None, int]]:$/;"	m	class:SubprocVecEnv
+seed	evaluate_baseline.py	/^seed = parser.parse_args().seed$/;"	v
+seed_number	create_eval_metrics.py	/^seed_number = 3$/;"	v
+select_prob_dists	algos/torch_ppo/torch_utils.py	/^def select_prob_dists(pds, selected=None, detach=True):$/;"	f
+select_prob_dists	algos/torch_trpo/torch_utils.py	/^def select_prob_dists(pds, selected=None, detach=True):$/;"	f
+set_attr	algos/torch_ppo/vec_env/base_vec_env.py	/^    def set_attr(self, attr_name: str, value: Any, indices: VecEnvIndices = None) -> None:$/;"	m	class:VecEnv
+set_attr	algos/torch_ppo/vec_env/base_vec_env.py	/^    def set_attr(self, attr_name: str, value: Any, indices: VecEnvIndices = None) -> None:$/;"	m	class:VecEnvWrapper
+set_attr	algos/torch_ppo/vec_env/dummy_vec_env.py	/^    def set_attr(self, attr_name: str, value: Any, indices: VecEnvIndices = None) -> None:$/;"	m	class:DummyVecEnv
+set_attr	algos/torch_ppo/vec_env/subproc_vec_env.py	/^    def set_attr(self, attr_name: str, value: Any, indices: VecEnvIndices = None) -> None:$/;"	m	class:SubprocVecEnv
+set_eval_env	trainer.py	/^    def set_eval_env(self):$/;"	m	class:Trainer
+set_eval_env	trainer_new.py	/^    def set_eval_env(self):$/;"	m	class:Trainer
+set_eval_env	trainer_old.py	/^    def set_eval_env(self):$/;"	m	class:Trainer
+set_eval_env	trainer_pcpg.py	/^    def set_eval_env(self):$/;"	m	class:Trainer
+set_random_seed	algos/maddpg/maddpg.py	/^    def set_random_seed(self, seed):$/;"	m	class:MADDPGPolicy
+set_random_seed	algos/torch_ppo/coppo.py	/^    def set_random_seed(self, seed):$/;"	m	class:PPOPolicy
+set_random_seed	algos/torch_ppo/ippo.py	/^    def set_random_seed(self, seed):$/;"	m	class:PPOPolicy
+set_random_seed	algos/torch_ppo/mappo.py	/^    def set_random_seed(self, seed):$/;"	m	class:PPOPolicy
+set_random_seed	algos/torch_ppo/mappo_old.py	/^    def set_random_seed(self, seed):$/;"	m	class:PPOPolicy
+set_random_seed	algos/torch_ppo/matrpo.py	/^    def set_random_seed(self, seed):$/;"	m	class:TRPOPolicy
+set_random_seed	algos/torch_ppo/pcpg.py	/^    def set_random_seed(self, seed):$/;"	m	class:PCPGPolicy
+set_random_seed	algos/torch_sac/sac_new.py	/^    def set_random_seed(self, seed):$/;"	m	class:SACPolicy
+set_random_seed	algos/torch_trpo/matrpo.py	/^    def set_random_seed(self, seed):$/;"	m	class:TRPOPolicy
+set_read_only	algos/torch_ppo/utils/normalizer.py	/^    def set_read_only(self):$/;"	m	class:BaseNormalizer
+set_seeds	trainer.py	/^    def set_seeds(self):$/;"	m	class:Trainer
+set_seeds	trainer_new.py	/^    def set_seeds(self):$/;"	m	class:Trainer
+set_seeds	trainer_old.py	/^    def set_seeds(self):$/;"	m	class:Trainer
+set_seeds	trainer_pcpg.py	/^    def set_seeds(self):$/;"	m	class:Trainer
+set_training_env	trainer.py	/^    def set_training_env(self):$/;"	m	class:Trainer
+set_training_env	trainer_new.py	/^    def set_training_env(self):$/;"	m	class:Trainer
+set_training_env	trainer_old.py	/^    def set_training_env(self):$/;"	m	class:Trainer
+set_training_env	trainer_pcpg.py	/^    def set_training_env(self):$/;"	m	class:Trainer
+set_venv	algos/torch_ppo/vec_env/vec_normalize.py	/^    def set_venv(self, venv: VecEnv) -> None:$/;"	m	class:VecNormalize
+setup_logger_kwargs	algos/torch_ppo/ppo.py	/^    from spinup.utils.run_utils import setup_logger_kwargs$/;"	i
+setup_logger_kwargs	algos/torch_ppo/utils/run_utils.py	/^def setup_logger_kwargs(exp_name, seed=None, data_dir=None, datestamp=False):$/;"	f
+setup_logger_kwargs	algos/torch_sac/sac.py	/^    from spinup.utils.run_utils import setup_logger_kwargs$/;"	i
+setup_model	algos/maddpg/maddpg.py	/^    def setup_model(self, actor_critic, pi_lr, q_lr, ac_kwargs, common_actor):$/;"	m	class:MADDPGPolicy
+setup_model	algos/torch_ppo/coppo.py	/^    def setup_model(self, actor_critic, pi_lr, vf_lr, ac_kwargs):$/;"	m	class:PPOPolicy
+setup_model	algos/torch_ppo/ippo.py	/^    def setup_model(self, actor_critic, pi_lr, vf_lr, ac_kwargs):$/;"	m	class:PPOPolicy
+setup_model	algos/torch_ppo/mappo.py	/^    def setup_model(self, actor_critic, pi_lr, vf_lr, ac_kwargs, enemy_model=None):$/;"	m	class:PPOPolicy
+setup_model	algos/torch_ppo/mappo_bonus.py	/^    def setup_model(self, actor_critic, pi_lr, vf_lr, ac_kwargs, enemy_model=None):$/;"	m	class:PPOBonusPolicy
+setup_model	algos/torch_ppo/mappo_old.py	/^    def setup_model(self, actor_critic, pi_lr, vf_lr, ac_kwargs, enemy_model_path=None):$/;"	m	class:PPOPolicy
+setup_model	algos/torch_ppo/matrpo.py	/^    def setup_model(self, actor_critic, pi_lr, vf_lr, pi_scheduler, vf_scheduler, ac_kwargs, use_value_norm=False):$/;"	m	class:TRPOPolicy
+setup_model	algos/torch_ppo/pcpg.py	/^    def setup_model(self, actor_critic, pi_lr, ac_kwargs):$/;"	m	class:PCPGPolicy
+setup_model	algos/torch_sac/sac_new.py	/^    def setup_model(self, actor_critic, lr, ac_kwargs):$/;"	m	class:SACPolicy
+setup_model	algos/torch_trpo/matrpo.py	/^    def setup_model(self, actor_critic, pi_lr, vf_lr, ac_kwargs):$/;"	m	class:TRPOPolicy
+setup_pytorch_for_mpi	algos/torch_ppo/ppo.py	/^from .utils.mpi_pytorch import setup_pytorch_for_mpi, sync_params, mpi_avg_grads$/;"	i
+setup_pytorch_for_mpi	algos/torch_ppo/utils/mpi_pytorch.py	/^def setup_pytorch_for_mpi(comm):$/;"	f
+setup_pytorch_for_mpi	algos/torch_sac/sac.py	/^from algos.torch_ppo.utils.mpi_pytorch import setup_pytorch_for_mpi$/;"	i
+setup_pytorch_saver	algos/torch_ppo/utils/logx.py	/^    def setup_pytorch_saver(self, what_to_save):$/;"	m	class:Logger
+setup_tf_saver	algos/torch_ppo/utils/logx.py	/^    def setup_tf_saver(self, sess, inputs, outputs):$/;"	m	class:Logger
+shape	algos/torch_ppo/torch_utils.py	/^    def shape(self):$/;"	m	class:RunningStat
+shape	algos/torch_trpo/torch_utils.py	/^    def shape(self):$/;"	m	class:RunningStat
+shape_equal	algos/torch_ppo/torch_utils.py	/^def shape_equal(a, *args):$/;"	f
+shape_equal	algos/torch_trpo/torch_utils.py	/^def shape_equal(a, *args):$/;"	f
+shape_equal_cmp	algos/torch_ppo/torch_utils.py	/^def shape_equal_cmp(*args):$/;"	f
+shape_equal_cmp	algos/torch_trpo/torch_utils.py	/^def shape_equal_cmp(*args):$/;"	f
+shareworker	env_wrappers.py	/^def shareworker(remote, parent_remote, env_fn_wrapper):$/;"	f
+shear	algos/torch_ppo/utils/run_utils.py	/^        def shear(x):$/;"	f	function:ExperimentGrid._default_shorthand
+shuffle	algos/torch_ppo/utils/replay.py	/^    def shuffle(self):$/;"	m	class:Replay
+shutil	algos/torch_ppo/utils/logx.py	/^import shutil$/;"	i
+shutil	create_portable_directory.py	/^import shutil$/;"	i
+signal	algos/maddpg/core.py	/^import scipy.signal$/;"	i
+signal	algos/torch_ppo/core.py	/^import scipy.signal$/;"	i
+signal	algos/torch_ppo/core_ind.py	/^import scipy.signal$/;"	i
+signal	algos/torch_ppo/core_old.py	/^import scipy.signal$/;"	i
+signal	algos/torch_sac/core.py	/^import scipy.signal$/;"	i
+signal	algos/torch_trpo/core.py	/^import scipy.signal$/;"	i
+size	algos/torch_ppo/utils/replay.py	/^    def size(self):$/;"	m	class:Replay
+sns	algos/torch_ppo/utils/plot.py	/^import seaborn as sns$/;"	i
+spaces	algos/torch_ppo/distributions.py	/^from gym import spaces$/;"	i
+spaces	algos/torch_ppo/vec_env/stacked_observations.py	/^from gym import spaces$/;"	i
+spaces	algos/torch_ppo/vec_env/vec_frame_stack.py	/^from gym import spaces$/;"	i
+spaces	algos/torch_ppo/vec_env/vec_transpose.py	/^from gym import spaces$/;"	i
+sqrt	algos/torch_ppo/ppo.py	/^from math import ceil, sqrt$/;"	i
+stack_observation_space	algos/torch_ppo/vec_env/stacked_observations.py	/^    def stack_observation_space(self, observation_space: spaces.Box) -> spaces.Box:$/;"	m	class:StackedObservations
+stack_observation_space	algos/torch_ppo/vec_env/stacked_observations.py	/^    def stack_observation_space(self, observation_space: spaces.Dict) -> spaces.Dict:$/;"	m	class:StackedDictObservations
+start_video_recorder	algos/torch_ppo/vec_env/vec_video_recorder.py	/^    def start_video_recorder(self) -> None:$/;"	m	class:VecVideoRecorder
+state_dict	algos/torch_ppo/utils/normalizer.py	/^    def state_dict(self):$/;"	m	class:BaseNormalizer
+state_dict	algos/torch_ppo/utils/normalizer.py	/^    def state_dict(self):$/;"	m	class:MeanStdNormalizer
+stats	evaluate_baseline.py	/^                stats = json.load(f)$/;"	v
+stats_file	evaluate_baseline.py	/^            stats_file = os.path.join(main_eval_folder, policy_folder, '999999', seed_folder, 'mean_statistics.json')$/;"	v
+std	algos/torch_ppo/torch_utils.py	/^    def std(self):$/;"	m	class:RunningStat
+std	algos/torch_trpo/torch_utils.py	/^    def std(self):$/;"	m	class:RunningStat
+step	algos/torch_ppo/core.py	/^    def step(self, obs):$/;"	m	class:ActorCritic
+step	algos/torch_ppo/core.py	/^    def step(self, obs):$/;"	m	class:MLPActorCritic
+step	algos/torch_ppo/core_ind.py	/^    def step(self, obs):$/;"	m	class:ActorCritic
+step	algos/torch_ppo/core_old.py	/^    def step(self, obs, overview=None):$/;"	m	class:MLPActorCritic
+step	algos/torch_ppo/vec_env/base_vec_env.py	/^    def step(self, actions: np.ndarray) -> VecEnvStepReturn:$/;"	m	class:VecEnv
+step	algos/torch_trpo/core.py	/^    def step(self, obs):$/;"	m	class:ActorCritic
+step	env.py	/^    def step(self, action):$/;"	m	class:TanksWorldEnv
+step	env_wrappers.py	/^    def step(self, actions):$/;"	m	class:ShareVecEnv
+step_async	algos/torch_ppo/vec_env/base_vec_env.py	/^    def step_async(self, actions: np.ndarray) -> None:$/;"	m	class:VecEnv
+step_async	algos/torch_ppo/vec_env/base_vec_env.py	/^    def step_async(self, actions: np.ndarray) -> None:$/;"	m	class:VecEnvWrapper
+step_async	algos/torch_ppo/vec_env/dummy_vec_env.py	/^    def step_async(self, actions: np.ndarray) -> None:$/;"	m	class:DummyVecEnv
+step_async	algos/torch_ppo/vec_env/subproc_vec_env.py	/^    def step_async(self, actions: np.ndarray) -> None:$/;"	m	class:SubprocVecEnv
+step_async	algos/torch_ppo/vec_env/vec_check_nan.py	/^    def step_async(self, actions: np.ndarray) -> None:$/;"	m	class:VecCheckNan
+step_async	env_wrappers.py	/^    def step_async(self, actions):$/;"	m	class:ChooseDummyVecEnv
+step_async	env_wrappers.py	/^    def step_async(self, actions):$/;"	m	class:ChooseGuardSubprocVecEnv
+step_async	env_wrappers.py	/^    def step_async(self, actions):$/;"	m	class:ChooseSimpleDummyVecEnv
+step_async	env_wrappers.py	/^    def step_async(self, actions):$/;"	m	class:ChooseSimpleSubprocVecEnv
+step_async	env_wrappers.py	/^    def step_async(self, actions):$/;"	m	class:ChooseSubprocVecEnv
+step_async	env_wrappers.py	/^    def step_async(self, actions):$/;"	m	class:DummyVecEnv
+step_async	env_wrappers.py	/^    def step_async(self, actions):$/;"	m	class:GuardSubprocVecEnv
+step_async	env_wrappers.py	/^    def step_async(self, actions):$/;"	m	class:ShareDummyVecEnv
+step_async	env_wrappers.py	/^    def step_async(self, actions):$/;"	m	class:ShareSubprocVecEnv
+step_async	env_wrappers.py	/^    def step_async(self, actions):$/;"	m	class:ShareVecEnv
+step_async	env_wrappers.py	/^    def step_async(self, actions):$/;"	m	class:SubprocVecEnv
+step_optimize_policy	algos/torch_ppo/pcpg.py	/^    def step_optimize_policy(self, mode):$/;"	m	class:PCPGPolicy
+step_wait	algos/torch_ppo/vec_env/base_vec_env.py	/^    def step_wait(self) -> VecEnvStepReturn:$/;"	m	class:VecEnv
+step_wait	algos/torch_ppo/vec_env/base_vec_env.py	/^    def step_wait(self) -> VecEnvStepReturn:$/;"	m	class:VecEnvWrapper
+step_wait	algos/torch_ppo/vec_env/dummy_vec_env.py	/^    def step_wait(self) -> VecEnvStepReturn:$/;"	m	class:DummyVecEnv
+step_wait	algos/torch_ppo/vec_env/subproc_vec_env.py	/^    def step_wait(self) -> VecEnvStepReturn:$/;"	m	class:SubprocVecEnv
+step_wait	algos/torch_ppo/vec_env/vec_check_nan.py	/^    def step_wait(self) -> VecEnvStepReturn:$/;"	m	class:VecCheckNan
+step_wait	algos/torch_ppo/vec_env/vec_extract_dict_obs.py	/^    def step_wait(self) -> VecEnvStepReturn:$/;"	m	class:VecExtractDictObs
+step_wait	algos/torch_ppo/vec_env/vec_frame_stack.py	/^    def step_wait($/;"	m	class:VecFrameStack
+step_wait	algos/torch_ppo/vec_env/vec_monitor.py	/^    def step_wait(self) -> VecEnvStepReturn:$/;"	m	class:VecMonitor
+step_wait	algos/torch_ppo/vec_env/vec_normalize.py	/^    def step_wait(self) -> VecEnvStepReturn:$/;"	m	class:VecNormalize
+step_wait	algos/torch_ppo/vec_env/vec_transpose.py	/^    def step_wait(self) -> VecEnvStepReturn:$/;"	m	class:VecTransposeImage
+step_wait	algos/torch_ppo/vec_env/vec_video_recorder.py	/^    def step_wait(self) -> VecEnvStepReturn:$/;"	m	class:VecVideoRecorder
+step_wait	env_wrappers.py	/^    def step_wait(self):$/;"	m	class:ChooseDummyVecEnv
+step_wait	env_wrappers.py	/^    def step_wait(self):$/;"	m	class:ChooseGuardSubprocVecEnv
+step_wait	env_wrappers.py	/^    def step_wait(self):$/;"	m	class:ChooseSimpleDummyVecEnv
+step_wait	env_wrappers.py	/^    def step_wait(self):$/;"	m	class:ChooseSimpleSubprocVecEnv
+step_wait	env_wrappers.py	/^    def step_wait(self):$/;"	m	class:ChooseSubprocVecEnv
+step_wait	env_wrappers.py	/^    def step_wait(self):$/;"	m	class:DummyVecEnv
+step_wait	env_wrappers.py	/^    def step_wait(self):$/;"	m	class:GuardSubprocVecEnv
+step_wait	env_wrappers.py	/^    def step_wait(self):$/;"	m	class:ShareDummyVecEnv
+step_wait	env_wrappers.py	/^    def step_wait(self):$/;"	m	class:ShareSubprocVecEnv
+step_wait	env_wrappers.py	/^    def step_wait(self):$/;"	m	class:ShareVecEnv
+step_wait	env_wrappers.py	/^    def step_wait(self):$/;"	m	class:SubprocVecEnv
+store	algos/maddpg/maddpg.py	/^    def store(self, obs, act, rew, next_obs, done):$/;"	m	class:ReplayBuffer
+store	algos/torch_ppo/coppo.py	/^    def store(self, obs, act, rew, val, logp):$/;"	m	class:RolloutBuffer
+store	algos/torch_ppo/ippo.py	/^    def store(self, obs, act, rew, val, logp):$/;"	m	class:RolloutBuffer
+store	algos/torch_ppo/mappo.py	/^    def store(self, obs, act, rew, val, logp, dones):$/;"	m	class:RolloutBuffer
+store	algos/torch_ppo/mappo_old.py	/^    def store(self, obs, act, rew, val, logp, dones, overview=None):$/;"	m	class:RolloutBuffer
+store	algos/torch_ppo/matrpo.py	/^    def store(self, obs, act, rew, val, logp, dones):$/;"	m	class:RolloutBuffer
+store	algos/torch_ppo/pcpg.py	/^    def store(self, obs, act, rew, val, logp, dones):$/;"	m	class:RolloutBuffer
+store	algos/torch_ppo/ppo.py	/^    def store(self, obs, act, rew, val, logp):$/;"	m	class:PPOBuffer
+store	algos/torch_ppo/utils/logx.py	/^    def store(self, **kwargs):$/;"	m	class:EpochLogger
+store	algos/torch_sac/sac.py	/^    def store(self, obs, act, rew, next_obs, done):$/;"	m	class:ReplayBuffer
+store	algos/torch_sac/sac_new.py	/^    def store(self, obs, act, rew, next_obs, done):$/;"	m	class:ReplayBuffer
+store	algos/torch_trpo/matrpo.py	/^    def store(self, obs, act, rew, val, logp, dones):$/;"	m	class:RolloutBuffer
+string	algos/torch_ppo/utils/run_utils.py	/^import string$/;"	i
+subfolder1	create_portable_directory.py	/^                subfolder1 = os.listdir(ckpt_folder)[0]$/;"	v
+subfolder2	create_portable_directory.py	/^                subfolder2 = os.listdir(ckpt_folder)[0]$/;"	v
+subprocess	algos/torch_ppo/utils/mpi_tools.py	/^import os, subprocess, sys$/;"	i
+subprocess	algos/torch_ppo/utils/run_utils.py	/^import subprocess$/;"	i
+subprocess	create_eval_metrics.py	/^import os, subprocess$/;"	i
+subprocess	evaluate_baseline.py	/^import subprocess$/;"	i
+sum_independent_dims	algos/torch_ppo/distributions.py	/^def sum_independent_dims(tensor: th.Tensor) -> th.Tensor:$/;"	f
+summary	algos/torch_ppo/coppo.py	/^        from torchinfo import summary$/;"	i
+summary	algos/torch_ppo/ippo.py	/^        from torchinfo import summary$/;"	i
+summary	algos/torch_ppo/mappo.py	/^        from torchinfo import summary$/;"	i
+summary	algos/torch_ppo/mappo_old.py	/^        from torchinfo import summary$/;"	i
+summary	algos/torch_ppo/matrpo.py	/^        from torchinfo import summary$/;"	i
+summary	algos/torch_trpo/matrpo.py	/^        from torchinfo import summary$/;"	i
+surrogate_reward	algos/torch_trpo/matrpo.py	/^    def surrogate_reward(self, adv, *, new, old):$/;"	m	class:TRPOPolicy
+sync_all_params	algos/torch_ppo/utils/mpi_tf.py	/^def sync_all_params():$/;"	f
+sync_envs_normalization	algos/torch_ppo/vec_env/__init__.py	/^def sync_envs_normalization(env: "GymEnv", eval_env: "GymEnv") -> None:$/;"	f
+sync_params	algos/torch_ppo/ppo.py	/^from .utils.mpi_pytorch import setup_pytorch_for_mpi, sync_params, mpi_avg_grads$/;"	i
+sync_params	algos/torch_ppo/utils/mpi_pytorch.py	/^def sync_params(comm, module, root=0):$/;"	f
+sync_params	algos/torch_ppo/utils/mpi_tf.py	/^def sync_params(params):$/;"	f
+sys	algos/torch_ppo/core.py	/^import pdb, sys$/;"	i
+sys	algos/torch_ppo/ppo.py	/^import sys$/;"	i
+sys	algos/torch_ppo/utils/mpi_pytorch.py	/^import sys$/;"	i
+sys	algos/torch_ppo/utils/mpi_tools.py	/^import os, subprocess, sys$/;"	i
+sys	algos/torch_ppo/utils/run_utils.py	/^import sys$/;"	i
+sys	env.py	/^import sys, time, random$/;"	i
+sys	trainer_old.py	/^import sys$/;"	i
+take_first	evaluate_mean_std_max.py	/^def take_first(elem):$/;"	f
+tank_data	minimap_util.py	/^    tank_data = []$/;"	v
+team_stats_dict	env.py	/^def team_stats_dict(env):$/;"	f
+tensor_op	algos/torch_ppo/torch_utils.py	/^    def tensor_op(self, lam, should_wrap=True):$/;"	m	class:Trajectories
+tensor_op	algos/torch_trpo/torch_utils.py	/^    def tensor_op(self, lam, should_wrap=True):$/;"	m	class:Trajectories
+test_agent	algos/torch_sac/sac.py	/^        def test_agent():$/;"	f	function:SACPolicy.learn
+test_eg	algos/torch_ppo/utils/run_utils.py	/^def test_eg():$/;"	f
+tf	algos/torch_ppo/utils/mpi_tf.py	/^import tensorflow as tf$/;"	i
+tf	algos/torch_ppo/utils/test_policy.py	/^import tensorflow as tf$/;"	i
+th	algos/torch_ppo/distributions.py	/^import torch as th$/;"	i
+thunk	algos/torch_ppo/utils/run_entrypoint.py	/^    thunk = pickle.loads(zlib.decompress(base64.b64decode(args.encoded_thunk)))$/;"	v
+thunk_plus	algos/torch_ppo/utils/run_utils.py	/^    def thunk_plus():$/;"	f	function:call_experiment
+tile_images	algos/torch_ppo/vec_env/base_vec_env.py	/^def tile_images(img_nhwc: Sequence[np.ndarray]) -> np.ndarray:  # pragma: no cover$/;"	f
+tile_images	env_wrappers.py	/^def tile_images(img_nhwc):$/;"	f
+time	algos/maddpg/maddpg.py	/^import time$/;"	i
+time	algos/torch_ppo/ppo.py	/^import time$/;"	i
+time	algos/torch_ppo/utils/logx.py	/^import os.path as osp, time, atexit, os$/;"	i
+time	algos/torch_ppo/utils/run_utils.py	/^import time$/;"	i
+time	algos/torch_ppo/utils/test_policy.py	/^import time$/;"	i
+time	algos/torch_ppo/vec_env/vec_monitor.py	/^import time$/;"	i
+time	algos/torch_sac/sac.py	/^import time$/;"	i
+time	algos/torch_sac/sac_new.py	/^import time$/;"	i
+time	env.py	/^import sys, time, random$/;"	i
+time	minimap_util.py	/^import math, random, time$/;"	i
+time	trainer_old.py	/^import math, time, random$/;"	i
+torch	algos/maddpg/core.py	/^import torch$/;"	i
+torch	algos/maddpg/core.py	/^import torch.nn as nn$/;"	i
+torch	algos/maddpg/maddpg.py	/^import torch$/;"	i
+torch	algos/torch_ppo/callbacks.py	/^import torch$/;"	i
+torch	algos/torch_ppo/coppo.py	/^import torch$/;"	i
+torch	algos/torch_ppo/core.py	/^import torch$/;"	i
+torch	algos/torch_ppo/core.py	/^import torch.nn as nn$/;"	i
+torch	algos/torch_ppo/core.py	/^import torch.nn.functional as F$/;"	i
+torch	algos/torch_ppo/core_ind.py	/^import torch$/;"	i
+torch	algos/torch_ppo/core_ind.py	/^import torch.nn as nn$/;"	i
+torch	algos/torch_ppo/core_ind.py	/^import torch.nn.functional as F$/;"	i
+torch	algos/torch_ppo/core_old.py	/^import torch$/;"	i
+torch	algos/torch_ppo/core_old.py	/^import torch.nn as nn$/;"	i
+torch	algos/torch_ppo/core_old.py	/^import torch.nn.functional as F$/;"	i
+torch	algos/torch_ppo/curiosity.py	/^import torch$/;"	i
+torch	algos/torch_ppo/curiosity.py	/^import torch.nn as nn$/;"	i
+torch	algos/torch_ppo/heuristics.py	/^import torch$/;"	i
+torch	algos/torch_ppo/ippo.py	/^import torch$/;"	i
+torch	algos/torch_ppo/mappo.py	/^import torch$/;"	i
+torch	algos/torch_ppo/mappo.py	/^import torch.nn.functional as F$/;"	i
+torch	algos/torch_ppo/mappo_bonus.py	/^import torch$/;"	i
+torch	algos/torch_ppo/mappo_bonus.py	/^import torch.nn.functional as F$/;"	i
+torch	algos/torch_ppo/mappo_old.py	/^import torch$/;"	i
+torch	algos/torch_ppo/mappo_utils/valuenorm.py	/^import torch$/;"	i
+torch	algos/torch_ppo/mappo_utils/valuenorm.py	/^import torch.nn as nn$/;"	i
+torch	algos/torch_ppo/matrpo.py	/^import torch$/;"	i
+torch	algos/torch_ppo/matrpo.py	/^import torch.nn.functional as F$/;"	i
+torch	algos/torch_ppo/noisy.py	/^import torch$/;"	i
+torch	algos/torch_ppo/noisy.py	/^import torch.nn.functional as F$/;"	i
+torch	algos/torch_ppo/norm.py	/^import torch$/;"	i
+torch	algos/torch_ppo/pcpg.py	/^import torch$/;"	i
+torch	algos/torch_ppo/pcpg.py	/^import torch.nn.functional as F$/;"	i
+torch	algos/torch_ppo/ppo.py	/^import torch$/;"	i
+torch	algos/torch_ppo/rnn.py	/^import torch.nn as nn$/;"	i
+torch	algos/torch_ppo/utils/logx.py	/^import torch$/;"	i
+torch	algos/torch_ppo/utils/mpi_pytorch.py	/^import torch$/;"	i
+torch	algos/torch_ppo/utils/normalizer.py	/^import torch$/;"	i
+torch	algos/torch_ppo/utils/test_policy.py	/^import torch$/;"	i
+torch	algos/torch_sac/core.py	/^import torch$/;"	i
+torch	algos/torch_sac/core.py	/^import torch.nn as nn$/;"	i
+torch	algos/torch_sac/core.py	/^import torch.nn.functional as F$/;"	i
+torch	algos/torch_sac/sac.py	/^import torch$/;"	i
+torch	algos/torch_sac/sac_new.py	/^import torch$/;"	i
+torch	algos/torch_trpo/core.py	/^import torch$/;"	i
+torch	algos/torch_trpo/core.py	/^import torch.nn as nn$/;"	i
+torch	algos/torch_trpo/core.py	/^import torch.nn.functional as F$/;"	i
+torch	algos/torch_trpo/matrpo.py	/^import torch$/;"	i
+torch	algos/torch_trpo/matrpo.py	/^import torch.nn.functional as F$/;"	i
+torch	algos/torch_trpo/torch_utils.py	/^import torch$/;"	i
+torch	env_wrappers.py	/^import torch$/;"	i
+trainer	trainer.py	/^    trainer = Trainer(args)$/;"	v	class:Trainer
+trainer	trainer_new.py	/^    trainer = Trainer(args)$/;"	v	class:Trainer
+trainer	trainer_old.py	/^    trainer = Trainer(args)$/;"	v	class:Trainer
+trainer	trainer_pcpg.py	/^    trainer = Trainer(args)$/;"	v	class:Trainer
+trainer_config	trainer.py	/^import trainer_config$/;"	i
+trainer_config	trainer_new.py	/^import trainer_config$/;"	i
+trainer_config	trainer_old.py	/^import trainer_config$/;"	i
+trainer_config	trainer_pcpg.py	/^import trainer_config$/;"	i
+trange	algos/torch_ppo/utils/run_utils.py	/^from tqdm import trange$/;"	i
+transpose_image	algos/torch_ppo/vec_env/vec_transpose.py	/^    def transpose_image(image: np.ndarray) -> np.ndarray:$/;"	m	class:VecTransposeImage
+transpose_observations	algos/torch_ppo/vec_env/vec_transpose.py	/^    def transpose_observations(self, observations: Union[np.ndarray, Dict]) -> Union[np.ndarray, Dict]:$/;"	m	class:VecTransposeImage
+transpose_space	algos/torch_ppo/vec_env/vec_transpose.py	/^    def transpose_space(observation_space: spaces.Box, key: str = "") -> spaces.Box:$/;"	m	class:VecTransposeImage
+trpo_step	algos/torch_ppo/matrpo.py	/^    def trpo_step(model, get_loss, get_kl, max_kl, damping):$/;"	m	class:TRPOPolicy
+typing	algos/torch_ppo/vec_env/__init__.py	/^import typing$/;"	i
+unflatten_var	algos/torch_ppo/utils/run_utils.py	/^        def unflatten_var(var):$/;"	f	function:ExperimentGrid.variants
+uniform_sample_cont_random_acts	algos/torch_ppo/pcpg.py	/^    def uniform_sample_cont_random_acts(self, N):$/;"	m	class:PCPGPolicy
+units	algos/torch_ppo/utils/plot.py	/^units = dict()$/;"	v
+unnormalize_obs	algos/torch_ppo/vec_env/vec_normalize.py	/^    def unnormalize_obs(self, obs: Union[np.ndarray, Dict[str, np.ndarray]]) -> Union[np.ndarray, Dict[str, np.ndarray]]:$/;"	m	class:VecNormalize
+unnormalize_reward	algos/torch_ppo/vec_env/vec_normalize.py	/^    def unnormalize_reward(self, reward: np.ndarray) -> np.ndarray:$/;"	m	class:VecNormalize
+unroll	algos/torch_ppo/torch_utils.py	/^    def unroll(self):$/;"	m	class:Trajectories
+unroll	algos/torch_ppo/torch_utils.py	/^def unroll(*tensors):$/;"	f
+unroll	algos/torch_trpo/torch_utils.py	/^    def unroll(self):$/;"	m	class:Trajectories
+unroll	algos/torch_trpo/torch_utils.py	/^def unroll(*tensors):$/;"	f
+unset_read_only	algos/torch_ppo/utils/normalizer.py	/^    def unset_read_only(self):$/;"	m	class:BaseNormalizer
+unwrap_vec_normalize	algos/torch_ppo/vec_env/__init__.py	/^def unwrap_vec_normalize(env: Union["GymEnv", VecEnv]) -> Optional[VecNormalize]:$/;"	f
+unwrap_vec_wrapper	algos/torch_ppo/vec_env/__init__.py	/^def unwrap_vec_wrapper(env: Union["GymEnv", VecEnv], vec_wrapper_class: Type[VecEnvWrapper]) -> Optional[VecEnvWrapper]:$/;"	f
+unwrapped	algos/torch_ppo/vec_env/base_vec_env.py	/^    def unwrapped(self) -> "VecEnv":$/;"	m	class:VecEnv
+unwrapped	env_wrappers.py	/^    def unwrapped(self):$/;"	m	class:ShareVecEnv
+update	algos/maddpg/maddpg.py	/^    def update(self, data, polyak, gamma):$/;"	m	class:MADDPGPolicy
+update	algos/torch_ppo/coppo.py	/^    def update(self, buf, train_pi_iters, train_v_iters, target_kl, clip_ratio_1, clip_ratio_2):$/;"	m	class:PPOPolicy
+update	algos/torch_ppo/core_old.py	/^    def update(self, input_vector):$/;"	m	class:PopArt
+update	algos/torch_ppo/ippo.py	/^    def update(self, buf, train_pi_iters, train_v_iters, target_kl, clip_ratio):$/;"	m	class:PPOPolicy
+update	algos/torch_ppo/mappo.py	/^    def update(self, buf, train_pi_iters, train_v_iters, target_kl, clip_ratio, entropy_coef):$/;"	m	class:PPOPolicy
+update	algos/torch_ppo/mappo_old.py	/^    def update(self, buf, train_pi_iters, train_v_iters, target_kl, clip_ratio, entropy_coef, value_clip):$/;"	m	class:PPOPolicy
+update	algos/torch_ppo/mappo_utils/valuenorm.py	/^    def update(self, input_vector):$/;"	m	class:ValueNorm
+update	algos/torch_ppo/matrpo.py	/^    def update(self, buf, train_pi_iters, train_v_iters, target_kl, clip_ratio, entropy_coef):$/;"	m	class:TRPOPolicy
+update	algos/torch_ppo/ppo.py	/^        def update():$/;"	f	function:PPOPolicy.learn
+update	algos/torch_ppo/vec_env/stacked_observations.py	/^    def update($/;"	m	class:StackedDictObservations
+update	algos/torch_ppo/vec_env/stacked_observations.py	/^    def update($/;"	m	class:StackedObservations
+update	algos/torch_sac/sac.py	/^        def update(data):$/;"	f	function:SACPolicy.learn
+update	algos/torch_sac/sac_new.py	/^    def update(self, data, gamma, alpha, polyak):$/;"	m	class:SACPolicy
+update	algos/torch_trpo/matrpo.py	/^    def update(self, buf, train_pi_iters, train_v_iters, fisher_frac_samples, damping, cg_steps, max_kl, max_backtrack):$/;"	m	class:TRPOPolicy
+update_density_model	algos/torch_ppo/mappo_bonus.py	/^    def update_density_model(self):$/;"	m	class:PPOBonusPolicy
+update_density_model	algos/torch_ppo/pcpg.py	/^    def update_density_model(self, mode):$/;"	m	class:PCPGPolicy
+update_replay_buffer	algos/torch_ppo/mappo_bonus.py	/^    def update_replay_buffer(self, batch_size):$/;"	m	class:PPOBonusPolicy
+update_replay_buffer	algos/torch_ppo/pcpg.py	/^    def update_replay_buffer(self):$/;"	m	class:PCPGPolicy
+update_tank_stats	env.py	/^    def update_tank_stats(self, i, state, dhealth, ally_stats, enemy_stats, new_shot):$/;"	m	class:TanksWorldEnv
+update_team_stats	env.py	/^    def update_team_stats(self, health):$/;"	m	class:TanksWorldEnv
+utils	algos/torch_ppo/vec_env/vec_normalize.py	/^from stable_baselines3.common import utils$/;"	i
+valid_str	algos/torch_ppo/utils/run_utils.py	/^def valid_str(v):$/;"	f
+validate	algos/torch_ppo/pcpg.py	/^    def validate(self):$/;"	m	class:PCPGPolicy
+validate_independent_policy	algos/torch_ppo/callbacks.py	/^    def validate_independent_policy(self, model_state_dict, device):$/;"	m	class:EvalCallback
+validate_policy	algos/torch_ppo/callbacks.py	/^    def validate_policy(self, model_state_dict, device, discrete_action=False):$/;"	m	class:EvalCallback
+valuenorm	algos/torch_ppo/ppo.py	/^from algos.torch_ppo.mappo_utils import valuenorm$/;"	i
+var	algos/torch_ppo/torch_utils.py	/^    def var(self):$/;"	m	class:RunningStat
+var	algos/torch_trpo/torch_utils.py	/^    def var(self):$/;"	m	class:RunningStat
+variant_name	algos/torch_ppo/utils/run_utils.py	/^    def variant_name(self, variant):$/;"	m	class:ExperimentGrid
+variants	algos/torch_ppo/utils/run_utils.py	/^    def variants(self):$/;"	m	class:ExperimentGrid
+vf_lr	create_eval_metrics.py	/^        vf_lr = float(policy_folder.split('lrv=')[1].split('cons')[0])$/;"	v
+vf_lr	evaluate_baseline.py	/^    vf_lr = float(policy_folder.split('lrv=')[1].split('__')[0])$/;"	v
+video_recorder	algos/torch_ppo/vec_env/vec_video_recorder.py	/^from gym.wrappers.monitoring import video_recorder$/;"	i
+viewer	env_wrappers.py	/^    viewer = None$/;"	v	class:ShareVecEnv
+visualize	algos/torch_ppo/mappo.py	/^    def visualize(self, episodes_to_run, model_path, env_name='tanksworld', actor_critic=core.ActorCritic,  ac_kwargs=dict()):$/;"	m	class:PPOPolicy
+visualize	algos/torch_ppo/mappo_old.py	/^    def visualize(self, steps_to_run, model_path, actor_critic=core.MLPActorCritic, ac_kwargs=dict()):$/;"	m	class:PPOPolicy
+vjp	algos/torch_ppo/torch_utils.py	/^def vjp(f_x, theta, v, create=True):$/;"	f
+vjp	algos/torch_trpo/torch_utils.py	/^def vjp(f_x, theta, v, create=True):$/;"	f
+warnings	algos/torch_ppo/utils/logx.py	/^import warnings$/;"	i
+warnings	algos/torch_ppo/vec_env/base_vec_env.py	/^import warnings$/;"	i
+warnings	algos/torch_ppo/vec_env/stacked_observations.py	/^import warnings$/;"	i
+warnings	algos/torch_ppo/vec_env/vec_check_nan.py	/^import warnings$/;"	i
+warnings	algos/torch_ppo/vec_env/vec_monitor.py	/^import warnings$/;"	i
+warnings	algos/torch_ppo/vec_env/vec_normalize.py	/^import warnings$/;"	i
+white	algos/torch_ppo/utils/logx.py	/^    white=37,$/;"	v
+worker	env_wrappers.py	/^def worker(remote, parent_remote, env_fn_wrapper):$/;"	f
+x	minimap_util.py	/^        x = 500$/;"	v
+y	minimap_util.py	/^        y = 500$/;"	v
+yellow	algos/torch_ppo/utils/logx.py	/^    yellow=33,$/;"	v
+zlib	algos/torch_ppo/utils/run_entrypoint.py	/^import zlib$/;"	i
+zlib	algos/torch_ppo/utils/run_utils.py	/^import zlib$/;"	i

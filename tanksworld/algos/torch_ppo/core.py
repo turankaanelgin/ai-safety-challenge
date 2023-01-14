@@ -1,4 +1,4 @@
-import pdb
+import pdb, sys
 
 import numpy as np
 import scipy.signal
@@ -514,14 +514,14 @@ class ActorCritic(nn.Module):
 
     def __init__(self, observation_space, action_space, activation=nn.Tanh,
                  use_beta=False, init_log_std=-0.5, centralized_critic=False,
-                 centralized=False, local_std=False, discrete_action=False, noisy=False):
+                 centralized=False, local_std=False, discrete_action=False, noisy=False, num_agents=5):
         super().__init__()
 
         cnn_net = cnn(observation_space.shape[0])
 
         if centralized:
             self.pi = CentralizedGaussianActor(observation_space, action_space.shape[0], activation,
-                                             cnn_net=cnn_net, init_log_std=init_log_std, num_agents=5)
+                                             cnn_net=cnn_net, init_log_std=init_log_std, num_agents=num_agents)
         elif use_beta:
             self.pi = BetaActor(observation_space, action_space.shape[0], cnn_net=cnn_net)
         elif discrete_action:
@@ -531,7 +531,7 @@ class ActorCritic(nn.Module):
                                     init_log_std=init_log_std, local_std=local_std, noisy=noisy)
 
         if centralized_critic:
-            self.v = CentralizedCritic(observation_space, activation, cnn_net=cnn_net, num_agents=5)
+            self.v = CentralizedCritic(observation_space, activation, cnn_net=cnn_net, num_agents=num_agents)
             #self.v = Critic(observation_space, activation, cnn_net=cnn_net, noisy=noisy)
         else:
             self.v = Critic(observation_space, activation, cnn_net=cnn_net, noisy=noisy)
@@ -566,14 +566,14 @@ class ActorCritic(nn.Module):
 
 def mlp(sizes, activation, output_activation=nn.Identity):
     layers = []
-    for j in range(len(sizes)-1):
-        act = activation if j < len(sizes)-2 else output_activation
+    for j in range(len(sizes) - 1):
+        act = activation if j < len(sizes) - 2 else output_activation
         layers += [nn.Linear(sizes[j], sizes[j+1]), act()]
     return nn.Sequential(*layers)
 
 class MLPCritic(nn.Module):
 
-    def __init__(self, observation_space, activation, hidden_sizes=[256, 256], num_agents=5):
+    def __init__(self, observation_space, activation, hidden_sizes=[64, 64], num_agents=5):
         super().__init__()
         obs_dim = observation_space.shape[-1]
 
@@ -588,9 +588,10 @@ class MLPCritic(nn.Module):
 
 class MLPCentralizedGaussianActor(Actor):
 
-    def __init__(self, observation_space, act_dim, activation, init_log_std=-0.5, num_agents=5, hidden_sizes=[256, 256]):
+    def __init__(self, observation_space, act_dim, activation, init_log_std=-0.5, num_agents=5, hidden_sizes=[64,64]):
         super().__init__()
-        log_std = init_log_std * np.ones(act_dim, dtype=np.float32)
+
+        log_std = init_log_std * np.zeros(act_dim, dtype=np.float32)
         self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
         obs_dim = observation_space.shape[-1]
         self.n_agents = num_agents
@@ -600,28 +601,27 @@ class MLPCentralizedGaussianActor(Actor):
 
     def _distribution(self, obs):
         mu = self.mu_net(obs)
-        if self.n_agents > 1:
-            mu = mu.reshape(-1, self.n_agents, self.act_dim)
+#        if self.n_agents > 1:
+        mu = mu.reshape(-1, self.n_agents, self.act_dim)
         std = torch.exp(self.log_std)
         return Normal(mu, std)
 
     def _log_prob_from_distribution(self, pi, act):
-        return pi.log_prob(act).sum(axis=-1)  # Last axis sum needed for Torch Normal distribution
+        p = pi.log_prob(act).sum(axis=-1)  # Last axis sum needed for Torch Normal distribution
+        return p
 
 class MLPActorCritic(nn.Module):
 
     def __init__(self, observation_space, action_space, activation=nn.Tanh,
                  use_beta=False, init_log_std=-0.5, centralized_critic=False,
-                 centralized=False, local_std=False, discrete_action=False, noisy=False, tanksworld=True):
+                 centralized=False, local_std=False, discrete_action=False, noisy=False, num_agents=5, hidden_sizes=[64, 64]):
         super().__init__()
 
 
-        num_agents = 5 if tanksworld else 1
-
         self.pi = MLPCentralizedGaussianActor(observation_space, action_space.shape[0], activation,
-                                             init_log_std=init_log_std, num_agents=num_agents)
+                                             init_log_std=init_log_std, num_agents=num_agents, hidden_sizes=hidden_sizes)
 
-        self.v = MLPCritic(observation_space, activation, num_agents=num_agents)
+        self.v = MLPCritic(observation_space, activation, num_agents=num_agents, hidden_sizes=hidden_sizes)
 
         self.action_space_high = 1.0
         self.action_space_low = -1.0

@@ -107,7 +107,8 @@ class TanksWorldEnv(gym.Env):
         tbwriter=None,
         seed=0,
         curriculum_stop=-1,
-        use_state_vector=False
+        use_state_vector=False,
+        attach_bounding_box=False
     ):
 
         # call reset() to begin playing
@@ -117,8 +118,14 @@ class TanksWorldEnv(gym.Env):
         self._filename = exe  #'/home/rivercg1/projects/aisafety/build/aisafetytanks_0.1.2/TanksWorld.x86_64'
         self.use_state_vector = use_state_vector
         self.observation_space = gym.spaces.box.Box(0, 255, (4, 128, 128))
+        
+        self.attach_bounding_box = attach_bounding_box
         if self.use_state_vector:
-            self.observation_space = gym.spaces.box.Box(0, 255, (148,))
+            if self.attach_bounding_box: 
+                self.observation_space = gym.spaces.box.Box(0, 255, (148,))
+            else:
+                self.observation_space = gym.spaces.box.Box(0, 255, (72,))
+
         #self.observation_space = gym.spaces.box.Box(0, 255, (3, 128, 128))
         self.action_space = gym.spaces.box.Box(-1, 1, (3,))
 
@@ -238,17 +245,21 @@ class TanksWorldEnv(gym.Env):
     def get_state_vector(self):
 
         state = self._env_info.vector_observations[0]
+        terminal = self.is_done(state)['all_terminal']
         state_reformat = []
         for i in range(12):
             j = i * TanksWorldEnv._tank_data_len
-            refmt = [
-                state[j + 0],
-                state[j + 1],
-                state[j + 2] / 180 * 3.1415,
-                state[j + 3],
-                state[j + 7],
-                state[j + 8],
-            ]
+            if i < len(terminal) and terminal[i]:
+                refmt = [0] * 6
+            else:
+                refmt = [
+                    state[j + 0],
+                    state[j + 1],
+                    state[j + 2] / 180 * 3.1415,
+                    state[j + 3],
+                    state[j + 7],
+                    state[j + 8],
+                ]
 
             state_reformat.append(refmt)
 
@@ -256,10 +267,14 @@ class TanksWorldEnv(gym.Env):
 
     def get_state_vector_v2(self):#State vector with obstackles
         tank_states = np.array(self.get_state_vector()).flatten() / 500
-        return np.concatenate((tank_states, self.obstacles_state / 128))
+        if self.attach_bounding_box:
+            return np.concatenate((tank_states, self.obstacles_state / 128))
+        return tank_states
 
     def reset(self, **kwargs):
 
+#        import traceback
+#        traceback.print_stack()
         if self.red_team_stats is not None:
             self.log_stats()
 
@@ -312,6 +327,7 @@ class TanksWorldEnv(gym.Env):
 
         return state
 
+
     def is_done(self, state):
         red_health = [i * TanksWorldEnv._tank_data_len + 3 for i in range(5)]
         blue_health = [(i + 5) * TanksWorldEnv._tank_data_len + 3 for i in range(5)]
@@ -323,14 +339,9 @@ class TanksWorldEnv(gym.Env):
         blue_dead = [state[i] <= 0 for i in blue_health]
         training_dead = [state[i] <= 0 for i in training_health]
 
-        if (
-            all(red_dead)
-            or all(blue_dead)
-            or all(training_dead)
-            or self.episode_steps > self.timeout
-        ):
-            return True
-        return False
+        game_end = all(red_dead) or all(blue_dead) or all(training_dead) or self.episode_steps > self.timeout
+        tank_terminal_signals = [True]*10 if game_end else red_dead + blue_dead
+        return {'game_end': game_end, 'ally_terminal': [True]* 5 if game_end else red_dead, 'all_terminal': tank_terminal_signals}
 
     def log_stats(self):
         if self.tblogs is None:
@@ -652,8 +663,9 @@ class TanksWorldEnv(gym.Env):
             # get state
             if self.use_state_vector:
                 self.state = self.get_state_vector_v2()
+                self.img = self.get_state()
                 self.state_vector = np.copy(self.state)
-                self.overviewmap = None
+#                self.overviewmap = None
             else:
                 self.state = self.get_state()
                 self.state_vector = self.get_state_vector()
@@ -672,13 +684,16 @@ class TanksWorldEnv(gym.Env):
         #info = [
         #    {"red_stats": self.red_team_stats, "blue_stats": self.blue_team_stats}
         #] * len(self.training_tanks)
+        terminal_info = self.is_done(self._env_info.vector_observations[0])
         info = {"red_stats": self.red_team_stats, "blue_stats": self.blue_team_stats,
-                "state_vector": self.state_vector, "overview": self.overviewmap}
-
+                "state_vector": self.state_vector, "overview": self.overviewmap,
+                'ally_terminal': terminal_info['ally_terminal'],
+                'all_terminal': terminal_info['all_terminal']
+                }
         return (
             self.state,
             self.reward,
-            self.done or self.is_done(self._env_info.vector_observations[0]),
+            terminal_info['game_end'],
             info,
         )
 
